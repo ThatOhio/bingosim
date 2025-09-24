@@ -1,6 +1,8 @@
 # bingosim
 Runs simulations to aid in planning OSRS bingo pathing
 
+This was written hastily just to satisfy my curiosity, this is some of the worse code I've written in years, so sorry for that.
+
 # Dummy data
 At time of writing, there are several tiles that have not been revealed so I have used data from previous bingos to fill these in. These tiles are the following:
 - Row 3 Easy
