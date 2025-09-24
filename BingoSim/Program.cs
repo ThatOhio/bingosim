@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿using System.Globalization;
+using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using BingoSim.Config;
@@ -12,12 +14,13 @@ class Program
 {
     static void Main(string[] args)
     {
-        // Args: --config <path> --runs <N> --strategy <greedy|grouped|unlocker> --seed <int> --threads <N>
+        // Args: --config <path> --runs <N> --strategy <greedy|grouped|unlocker|all> --seed <int> --threads <N> [--csv <path>]
         string configPath = Path.Combine(AppContext.BaseDirectory, "bingo-board.json");
         int runs = 1000;
-        string strategyName = "unlocker"; // default strategy
+        string strategyName = "all"; // default strategy
         int? seed = null;
         int threads = Environment.ProcessorCount;
+        string? csvPath = null;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -38,6 +41,9 @@ class Program
                 case "--threads":
                     if (i + 1 < args.Length && int.TryParse(args[++i], out var th)) threads = Math.Max(1, th);
                     break;
+                case "--csv":
+                    if (i + 1 < args.Length) csvPath = args[++i];
+                    break;
             }
         }
 
@@ -47,61 +53,129 @@ class Program
             configPath = Path.Combine(AppContext.BaseDirectory, "bingo-board.json");
         }
 
-        var board = BoardConfig.LoadFromFile(configPath);
-        IStrategy strategy = strategyName.ToLowerInvariant() switch
+        // Load base board config
+        var baseBoard = BoardConfig.LoadFromFile(configPath);
+
+        // Strategy selection
+        var normalized = strategyName.ToLowerInvariant();
+        var strategies = normalized == "all" ? GetAllStrategies() : new List<IStrategy> { GetStrategyByName(normalized) };
+
+        Console.WriteLine($"BingoSim: strategy={(normalized=="all"?"all":strategies[0].Name)}, runs={runs}, threads={threads}, config={Path.GetFileName(configPath)}");
+
+        // Prepare CSV writer if requested
+        StringBuilder? csv = null;
+        if (!string.IsNullOrWhiteSpace(csvPath))
         {
-            "greedy" => new GreedyStrategy(),
-            "unlocker" => new UnlockerStrategy(),
-            _ => new GroupedByActivityStrategy()
-        };
+            csv = new StringBuilder();
+            csv.AppendLine("strategy,runIndex,totalTimeMinutes,totalPoints");
+        }
 
-        Console.WriteLine($"BingoSim: strategy={strategy.Name}, runs={runs}, threads={threads}, config={Path.GetFileName(configPath)}");
+        var aggregateSummaries = new List<(string name, double avg, double std)>();
 
+        int baseSeed = seed ?? new Random().Next(int.MinValue, int.MaxValue);
+
+        foreach (var strat in strategies)
+        {
+            // Run simulations for this strategy
+            var (times, points, sample) = RunMany(baseBoard, strat, runs, threads, baseSeed);
+
+            double avgTime = times.Average();
+            double stdTime = Math.Sqrt(times.Select(t => (t - avgTime) * (t - avgTime)).Average());
+            aggregateSummaries.Add((strat.Name, avgTime, stdTime));
+
+            Console.WriteLine($"Strategy {strat.Name}: Avg total time {avgTime:F1} min (std {stdTime:F1})");
+
+            // Append CSV rows if requested
+            if (csv != null)
+            {
+                for (int i = 0; i < runs; i++)
+                {
+                    csv.Append(strat.Name).Append(',')
+                       .Append(i.ToString(CultureInfo.InvariantCulture)).Append(',')
+                       .Append(times[i].ToString(CultureInfo.InvariantCulture)).Append(',')
+                       .Append(points[i].ToString(CultureInfo.InvariantCulture)).AppendLine();
+                }
+            }
+
+            // For the first strategy (or single run), print a sample breakdown
+            if (sample != null && strategies.Count == 1)
+            {
+                Console.WriteLine("Sample run unlock times (row: minutes):");
+                foreach (var kv in sample.RowUnlockTimesMinutes.OrderBy(k => k.Key))
+                {
+                    Console.WriteLine($"  Row {kv.Key}: {kv.Value:F1}m");
+                }
+                Console.WriteLine("Sample run completion order:");
+                foreach (var c in sample.CompletionOrder)
+                {
+                    Console.WriteLine($"  t={c.CompletionTimeMinutes:F1}m: Row {c.RowIndex} - {c.TileId} (+{c.Points})");
+                }
+            }
+        }
+
+        // Persist CSV if requested
+        if (csv != null && !string.IsNullOrWhiteSpace(csvPath))
+        {
+            try
+            {
+                File.WriteAllText(csvPath!, csv.ToString());
+                Console.WriteLine($"Wrote CSV to {csvPath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to write CSV to {csvPath}: {ex.Message}");
+            }
+        }
+
+        // If multiple strategies, print a compact comparison summary at the end
+        if (strategies.Count > 1)
+        {
+            Console.WriteLine("\nComparison (sorted by avg total time):");
+            foreach (var row in aggregateSummaries.OrderBy(r => r.avg))
+            {
+                Console.WriteLine($"  {row.name}: avg={row.avg:F1}m (std {row.std:F1})");
+            }
+        }
+
+        Console.WriteLine("Done.");
+    }
+
+    private static (double[] times, int[] points, RunResult? sample) RunMany(Board baseBoard, IStrategy strategy, int runs, int threads, int baseSeed)
+    {
         var runTimes = new double[runs];
         var runPoints = new int[runs];
         RunResult? sample = null;
-
-        // Determine a base seed to ensure distinct seeds across runs
-        int baseSeed = seed ?? new Random().Next(int.MinValue, int.MaxValue);
-
         var po = new ParallelOptions { MaxDegreeOfParallelism = threads };
+
         Parallel.For(0, runs, po, i =>
         {
-            // Clone the board per run to avoid shared mutable state
-            var clonedBoard = board.DeepClone();
-            // Derive a deterministic unique seed per run
-            int runSeed = unchecked(baseSeed + i * 9973);
+            var clonedBoard = baseBoard.DeepClone();
+            int runSeed = unchecked(baseSeed + i * 9973 + strategy.Name.GetHashCode());
             var sim = new Simulator(clonedBoard, strategy, runSeed);
             var res = sim.Run();
             runTimes[i] = res.TotalTimeMinutes;
             runPoints[i] = res.TotalPoints;
             if (i == 0)
             {
-                // It's okay if multiple threads race to write the same object reference; they compute the same run 0
                 sample = res;
             }
         });
 
-        double avgTime = runTimes.Average();
-        double stdTime = Math.Sqrt(runTimes.Select(t => (t - avgTime) * (t - avgTime)).Average());
-        double avgPoints = runPoints.Average();
-
-        Console.WriteLine($"Avg total time: {avgTime:F1} min (std {stdTime:F1}), avg points: {avgPoints:F2}");
-
-        if (sample != null)
-        {
-            Console.WriteLine("Sample run unlock times (row: minutes):");
-            foreach (var kv in sample.RowUnlockTimesMinutes.OrderBy(k => k.Key))
-            {
-                Console.WriteLine($"  Row {kv.Key}: {kv.Value:F1}m");
-            }
-            Console.WriteLine("Sample run completion order:");
-            foreach (var c in sample.CompletionOrder)
-            {
-                Console.WriteLine($"  t={c.CompletionTimeMinutes:F1}m: Row {c.RowIndex} - {c.TileId} (+{c.Points})");
-            }
-        }
-
-        Console.WriteLine("Done.");
+        return (runTimes, runPoints, sample);
     }
+
+    private static List<IStrategy> GetAllStrategies() => new()
+    {
+        new GreedyStrategy(),
+        new GroupedByActivityStrategy(),
+        new UnlockerStrategy()
+    };
+
+    private static IStrategy GetStrategyByName(string name) => name switch
+    {
+        "greedy" => new GreedyStrategy(),
+        "grouped" => new GroupedByActivityStrategy(),
+        "unlocker" => new UnlockerStrategy(),
+        _ => new GroupedByActivityStrategy()
+    };
 }

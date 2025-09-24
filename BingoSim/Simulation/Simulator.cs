@@ -36,6 +36,7 @@ public class Simulator
             {
                 // No unlocked targets left, but some tiles not completed => need to unlock next row
                 // In this case, do nothing but break to avoid infinite loop
+                // This should never be possible, but just in case...
                 break;
             }
 
