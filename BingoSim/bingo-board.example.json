@@ -1,0 +1,47 @@
+{
+  "activities": [
+    { "id": "boss_x", "name": "Boss X" },
+    { "id": "minigame_y", "name": "Minigame Y" },
+    { "id": "skilling_z", "name": "Skilling Z" },
+    { "id": "raid_a", "name": "Raid A" }
+  ],
+  "rows": [
+    {
+      "index": 0,
+      "tiles": [
+        { "id": "R0-Easy",   "difficulty": "Easy",   "activityId": "boss_x",    "itemsNeeded": 1, "dropChancePerAttempt": 0.25, "avgTimePerAttemptMinutes": 3 },
+        { "id": "R0-Medium", "difficulty": "Medium", "activityId": "boss_x",    "itemsNeeded": 2, "dropChancePerAttempt": 0.15, "avgTimePerAttemptMinutes": 3 },
+        { "id": "R0-Hard",   "difficulty": "Hard",   "activityId": "minigame_y","itemsNeeded": 3, "dropChancePerAttempt": 0.30, "avgTimePerAttemptMinutes": 5 },
+        { "id": "R0-Elite",  "difficulty": "Elite",  "activityId": "skilling_z","itemsNeeded": 50, "dropChancePerAttempt": 0.90, "avgTimePerAttemptMinutes": 0.5 }
+      ]
+    },
+    {
+      "index": 1,
+      "tiles": [
+        { "id": "R1-Easy",   "difficulty": "Easy",   "activityId": "boss_x",    "itemsNeeded": 1, "dropChancePerAttempt": 0.20, "avgTimePerAttemptMinutes": 3 },
+        { "id": "R1-Medium", "difficulty": "Medium", "activityId": "boss_x",    "itemsNeeded": 3, "dropChancePerAttempt": 0.12, "avgTimePerAttemptMinutes": 3 },
+        { "id": "R1-Hard",   "difficulty": "Hard",   "activityId": "minigame_y","itemsNeeded": 4, "dropChancePerAttempt": 0.25, "avgTimePerAttemptMinutes": 5 },
+        {
+          "id": "R1-Elite",
+          "difficulty": "Elite",
+          "activityId": "raid_a",
+          "itemsNeeded": 280,
+          "avgTimePerAttemptMinutes": 20,
+          "sources": [
+            { "name": "normal_loot_coconut_milk", "rollsPerAttempt": 3, "chancePerRoll": 0.037037037, "quantityPerSuccess": 20 },
+            { "name": "unique_counts_as_milk",    "rollsPerAttempt": 1, "chancePerRoll": 0.02,        "quantityPerSuccess": 40 }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "tiles": [
+        { "id": "R2-Easy",   "difficulty": "Easy",   "activityId": "boss_x",    "itemsNeeded": 1, "dropChancePerAttempt": 0.18, "avgTimePerAttemptMinutes": 3 },
+        { "id": "R2-Medium", "difficulty": "Medium", "activityId": "boss_x",    "itemsNeeded": 4, "dropChancePerAttempt": 0.10, "avgTimePerAttemptMinutes": 3 },
+        { "id": "R2-Hard",   "difficulty": "Hard",   "activityId": "minigame_y","itemsNeeded": 5, "dropChancePerAttempt": 0.20, "avgTimePerAttemptMinutes": 5 },
+        { "id": "R2-Elite",  "difficulty": "Elite",  "activityId": "skilling_z","itemsNeeded": 150, "dropChancePerAttempt": 0.95, "avgTimePerAttemptMinutes": 0.5 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,243 @@
+{
+  "activities": [
+    { "id": "custodian stalker", "name": "Custodian Stalker" },
+    { "id": "Barrows", "name": "Barrows" },
+    { "id": "dt2", "name": "DT2 Bosses" },
+    { "id": "raid_toa", "name": "Tombs of Amascut" },
+    { "id": "moons", "name": "Moons of Peril" },
+    { "id": "lms", "name":  "Last Man Standing" },
+    { "id": "cox", "name": "Chambers of Xeric" },
+    { "id": "gwd", "name": "God Wars Bosses" },
+    { "id": "amoxliatl", "name": "Amoxilatl" },
+    { "id": "muspah", "name": "Phantom Muspah" },
+    { "id": "cg", "name": "Corrupted Gauntlet" },
+    { "id": "ogress", "name": "Ogress Shaman/Warrior" },
+    { "id": "d_axe", "name": "Dragon Axe (DKs or WT)" },
+    { "id": "yama", "name": "Yama" },
+    { "id": "huey", "name": "Hueycoatl" },
+    { "id": "mith_dragon", "name": "Mithril Dragon" },
+    { "id": "tob", "name": "Theatre of Blood" },
+    { "id": "scurrius", "name": "Scurrius" },
+    { "id": "tome", "name": "Tome from WT/Tempo/Huey" },
+    { "id": "doom", "name": "Doom of Mokhaiotl"},
+    { "id": "earthen_nagua", "name": "Earthen Nagua" }
+  ],
+  "rows": [
+    {
+      "index": 0,
+      "tiles": [
+        { "id": "R0-Easy",   "difficulty": "Easy",   "activityId": "custodian stalker",    "itemsNeeded": 1, "dropChancePerAttempt": 0.00153846153846, "avgTimePerAttemptMinutes": 0.4 },
+        { "id": "R0-Medium", "difficulty": "Medium", "activityId": "Barrows",    "itemsNeeded": 13, "dropChancePerAttempt": 0.0686341798216, "avgTimePerAttemptMinutes": 2.72 },
+        { "id": "R0-Hard",   "difficulty": "Hard",   "activityId": "dt2","itemsNeeded": 4, "dropChancePerAttempt": 0.01, "avgTimePerAttemptMinutes": 2 },
+        {
+          "id": "R0-Elite",
+          "difficulty": "Elite",
+          "activityId": "raid_toa",
+          "itemsNeeded": 280,
+          "avgTimePerAttemptMinutes": 30,
+          "sources": [
+            { "name": "normal_loot_coconut_milk", "rollsPerAttempt": 3, "chancePerRoll": 0.037, "quantityPerSuccess": 20 },
+            { "name": "unique_counts_as_milk",    "rollsPerAttempt": 1, "chancePerRoll": 0.237214156941,        "quantityPerSuccess": 40 }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "tiles": [
+        { "id": "R1-Easy",   "difficulty": "Easy",   "activityId": "moons",    "itemsNeeded": 7, "dropChancePerAttempt": 0.0526315789474, "avgTimePerAttemptMinutes": 6 },
+        { "id": "R1-Medium", "difficulty": "Medium", "activityId": "lms",    "itemsNeeded": 400, "dropChancePerAttempt": 1, "avgTimePerAttemptMinutes": 3 },
+        {
+          "id": "R1-Hard",
+          "difficulty": "Hard",
+          "activityId": "cox",
+          "itemsNeeded": 7,
+          "avgTimePerAttemptMinutes": 20,
+          "sources": [
+            { "name": "torn_prayer_scroll", "rollsPerAttempt": 2, "chancePerRoll": 0.030303030303, "quantityPerSuccess": 1 },
+            { "name": "unique_counts_as_three", "rollsPerAttempt": 1, "chancePerRoll": 0.166666666667, "quantityPerSuccess": 3 }
+          ]
+        },
+        { "id": "R1-Elite",   "difficulty": "Elite",   "activityId": "gwd","itemsNeeded": 4, "dropChancePerAttempt": 0.00196850393701, "avgTimePerAttemptMinutes": 1.5 }
+      ]
+    },
+    {
+      "index": 2,
+      "tiles": [
+        { "id": "R2-Easy",   "difficulty": "Easy",   "activityId": "amoxliatl",    "itemsNeeded": 5, "dropChancePerAttempt": 0.01, "avgTimePerAttemptMinutes": 0.8 },
+        { "id": "R2-Medium", "difficulty": "Medium", "activityId": "muspah",    "itemsNeeded": 4, "dropChancePerAttempt": 0.01, "avgTimePerAttemptMinutes": 2.1 },
+        {
+          "id": "R2-Hard",
+          "difficulty": "Hard",
+          "activityId": "cg",
+          "itemsNeeded": 5,
+          "avgTimePerAttemptMinutes": 10,
+          "sources": [
+            { "name": "weapon_seed", "rollsPerAttempt": 3, "chancePerRoll": 0.02, "quantityPerSuccess": 1 },
+            { "name": "armor_seed", "rollsPerAttempt": 3, "chancePerRoll": 0.02, "quantityPerSuccess": 1 },
+            { "name": "unique_counts_as_three", "rollsPerAttempt": 3, "chancePerRoll": 0.0025, "quantityPerSuccess": 3 }
+          ]
+        },
+        {
+          "id": "R2-Elite",
+          "difficulty": "Elite",
+          "activityId": "cox",
+          "itemsNeeded": 20000,
+          "avgTimePerAttemptMinutes": 20,
+          "sources": [
+            { "name": "dynamite", "rollsPerAttempt": 2, "chancePerRoll": 0.030303030303, "quantityPerSuccess": 1148 },
+            { "name": "unique_counts_as_4000", "rollsPerAttempt": 1, "chancePerRoll": 0.166666666667, "quantityPerSuccess": 4000 }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "tiles": [
+        {
+          "id": "R3-Easy",
+          "difficulty": "Easy",
+          "activityId": "ogress",
+          "itemsNeeded": 4,
+          "dropChancePerAttempt": 0.00083,
+          "avgTimePerAttemptMinutes": 0.16
+        },
+        {
+          "id": "R3-Medium",
+          "difficulty": "Medium",
+          "activityId": "d_axe",
+          "itemsNeeded": 3,
+          "dropChancePerAttempt": 0.0078125,
+          "avgTimePerAttemptMinutes": 0.6
+        },
+        {
+          "id": "R3-Hard",
+          "difficulty": "Hard",
+          "activityId": "yama",
+          "itemsNeeded": 2,
+          "dropChancePerAttempt": 0.0083,
+          "avgTimePerAttemptMinutes": 3
+        },
+        { "id": "R3-Elite",   "difficulty": "Elite",   "activityId": "dt2","itemsNeeded": 4, "dropChancePerAttempt": 0.01, "avgTimePerAttemptMinutes": 2 }
+      ]
+    },
+    {
+      "index": 4,
+      "tiles": [
+        {
+          "id": "R4-Easy",
+          "difficulty": "Easy",
+          "activityId": "huey",
+          "itemsNeeded": 9,
+          "dropChancePerAttempt": 0.05,
+          "avgTimePerAttemptMinutes": 3
+        },
+        {
+          "id": "R4-Medium",
+          "difficulty": "Medium",
+          "activityId": "gwd",
+          "itemsNeeded": 5,
+          "dropChancePerAttempt": 0.00980392156863,
+          "avgTimePerAttemptMinutes": 1
+        },
+        {
+          "id": "R4-Hard",
+          "difficulty": "Hard",
+          "activityId": "mith_dragon",
+          "itemsNeeded": 15,
+          "dropChancePerAttempt": 0.0234375,
+          "avgTimePerAttemptMinutes": 0.5
+        },
+        {
+          "id": "R4-Elite",
+          "difficulty": "Elite",
+          "activityId": "tob",
+          "itemsNeeded": 4000,
+          "avgTimePerAttemptMinutes": 25,
+          "sources": [
+            { "name": "molten_glass", "rollsPerAttempt": 3, "chancePerRoll": 0.03, "quantityPerSuccess": 200 },
+            { "name": "unique_counts_as_500", "rollsPerAttempt": 1, "chancePerRoll": 0.1014, "quantityPerSuccess": 500 }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "tiles": [
+        {
+          "id": "R5-Easy",
+          "difficulty": "Easy",
+          "activityId": "scurrius",
+          "itemsNeeded": 20,
+          "dropChancePerAttempt": 0.030303030303,
+          "avgTimePerAttemptMinutes": 1.4
+        },
+        {
+          "id": "R5-Medium",
+          "difficulty": "Medium",
+          "activityId": "tome",
+          "itemsNeeded": 1,
+          "dropChancePerAttempt": 0.001,
+          "avgTimePerAttemptMinutes": 3.5
+        },
+        {
+          "id": "R5-Hard",
+          "difficulty": "Hard",
+          "activityId": "doom",
+          "itemsNeeded": 3,
+          "dropChancePerAttempt": 0.0153846153846,
+          "avgTimePerAttemptMinutes": 3,
+          "note": "Assumes level 7 delves"
+        },
+        {
+          "id": "R5-Elite",
+          "difficulty": "Elite",
+          "activityId": "dt2",
+          "itemsNeeded": 1,
+          "dropChancePerAttempt": 0.00138888888889,
+          "avgTimePerAttemptMinutes": 2
+        }
+      ]
+    },
+    {
+      "index": 6,
+      "tiles": [
+        {
+          "id": "R6-Easy",
+          "difficulty": "Easy",
+          "activityId": "earthen_nagua",
+          "itemsNeeded": 6,
+          "dropChancePerAttempt": 0.0025,
+          "avgTimePerAttemptMinutes": 0.2
+        },
+        {
+          "id": "R6-Medium",
+          "difficulty": "Medium",
+          "activityId": "tome",
+          "itemsNeeded": 1,
+          "dropChancePerAttempt": 0.001,
+          "avgTimePerAttemptMinutes": 3.5
+        },
+        {
+          "id": "R6-Hard",
+          "difficulty": "Hard",
+          "activityId": "doom",
+          "itemsNeeded": 3,
+          "dropChancePerAttempt": 0.0153846153846,
+          "avgTimePerAttemptMinutes": 3
+        },
+        {
+          "id": "R6-Elite",
+          "difficulty": "Elite",
+          "activityId": "raid_toa",
+          "itemsNeeded": 65,
+          "avgTimePerAttemptMinutes": 30,
+          "sources": [
+            { "name": "normal_loot_coconut_milk", "rollsPerAttempt": 3, "chancePerRoll": 0.037, "quantityPerSuccess": 20 },
+            { "name": "unique_counts_as_milk",    "rollsPerAttempt": 1, "chancePerRoll": 0.237214156941,        "quantityPerSuccess": 40 }
+          ]
+        }
+      ]
+    }
+  ]
+}
