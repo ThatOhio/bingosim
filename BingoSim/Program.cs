@@ -15,13 +15,13 @@ class Program
 {
     static void Main(string[] args)
     {
-        // Args: --config <path> --runs <N> --strategy <greedy|grouped|unlocker|all> --seed <int> --threads <N> [--csv <path>]
+        // Args: --config <path> --runs <N> --strategy <greedy|grouped|unlocker|row-threshold|risk-averse|risk-seeking|ppm-row-bonus|row-sweep|monte-carlo|all> --seed <int> --threads <N> [--csv <path>]
         string configPath = Path.Combine(AppContext.BaseDirectory, "bingo-board.json");
-        int runs = 5000;
-        string strategyName = "all"; // default strategy
+        int runs = 500;
+        string strategyName = "monte-carlo"; // default strategy
         int? seed = null;
         int threads = Environment.ProcessorCount;
-        string? csvPath = $"/home/ohio/Documents/Temp/Bingo/all{DateTime.Now.ToShortTimeString()}.csv";
+        string? csvPath = $"/home/ohio/Documents/Temp/Bingo/{strategyName}{DateTime.Now.ToShortTimeString()}.csv";
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -179,7 +179,13 @@ class Program
     {
         new GreedyStrategy(),
         new GroupedByActivityStrategy(),
-        new UnlockerStrategy()
+        new UnlockerStrategy(),
+        new RowThresholdStrategy(),
+        new RiskAverseStrategy(),
+        new RiskSeekingStrategy(),
+        new RowWeightedBonusStrategy(),
+        new CompletionistRowSweepStrategy(),
+        new MonteCarloLookaheadStrategy()
     };
 
     private static IStrategy GetStrategyByName(string name) => name switch
@@ -187,6 +193,12 @@ class Program
         "greedy" => new GreedyStrategy(),
         "grouped" => new GroupedByActivityStrategy(),
         "unlocker" => new UnlockerStrategy(),
+        "row-threshold" => new RowThresholdStrategy(),
+        "risk-averse" => new RiskAverseStrategy(),
+        "risk-seeking" => new RiskSeekingStrategy(),
+        "row-sweep" => new CompletionistRowSweepStrategy(),
+        "completionist" => new CompletionistRowSweepStrategy(),
+        "monte-carlo" => new MonteCarloLookaheadStrategy(),
         _ => new GroupedByActivityStrategy()
     };
 }
