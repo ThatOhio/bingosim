@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using BingoSim.Config;
 using BingoSim.Models;
 using BingoSim.Simulation;
@@ -16,11 +17,11 @@ class Program
     {
         // Args: --config <path> --runs <N> --strategy <greedy|grouped|unlocker|all> --seed <int> --threads <N> [--csv <path>]
         string configPath = Path.Combine(AppContext.BaseDirectory, "bingo-board.json");
-        int runs = 1000;
+        int runs = 5000;
         string strategyName = "all"; // default strategy
         int? seed = null;
         int threads = Environment.ProcessorCount;
-        string? csvPath = null;
+        string? csvPath = $"/home/ohio/Documents/Temp/Bingo/all{DateTime.Now.ToShortTimeString()}.csv";
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -74,16 +75,20 @@ class Program
 
         int baseSeed = seed ?? new Random().Next(int.MinValue, int.MaxValue);
 
+        var totalSw = Stopwatch.StartNew();
         foreach (var strat in strategies)
         {
+            var sw = Stopwatch.StartNew();
             // Run simulations for this strategy
             var (times, points, sample) = RunMany(baseBoard, strat, runs, threads, baseSeed);
+            sw.Stop();
 
             double avgTime = times.Average();
+            // Standard deviation of total run times across all simulations
             double stdTime = Math.Sqrt(times.Select(t => (t - avgTime) * (t - avgTime)).Average());
             aggregateSummaries.Add((strat.Name, avgTime, stdTime));
 
-            Console.WriteLine($"Strategy {strat.Name}: Avg total time {avgTime:F1} min (std {stdTime:F1})");
+            Console.WriteLine($"Strategy {strat.Name}: Avg total time {avgTime:F1} min (std {stdTime:F1}) | compute {sw.Elapsed.TotalSeconds:F2}s");
 
             // Append CSV rows if requested
             if (csv != null)
@@ -112,6 +117,7 @@ class Program
                 }
             }
         }
+        totalSw.Stop();
 
         // Persist CSV if requested
         if (csv != null && !string.IsNullOrWhiteSpace(csvPath))
@@ -135,6 +141,11 @@ class Program
             {
                 Console.WriteLine($"  {row.name}: avg={row.avg:F1}m (std {row.std:F1})");
             }
+            Console.WriteLine($"Total compute time for all strategies: {totalSw.Elapsed.TotalSeconds:F2}s");
+        }
+        else
+        {
+            Console.WriteLine($"Total compute time: {totalSw.Elapsed.TotalSeconds:F2}s");
         }
 
         Console.WriteLine("Done.");
