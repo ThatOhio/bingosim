@@ -57,6 +57,11 @@ Below is a short description of each available strategy and the flag to use it w
   - Flag: --strategy all
   - Runs all built-in strategies and prints a comparison summary at the end. This is the default if no strategy is specified.
 
+- combo-unlocker
+  - Flag: --strategy combo-unlocker
+  - Two-phase approach. Phase 1: until the last row is unlocked, only work on the furthest unlocked row and pick among the three 2-tile combinations that reach 5+ points (Easy+Elite, Medium+Hard, Medium+Elite), penalizing combos whose activities have many locked tiles elsewhere to avoid wasted overlap. Phase 2: once all rows are unlocked, target the activity with the most incomplete tiles to maximize overlap potential.
+
 Example usage:
 - dotnet run --project BingoSim -- --strategy greedy --runs 1000 --config BingoSim/bingo-board.json
+- dotnet run --project BingoSim -- --strategy combo-unlocker --runs 500 --threads 8
 - dotnet run --project BingoSim -- --strategy all --runs 2000 --threads 8

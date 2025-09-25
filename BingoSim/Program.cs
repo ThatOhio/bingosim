@@ -15,7 +15,7 @@ class Program
 {
     static void Main(string[] args)
     {
-        // Args: --config <path> --runs <N> --strategy <greedy|grouped|unlocker|row-threshold|risk-averse|risk-seeking|ppm-row-bonus|row-sweep|monte-carlo|all> --seed <int> --threads <N> [--csv <path>]
+        // Args: --config <path> --runs <N> --strategy <greedy|grouped|unlocker|combo-unlocker|row-threshold|risk-averse|risk-seeking|ppm-row-bonus|row-sweep|monte-carlo|all> --seed <int> --threads <N> [--csv <path>]
         string configPath = Path.Combine(AppContext.BaseDirectory, "bingo-board.json");
         int runs = 1000;
         string strategyName = "all"; // default strategy
@@ -196,6 +196,7 @@ class Program
         new RiskSeekingStrategy(),
         new RowWeightedBonusStrategy(),
         new CompletionistRowSweepStrategy(),
+        new ComboUnlockerStrategy(),
         // Commenting out MonteCarlo for now, as it's too slow
         //new MonteCarloLookaheadStrategy()
     };
@@ -209,6 +210,7 @@ class Program
         "risk-seeking" => new RiskSeekingStrategy(),
         "row-sweep" => new CompletionistRowSweepStrategy(),
         "completionist" => new CompletionistRowSweepStrategy(),
+        "combo-unlocker" => new ComboUnlockerStrategy(),
         "monte-carlo" => new MonteCarloLookaheadStrategy(),
         _ => new GreedyStrategy()
     };
