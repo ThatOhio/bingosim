@@ -14,12 +14,14 @@ public class MonteCarloLookaheadStrategy : IStrategy
     private readonly int _playouts;
     private readonly int _steps;
     private readonly int _seedJitter;
+    private readonly bool _parallelPlayouts;
 
-    public MonteCarloLookaheadStrategy(int playouts = 16, int steps = 15, int seedJitter = 1337)
+    public MonteCarloLookaheadStrategy(int playouts = 32, int steps = 15, int seedJitter = 1337, bool parallelPlayouts = true)
     {
         _playouts = Math.Max(1, playouts);
         _steps = Math.Max(1, steps);
         _seedJitter = seedJitter;
+        _parallelPlayouts = parallelPlayouts;
     }
 
     public List<Tile> ChooseTargets(Board board)
@@ -56,18 +58,19 @@ public class MonteCarloLookaheadStrategy : IStrategy
 
             var rngSeedBase = HashSeed(activityId) ^ _seedJitter;
 
-            double unlocks = 0;
-            double sumUnlockTime = 0;
-            double sumPointsGain = 0;
+            var unlockFlags = new bool[_playouts];
+            var unlockTimes = new double[_playouts];
+            var pointsGains = new int[_playouts];
 
-            for (int p = 0; p < _playouts; p++)
+            // Run playouts (optionally in parallel)
+            Action<int> runPlayout = p =>
             {
-                // Clone board with current state
                 var simBoard = DeepCloneWithState(board);
                 var rng = new Rng(rngSeedBase + p * 7919);
 
-                // Record baseline completed points at start
-                int pointsStart = simBoard.Rows.Sum(r => r.PointsCompleted);
+                // Baseline points
+                int pointsStart = 0;
+                foreach (var row in simBoard.Rows) pointsStart += row.PointsCompleted;
 
                 double time = 0.0;
                 bool unlockedNext = false;
@@ -75,103 +78,166 @@ public class MonteCarloLookaheadStrategy : IStrategy
 
                 for (int step = 0; step < _steps; step++)
                 {
-                    // Determine action: first step forced to the candidate activity; afterwards use a simple greedy baseline
                     string stepActivityId;
-                    List<Tile> targetTiles;
+                    // Build target tiles without LINQ
+                    List<Tile> targetTiles = null!;
                     if (step == 0)
                     {
                         stepActivityId = activityId;
-                        // Target all unlocked & incomplete tiles for this activity
-                        targetTiles = simBoard.AllTiles()
-                            .Where(t => !t.Completed && simBoard.IsTileUnlocked(t) && t.ActivityId == stepActivityId)
-                            .ToList();
-                        if (targetTiles.Count == 0)
+                        // Collect unlocked & incomplete tiles for this activity
+                        var buffer = new List<Tile>(4);
+                        foreach (var row in simBoard.Rows)
                         {
-                            // Nothing to do for this activity; break
-                            break;
+                            foreach (var t in row.Tiles)
+                            {
+                                if (!t.Completed && t.ActivityId == stepActivityId && simBoard.IsTileUnlocked(t))
+                                {
+                                    buffer.Add(t);
+                                }
+                            }
                         }
+                        if (buffer.Count == 0) break; // nothing to do
+                        targetTiles = buffer;
                     }
                     else
                     {
                         var greedy = GreedyPick(simBoard);
                         if (greedy == null) break;
                         stepActivityId = greedy.ActivityId;
-                        targetTiles = new List<Tile> { greedy };
+                        targetTiles = new List<Tile>(1) { greedy };
                     }
 
-                    // Perform one attempt for the chosen activity
-                    double attemptTime = targetTiles.Max(t => t.AvgTimePerAttemptMinutes);
+                    // Compute attempt time (max among targets)
+                    double attemptTime = 0.0;
+                    for (int i = 0; i < targetTiles.Count; i++)
+                    {
+                        var tt = targetTiles[i];
+                        if (tt.AvgTimePerAttemptMinutes > attemptTime) attemptTime = tt.AvgTimePerAttemptMinutes;
+                    }
                     time += attemptTime;
 
-                    // Roll for all incomplete tiles tied to this activity
-                    var rollTiles = simBoard.AllTiles().Where(t => t.ActivityId == stepActivityId && !t.Completed).ToList();
+                    // Roll across all incomplete tiles tied to this activity
+                    Tile? bestTile = null;
+                    int bestQty = 0;
+                    int bestRemaining = int.MaxValue;
 
-                    var successEvents = new List<(Tile tile, int qty)>();
-                    foreach (var tile in rollTiles)
+                    // enumerate tiles to roll
+                    foreach (var row in simBoard.Rows)
                     {
-                        foreach (var src in tile.Sources)
+                        foreach (var tile in row.Tiles)
                         {
-                            int rolls = Math.Max(0, src.RollsPerAttempt);
-                            for (int i = 0; i < rolls; i++)
+                            if (tile.Completed || tile.ActivityId != stepActivityId) continue;
+
+                            bool unlockedTile = simBoard.IsTileUnlocked(tile);
+
+                            if (tile.Sources.Count > 0)
                             {
-                                if (rng.Chance(src.ChancePerRoll))
+                                for (int si = 0; si < tile.Sources.Count; si++)
                                 {
-                                    successEvents.Add((tile, Math.Max(0, src.QuantityPerSuccess)));
+                                    var src = tile.Sources[si];
+                                    int rolls = src.RollsPerAttempt;
+                                    if (rolls <= 0) continue;
+                                    double chance = src.ChancePerRoll;
+                                    int qty = src.QuantityPerSuccess;
+                                    for (int i = 0; i < rolls; i++)
+                                    {
+                                        if (rng.Chance(chance))
+                                        {
+                                            if (unlockedTile)
+                                            {
+                                                int remaining = tile.ItemsNeeded - tile.ItemsObtained - qty;
+                                                if (remaining < 0) remaining = 0;
+                                                if (remaining < bestRemaining)
+                                                {
+                                                    bestRemaining = remaining;
+                                                    bestTile = tile;
+                                                    bestQty = qty;
+                                                }
+                                            }
+                                            // if locked, it's wasted; ignore
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // Legacy model: single Bernoulli
+                                if (rng.Chance(tile.DropChancePerAttempt) && unlockedTile)
+                                {
+                                    int remaining = tile.ItemsNeeded - tile.ItemsObtained - 1;
+                                    if (remaining < 0) remaining = 0;
+                                    if (remaining < bestRemaining)
+                                    {
+                                        bestRemaining = remaining;
+                                        bestTile = tile;
+                                        bestQty = 1;
+                                    }
                                 }
                             }
                         }
-                        // Legacy fallback if no sources configured
-                        if (tile.Sources.Count == 0)
-                        {
-                            if (rng.Chance(tile.DropChancePerAttempt))
-                            {
-                                successEvents.Add((tile, 1));
-                            }
-                        }
                     }
 
-                    if (successEvents.Count > 0)
+                    if (bestTile != null)
                     {
-                        // Prefer unlocked outcomes; pick the one that minimizes remaining after applying qty
-                        var unlockedEvents = successEvents.Where(e => simBoard.IsTileUnlocked(e.tile)).ToList();
-                        if (unlockedEvents.Count > 0)
-                        {
-                            var chosen = unlockedEvents
-                                .OrderBy(e => Math.Max(0, e.tile.ItemsNeeded - e.tile.ItemsObtained - e.qty))
-                                .First();
-                            ApplyProgress(simBoard, chosen.tile, chosen.qty);
-                        }
+                        ApplyProgress(simBoard, bestTile, bestQty);
                     }
 
-                    // Check if next row unlocked for the first time
+                    // Check unlock
                     if (!unlockedNext && hasNextRow && RowUnlocked(simBoard, nextRowIndex))
                     {
                         unlockedNext = true;
                         unlockTime = time;
                     }
 
-                    // Early stop if board finished
-                    if (!simBoard.AllTiles().Any(t => !t.Completed))
-                        break;
+                    // Early stop if finished
+                    bool anyIncomplete = false;
+                    foreach (var row in simBoard.Rows)
+                    {
+                        foreach (var t in row.Tiles)
+                        {
+                            if (!t.Completed) { anyIncomplete = true; break; }
+                        }
+                        if (anyIncomplete) break;
+                    }
+                    if (!anyIncomplete) break;
                 }
 
                 if (unlockedNext)
                 {
-                    unlocks += 1;
-                    sumUnlockTime += unlockTime;
+                    unlockFlags[p] = true;
+                    unlockTimes[p] = unlockTime;
                 }
 
-                int pointsEnd = simBoard.Rows.Sum(r => r.PointsCompleted);
-                sumPointsGain += Math.Max(0, pointsEnd - pointsStart);
+                int pointsEnd = 0;
+                foreach (var row in simBoard.Rows) pointsEnd += row.PointsCompleted;
+                pointsGains[p] = Math.Max(0, pointsEnd - pointsStart);
+            };
+
+            if (_parallelPlayouts && _playouts >= 4)
+            {
+                System.Threading.Tasks.Parallel.For(0, _playouts, runPlayout);
+            }
+            else
+            {
+                for (int p = 0; p < _playouts; p++) runPlayout(p);
+            }
+
+            double unlocks = 0, sumUnlockTime = 0, sumPointsGain = 0;
+            for (int p = 0; p < _playouts; p++)
+            {
+                if (unlockFlags[p]) { unlocks += 1; sumUnlockTime += unlockTimes[p]; }
+                sumPointsGain += pointsGains[p];
             }
 
             double unlockRate = unlocks / _playouts;
             double avgUnlock = unlocks > 0 ? sumUnlockTime / unlocks : double.PositiveInfinity;
             double avgPoints = sumPointsGain / _playouts;
-            double fallbackGreedy = tilesForActivity
-                .Select(t => GreedyScore(t))
-                .DefaultIfEmpty(0.0)
-                .Max();
+            double fallbackGreedy = 0.0;
+            for (int i = 0; i < tilesForActivity.Count; i++)
+            {
+                double s = GreedyScore(tilesForActivity[i]);
+                if (s > fallbackGreedy) fallbackGreedy = s;
+            }
 
             var scoreTuple = (unlockRate, -avgUnlock, avgPoints, fallbackGreedy);
             var bestTuple = (bestScore.unlockRate, -bestScore.avgUnlockTime, bestScore.avgPoints, bestScore.fallbackGreedyScore);

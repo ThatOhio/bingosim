@@ -20,7 +20,7 @@ class Program
         int runs = 500;
         string strategyName = "monte-carlo"; // default strategy
         int? seed = null;
-        int threads = Environment.ProcessorCount;
+        int threads = Environment.ProcessorCount * 2;
         string? csvPath = $"/home/ohio/Documents/Temp/Bingo/{strategyName}{DateTime.Now.ToShortTimeString()}.csv";
 
         for (int i = 0; i < args.Length; i++)
