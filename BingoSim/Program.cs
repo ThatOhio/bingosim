@@ -17,7 +17,7 @@ class Program
     {
         // Args: --config <path> --runs <N> --strategy <greedy|grouped|unlocker|row-threshold|risk-averse|risk-seeking|ppm-row-bonus|row-sweep|monte-carlo|all> --seed <int> --threads <N> [--csv <path>]
         string configPath = Path.Combine(AppContext.BaseDirectory, "bingo-board.json");
-        int runs = 500;
+        int runs = 1000;
         string strategyName = "all"; // default strategy
         int? seed = null;
         int threads = Environment.ProcessorCount;
@@ -190,7 +190,6 @@ class Program
     private static List<IStrategy> GetAllStrategies() => new()
     {
         new GreedyStrategy(),
-        new GroupedByActivityStrategy(),
         new UnlockerStrategy(),
         new RowThresholdStrategy(),
         new RiskAverseStrategy(),
@@ -204,7 +203,6 @@ class Program
     private static IStrategy GetStrategyByName(string name) => name switch
     {
         "greedy" => new GreedyStrategy(),
-        "grouped" => new GroupedByActivityStrategy(),
         "unlocker" => new UnlockerStrategy(),
         "row-threshold" => new RowThresholdStrategy(),
         "risk-averse" => new RiskAverseStrategy(),
@@ -212,6 +210,6 @@ class Program
         "row-sweep" => new CompletionistRowSweepStrategy(),
         "completionist" => new CompletionistRowSweepStrategy(),
         "monte-carlo" => new MonteCarloLookaheadStrategy(),
-        _ => new GroupedByActivityStrategy()
+        _ => new GreedyStrategy()
     };
 }
