@@ -22,11 +22,11 @@ public class Simulator
         // Reset state
         foreach (var t in _board.AllTiles()) t.ResetProgress();
 
-        double time = 0.0;
+        double time = 0.0; // seconds
         int totalPoints = 0;
         var result = new RunResult();
         var rowUnlockRecorded = new HashSet<int> { 0 }; // row 0 unlocked at t=0
-        result.RowUnlockTimesMinutes[0] = 0.0;
+        result.RowUnlockTimesSeconds[0] = 0.0;
 
         // Continue until all tiles complete
         while (_board.AllTiles().Any(t => !t.Completed))
@@ -45,7 +45,7 @@ public class Simulator
             var activity = _board.GetActivity(activityId) ?? new Activity { Id = activityId, Name = activityId };
 
             // Perform a single attempt for this activity group
-            var attemptTime = targets.Max(t => t.AvgTimePerAttemptMinutes); // use max time among grouped tiles
+            var attemptTime = targets.Max(t => t.AvgTimePerAttemptSeconds); // use max time among grouped tiles
             time += attemptTime;
 
             // Determine tiles to roll for this attempt: always roll across all incomplete tiles tied to this activity
@@ -101,7 +101,7 @@ public class Simulator
             }
         }
 
-        result.TotalTimeMinutes = time;
+        result.TotalTimeSeconds = time;
         result.TotalPoints = totalPoints;
         return result;
     }
@@ -118,7 +118,7 @@ public class Simulator
                 TileId = tile.Id,
                 RowIndex = tile.RowIndex,
                 Points = tile.Points,
-                CompletionTimeMinutes = time
+                CompletionTimeSeconds = time
             });
 
             // Check unlock of next row
@@ -129,7 +129,7 @@ public class Simulator
                 if (_board.Rows.Any(r => r.Index == nextRowIndex) && !rowUnlockRecorded.Contains(nextRowIndex))
                 {
                     rowUnlockRecorded.Add(nextRowIndex);
-                    result.RowUnlockTimesMinutes[nextRowIndex] = time;
+                    result.RowUnlockTimesSeconds[nextRowIndex] = time;
                 }
             }
         }

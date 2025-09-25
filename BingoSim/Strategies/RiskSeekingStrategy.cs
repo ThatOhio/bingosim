@@ -47,7 +47,7 @@ public class RiskSeekingStrategy : IStrategy
     {
         double remaining = Math.Max(1, t.ItemsNeeded - t.ItemsObtained);
         double pointsPerItem = t.Points / Math.Max(1.0, t.ItemsNeeded);
-        double time = Math.Max(1e-9, t.AvgTimePerAttemptMinutes);
+        double time = Math.Max(1e-9, t.AvgTimePerAttemptSeconds);
 
         // If no sources listed (pure Bernoulli dropChance), estimate pseudo-lumpiness as small.
         if (t.Sources.Count == 0)

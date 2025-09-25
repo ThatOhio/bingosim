@@ -17,8 +17,8 @@ class Program
     {
         // Args: --config <path> --runs <N> --strategy <greedy|grouped|unlocker|row-threshold|risk-averse|risk-seeking|ppm-row-bonus|row-sweep|monte-carlo|all> --seed <int> --threads <N> [--csv <path>]
         string configPath = Path.Combine(AppContext.BaseDirectory, "bingo-board.json");
-        int runs = 1;
-        string strategyName = "monte-carlo"; // default strategy
+        int runs = 500;
+        string strategyName = "all"; // default strategy
         int? seed = null;
         int threads = Environment.ProcessorCount;
         string? csvPath = $"/home/ohio/Documents/Temp/Bingo/{strategyName}{DateTime.Now.ToShortTimeString()}.csv";
@@ -68,7 +68,7 @@ class Program
         if (!string.IsNullOrWhiteSpace(csvPath))
         {
             csv = new StringBuilder();
-            csv.AppendLine("strategy,runIndex,totalTimeMinutes,totalPoints");
+            csv.AppendLine("strategy,runIndex,totalTimeSeconds,totalPoints");
         }
 
         var aggregateSummaries = new List<(string name, double avg, double std)>();
@@ -88,7 +88,7 @@ class Program
             double stdTime = Math.Sqrt(times.Select(t => (t - avgTime) * (t - avgTime)).Average());
             aggregateSummaries.Add((strat.Name, avgTime, stdTime));
 
-            Console.WriteLine($"Strategy {strat.Name}: Avg total time {avgTime:F1} min (std {stdTime:F1}) | compute {sw.Elapsed.TotalSeconds:F2}s");
+            Console.WriteLine($"Strategy {strat.Name}: Avg total time {FormatHms(avgTime)} (std {FormatHms(stdTime)}) | compute {sw.Elapsed.TotalSeconds:F2}s");
 
             // Append CSV rows if requested
             if (csv != null)
@@ -105,15 +105,15 @@ class Program
             // For the first strategy (or single run), print a sample breakdown
             if (sample != null && strategies.Count == 1)
             {
-                Console.WriteLine("Sample run unlock times (row: minutes):");
-                foreach (var kv in sample.RowUnlockTimesMinutes.OrderBy(k => k.Key))
+                Console.WriteLine("Sample run unlock times (row: h:m:s):");
+                foreach (var kv in sample.RowUnlockTimesSeconds.OrderBy(k => k.Key))
                 {
-                    Console.WriteLine($"  Row {kv.Key}: {kv.Value:F1}m");
+                    Console.WriteLine($"  Row {kv.Key}: {FormatHms(kv.Value)}");
                 }
                 Console.WriteLine("Sample run completion order:");
                 foreach (var c in sample.CompletionOrder)
                 {
-                    Console.WriteLine($"  t={c.CompletionTimeMinutes:F1}m: Row {c.RowIndex} - {c.TileId} (+{c.Points})");
+                    Console.WriteLine($"  t={FormatHms(c.CompletionTimeSeconds)}: Row {c.RowIndex} - {c.TileId} (+{c.Points})");
                 }
             }
         }
@@ -139,7 +139,7 @@ class Program
             Console.WriteLine("\nComparison (sorted by avg total time):");
             foreach (var row in aggregateSummaries.OrderBy(r => r.avg))
             {
-                Console.WriteLine($"  {row.name}: avg={row.avg:F1}m (std {row.std:F1})");
+                Console.WriteLine($"  {row.name}: avg={FormatHms(row.avg)} (std {FormatHms(row.std)})");
             }
             Console.WriteLine($"Total compute time for all strategies: {totalSw.Elapsed.TotalSeconds:F2}s");
         }
@@ -149,6 +149,18 @@ class Program
         }
 
         Console.WriteLine("Done.");
+    }
+
+    private static string FormatHms(double seconds)
+    {
+        if (seconds < 0) seconds = 0;
+        long total = (long)Math.Round(seconds);
+        long h = total / 3600;
+        long m = (total % 3600) / 60;
+        long s = total % 60;
+        if (h > 0) return $"{h}h {m}m {s}s";
+        if (m > 0) return $"{m}m {s}s";
+        return $"{s}s";
     }
 
     private static (double[] times, int[] points, RunResult? sample) RunMany(Board baseBoard, IStrategy strategy, int runs, int threads, int baseSeed)
@@ -164,7 +176,7 @@ class Program
             int runSeed = unchecked(baseSeed + i * 9973 + strategy.Name.GetHashCode());
             var sim = new Simulator(clonedBoard, strategy, runSeed);
             var res = sim.Run();
-            runTimes[i] = res.TotalTimeMinutes;
+            runTimes[i] = res.TotalTimeSeconds;
             runPoints[i] = res.TotalPoints;
             if (i == 0)
             {
@@ -185,7 +197,8 @@ class Program
         new RiskSeekingStrategy(),
         new RowWeightedBonusStrategy(),
         new CompletionistRowSweepStrategy(),
-        new MonteCarloLookaheadStrategy()
+        // Commenting out MonteCarlo for now, as it's too slow
+        //new MonteCarloLookaheadStrategy()
     };
 
     private static IStrategy GetStrategyByName(string name) => name switch

@@ -26,7 +26,7 @@ public class GreedyStrategy : IStrategy
             double remaining = Math.Max(0, t.ItemsNeeded - t.ItemsObtained);
             var expectedUnitsPerAttempt = Math.Max(t.ExpectedUnitsPerAttempt(), 1e-9);
             var expectedAttempts = remaining / expectedUnitsPerAttempt;
-            var expectedTime = expectedAttempts * t.AvgTimePerAttemptMinutes;
+            var expectedTime = expectedAttempts * t.AvgTimePerAttemptSeconds;
             return t.Points / Math.Max(expectedTime, 1e-9);
         }
     }

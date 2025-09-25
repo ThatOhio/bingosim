@@ -41,7 +41,7 @@ public class Board
                 ActivityId = t.ActivityId,
                 ItemsNeeded = t.ItemsNeeded,
                 DropChancePerAttempt = t.DropChancePerAttempt,
-                AvgTimePerAttemptMinutes = t.AvgTimePerAttemptMinutes,
+                AvgTimePerAttemptSeconds = t.AvgTimePerAttemptSeconds,
                 Sources = t.Sources.Select(s => new ProgressSource
                 {
                     Name = s.Name,

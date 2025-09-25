@@ -20,7 +20,29 @@
     { "id": "scurrius", "name": "Scurrius" },
     { "id": "tome", "name": "Tome from WT/Tempo/Huey" },
     { "id": "doom", "name": "Doom of Mokhaiotl"},
-    { "id": "earthen_nagua", "name": "Earthen Nagua" }
+    { "id": "earthen_nagua", "name": "Earthen Nagua" },
+    { "id": "araxxor", "name": "Araxxor" },
+    { "id": "nightmare", "name": "The Nightmare" },
+    { "id": "boots", "name": "Slayer Boot Set"},
+    { "id": "colosseum", "name": "Colosseum"},
+    { "id": "mystic", "name": "Mystic Robes (Light) Set"},
+    { "id": "wildy", "name": "Wilderness Bosses"},
+    { "id": "nex", "name": "Nex"},
+    { "id": "gargoyle", "name": "Gargoyles"},
+    { "id": "monkey", "name": "Demonic Gorillas"},
+    { "id": "corp", "name": "Corporeal Beast"},
+    { "id": "undead_druid", "name": "Undead Druid"},
+    { "id": "zulrah", "name": "Zulrah"},
+    { "id": "vorkath", "name": "Vorkath"},
+    { "id": "jar", "name": "Boss Jar"},
+    { "id": "champ", "name": "Champion Scroll"},
+    { "id": "td", "name": "Tormented Demons"},
+    { "id": "pyramid", "name": "Pyramid Plunder"},
+    { "id": "royal_titans", "name": "Royal Titans"},
+    { "id": "sepulchre", "name": "Hallowed Sepulchre"},
+    { "id": "sarachnis", "name": "Sarachnis"},
+    { "id": "kq", "name": "Kalphite Queen"},
+    { "id": "lizard", "name": "Lizardman Shaman"}
   ],
   "rows": [
     {
@@ -213,18 +235,18 @@
         {
           "id": "R6-Medium",
           "difficulty": "Medium",
-          "activityId": "tome",
-          "itemsNeeded": 1,
-          "dropChancePerAttempt": 0.001,
-          "avgTimePerAttemptMinutes": 3.5
+          "activityId": "araxxor",
+          "itemsNeeded": 3,
+          "dropChancePerAttempt": 0.005,
+          "avgTimePerAttemptMinutes": 2
         },
         {
           "id": "R6-Hard",
           "difficulty": "Hard",
-          "activityId": "doom",
-          "itemsNeeded": 3,
-          "dropChancePerAttempt": 0.0153846153846,
-          "avgTimePerAttemptMinutes": 3
+          "activityId": "nightmare",
+          "itemsNeeded": 1,
+          "dropChancePerAttempt": 0.0149992500375,
+          "avgTimePerAttemptMinutes": 4.5
         },
         {
           "id": "R6-Elite",
@@ -233,9 +255,299 @@
           "itemsNeeded": 65,
           "avgTimePerAttemptMinutes": 30,
           "sources": [
-            { "name": "normal_loot_coconut_milk", "rollsPerAttempt": 3, "chancePerRoll": 0.037, "quantityPerSuccess": 20 },
-            { "name": "unique_counts_as_milk",    "rollsPerAttempt": 1, "chancePerRoll": 0.237214156941,        "quantityPerSuccess": 40 }
+            { "name": "dragon_med_helm", "rollsPerAttempt": 3, "chancePerRoll": 0.037, "quantityPerSuccess": 5 },
+            { "name": "unique_counts_as_10",    "rollsPerAttempt": 1, "chancePerRoll": 0.237214156941,        "quantityPerSuccess": 10 }
           ]
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "tiles": [
+        {
+          "id": "R7-Easy",
+          "difficulty": "Easy",
+          "activityId": "boots",
+          "itemsNeeded": 4,
+          "dropChancePerAttempt": 0.00125,
+          "avgTimePerAttemptMinutes": 0.1,
+          "note": "Based on araxyte boots as others are very fast"
+        },
+        {
+          "id": "R7-Medium",
+          "difficulty": "Medium",
+          "activityId": "gwd",
+          "itemsNeeded": 6,
+          "dropChancePerAttempt": 0.0196078431373,
+          "avgTimePerAttemptMinutes": 1
+        },
+        {
+          "id": "R7-Hard",
+          "difficulty": "Hard",
+          "activityId": "colosseum",
+          "itemsNeeded": 5,
+          "dropChancePerAttempt": 0.2,
+          "avgTimePerAttemptMinutes": 25
+        },
+        {
+          "id": "R7-Elite",
+          "difficulty": "Elite",
+          "activityId": "nightmare",
+          "itemsNeeded": 1,
+          "dropChancePerAttempt": 0.0025,
+          "avgTimePerAttemptMinutes": 4.5
+        }
+      ]
+    },
+    {
+      "index": 8,
+      "tiles": [
+        {
+          "id": "R8-Easy",
+          "difficulty": "Easy",
+          "activityId": "mystic",
+          "itemsNeeded": 15,
+          "dropChancePerAttempt": 0.001953125,
+          "avgTimePerAttemptMinutes": 0.1,
+          "note": "Drop rate is the same across all enemies, and ttk is roughly the same, so multiplying sets by 5 and treating it as individual drops from one monster."
+        },
+        {
+          "id": "R8-Medium",
+          "difficulty": "Medium",
+          "activityId": "wildy",
+          "itemsNeeded": 12,
+          "dropChancePerAttempt": 0.00390625,
+          "avgTimePerAttemptMinutes": 0.25,
+          "note": "Treating as 12 individual drops for simplicity, using the 1/256 chance of a specific shard. TTK inflated because fanatic is slower than the other two."
+        },
+        {
+          "id": "R8-Hard",
+          "difficulty": "Hard",
+          "activityId": "nex",
+          "itemsNeeded": 1,
+          "dropChancePerAttempt": 0.0232558139535,
+          "avgTimePerAttemptMinutes": 2.75
+        },
+        {
+          "id": "R8-Elite",
+          "difficulty": "Elite",
+          "activityId": "cox",
+          "itemsNeeded": 1,
+          "dropChancePerAttempt": 0.0133333333333,
+          "avgTimePerAttemptMinutes": 20
+        }
+      ]
+    },
+    {
+      "index": 9,
+      "tiles": [
+        {
+          "id": "R9-Easy",
+          "difficulty": "Easy",
+          "activityId": "gargoyle",
+          "itemsNeeded": 6,
+          "dropChancePerAttempt": 0.00390625,
+          "avgTimePerAttemptMinutes": 0.1
+        },
+        {
+          "id": "R9-Medium",
+          "difficulty": "Medium",
+          "activityId": "monkey",
+          "itemsNeeded": 4,
+          "dropChancePerAttempt": 0.00333333333333,
+          "avgTimePerAttemptMinutes": 0.75
+        },
+        {
+          "id": "R9-Hard",
+          "difficulty": "Hard",
+          "activityId": "tob",
+          "itemsNeeded": 900,
+          "avgTimePerAttemptMinutes": 25,
+          "sources": [
+            { "name": "vials_of_blood", "rollsPerAttempt": 3, "chancePerRoll": 0.0666666666667, "quantityPerSuccess": 50 },
+            { "name": "unique_counts_as_150", "rollsPerAttempt": 1, "chancePerRoll": 0.1014, "quantityPerSuccess": 150 }
+          ]
+        },
+        {
+          "id": "R9-Elite",
+          "difficulty": "Elite",
+          "activityId": "corp",
+          "itemsNeeded": 3,
+          "dropChancePerAttempt": 0.00585823081429,
+          "avgTimePerAttemptMinutes": 1,
+          "note": "Rate is based on holy elixer as it is far more common than any of the other drops"
+        }
+      ]
+    },
+    {
+      "index": 10,
+      "tiles": [
+        {
+          "id": "R10-Easy",
+          "difficulty": "Easy",
+          "activityId": "undead_druid",
+          "itemsNeeded": 3,
+          "dropChancePerAttempt": 0.001,
+          "avgTimePerAttemptMinutes": 0.15
+        },
+        {
+          "id": "R10-Medium",
+          "difficulty": "Medium",
+          "activityId": "zulrah",
+          "itemsNeeded": 5,
+          "dropChancePerAttempt": 0.0078125,
+          "avgTimePerAttemptMinutes": 1.5
+        },
+        {
+          "id": "R10-Hard",
+          "difficulty": "Hard",
+          "activityId": "vorkath",
+          "itemsNeeded": 10,
+          "avgTimePerAttemptMinutes": 0.75,
+          "sources": [
+            { "name": "head", "rollsPerAttempt": 1, "chancePerRoll": 0.02, "quantityPerSuccess": 1 },
+            { "name": "necklace", "rollsPerAttempt": 1, "chancePerRoll": 0.001, "quantityPerSuccess": 10 },
+            { "name": "jar", "rollsPerAttempt": 1, "chancePerRoll": 0.000333333333333, "quantityPerSuccess": 10 },
+            { "name": "visage", "rollsPerAttempt": 1, "chancePerRoll": 0.0004, "quantityPerSuccess": 10 }
+          ]
+        },
+        {
+          "id": "R10-Elite",
+          "difficulty": "Elite",
+          "activityId": "jar",
+          "itemsNeeded": 1,
+          "dropChancePerAttempt": 0.001,
+          "avgTimePerAttemptMinutes": 0.8
+        }
+      ]
+    },
+    {
+      "index": 11,
+      "tiles": [
+        {
+          "id": "R11-Easy",
+          "difficulty": "Easy",
+          "activityId": "champ",
+          "itemsNeeded": 3,
+          "dropChancePerAttempt": 0.0002,
+          "avgTimePerAttemptMinutes": 0.01,
+          "note": "Based on goblins"
+        },
+        {
+          "id": "R11-Medium",
+          "difficulty": "Medium",
+          "activityId": "td",
+          "itemsNeeded": 4,
+          "dropChancePerAttempt": 0.004,
+          "avgTimePerAttemptMinutes": 1.25
+        },
+        {
+          "id": "R11-Hard",
+          "difficulty": "Hard",
+          "activityId": "gwd",
+          "itemsNeeded": 1,
+          "dropChancePerAttempt": 0.00196850393701,
+          "avgTimePerAttemptMinutes": 1
+        },
+        {
+          "id": "R11-Elite",
+          "difficulty": "Elite",
+          "activityId": "dt2",
+          "itemsNeeded": 1,
+          "dropChancePerAttempt": 0.001953125,
+          "avgTimePerAttemptMinutes": 3,
+          "note": "Based on Whisperer but should be roughly the same"
+        }
+      ]
+    },
+    {
+      "index": 12,
+      "tiles": [
+        {
+          "id": "R12-Easy",
+          "difficulty": "Easy",
+          "activityId": "pyramid",
+          "itemsNeeded": 3,
+          "dropChancePerAttempt": 0.01,
+          "avgTimePerAttemptMinutes": 2,
+          "note": "Rough guess as different players will have different thieving and speed at which they can do the mini game."
+        },
+        {
+          "id": "R12-Medium",
+          "difficulty": "Medium",
+          "activityId": "royal_titans",
+          "itemsNeeded": 6,
+          "dropChancePerAttempt": 0.0133333333333,
+          "avgTimePerAttemptMinutes": 1,
+          "note": "Based on the crown pieces alone as most of us have the scrolls already and they stop dropping."
+        },
+        {
+          "id": "R12-Hard",
+          "difficulty": "Hard",
+          "activityId": "sepulchre",
+          "itemsNeeded": 15,
+          "sources": [
+            { "name": "ring", "rollsPerAttempt": 1, "chancePerRoll": 0.005, "quantityPerSuccess": 15 },
+            { "name": "lockpick_floor_5", "rollsPerAttempt": 1, "chancePerRoll": 0.025, "quantityPerSuccess": 1 },
+            { "name": "lockpick_floor_4", "rollsPerAttempt": 1, "chancePerRoll": 0.0166666666667, "quantityPerSuccess": 1 },
+            { "name": "lockpick_floor_3", "rollsPerAttempt": 1, "chancePerRoll": 0.0111111111111, "quantityPerSuccess": 1 },
+            { "name": "lockpick_floor_2", "rollsPerAttempt": 1, "chancePerRoll": 0.00833333333333, "quantityPerSuccess": 1 },
+            { "name": "lockpick_floor_1", "rollsPerAttempt": 1, "chancePerRoll": 0.005, "quantityPerSuccess": 1 }
+          ],
+          "avgTimePerAttemptMinutes": 6.5
+        },
+        {
+          "id": "R12-Elite",
+          "difficulty": "Elite",
+          "activityId": "nex",
+          "itemsNeeded": 1,
+          "dropChancePerAttempt": 0.0116279069767,
+          "avgTimePerAttemptMinutes": 2.75
+        }
+      ]
+    },
+    {
+      "index": 13,
+      "tiles": [
+        {
+          "id": "R13-Easy",
+          "difficulty": "Easy",
+          "activityId": "sarachnis",
+          "itemsNeeded": 2,
+          "dropChancePerAttempt": 0.00260416666667,
+          "avgTimePerAttemptMinutes": 0.75
+        },
+        {
+          "id": "R13-Medium",
+          "difficulty": "Medium",
+          "activityId": "kq",
+          "itemsNeeded": 3,
+          "sources": [
+            { "name": "chainbody", "rollsPerAttempt": 1, "chancePerRoll": 0.0078125, "quantityPerSuccess": 1 },
+            { "name": "jar", "rollsPerAttempt": 1, "chancePerRoll": 0.0005, "quantityPerSuccess": 3 }
+          ],
+          "avgTimePerAttemptMinutes": 1.2
+        },
+        {
+          "id": "R13-Hard",
+          "difficulty": "Hard",
+          "activityId": "lizard",
+          "itemsNeeded": 1,
+          "dropChancePerAttempt": 0.000333333333333,
+          "avgTimePerAttemptMinutes": 0.3
+        },
+        {
+          "id": "R13-Elite",
+          "difficulty": "Elite",
+          "activityId": "wildy",
+          "itemsNeeded": 3,
+          "sources": [
+            { "name": "ring_of_the_gods", "rollsPerAttempt": 1, "chancePerRoll": 0.001953125, "quantityPerSuccess": 1 },
+            { "name": "tyrannical_ring", "rollsPerAttempt": 1, "chancePerRoll": 0.001953125, "quantityPerSuccess": 1 },
+            { "name": "treasonous_ring", "rollsPerAttempt": 1, "chancePerRoll": 0.001953125, "quantityPerSuccess": 1 }
+          ],
+          "avgTimePerAttemptMinutes": 1.5,
+          "note": "Rolling each ring individually seemed like the best way to handle this tile. 1.5 kill time based on getting pk'd"
         }
       ]
     }

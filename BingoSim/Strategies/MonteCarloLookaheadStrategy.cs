@@ -18,7 +18,7 @@ public class MonteCarloLookaheadStrategy : IStrategy
     private readonly int _seedJitter;
     private readonly bool _parallelPlayouts;
 
-    public MonteCarloLookaheadStrategy(int playouts = 16, int steps = 15, int seedJitter = 1337, bool parallelPlayouts = true)
+    public MonteCarloLookaheadStrategy(int playouts = 16, int steps = 12, int seedJitter = 1337, bool parallelPlayouts = true)
     {
         _playouts = Math.Max(1, playouts);
         _steps = Math.Max(1, steps);
@@ -70,9 +70,40 @@ public class MonteCarloLookaheadStrategy : IStrategy
                 var simBoard = DeepCloneWithState(board);
                 var rng = new Rng(rngSeedBase + p * 7919);
 
-                // Baseline points
-                int pointsStart = 0;
-                foreach (var row in simBoard.Rows) pointsStart += row.PointsCompleted;
+                // Precompute per-playout structures
+                int rowCount = simBoard.Rows.Count;
+                var rowPoints = new int[rowCount];
+                for (int ri = 0; ri < rowCount; ri++)
+                {
+                    int sum = 0;
+                    var r = simBoard.Rows[ri];
+                    for (int tj = 0; tj < r.Tiles.Count; tj++)
+                    {
+                        var t = r.Tiles[tj];
+                        if (t.Completed) sum += t.Points;
+                    }
+                    rowPoints[ri] = sum;
+                }
+                var rowUnlockedBuf = new bool[rowCount];
+                ComputeRowUnlockedFast(rowPoints, rowUnlockedBuf);
+
+                var activityTiles = new Dictionary<string, List<Tile>>(16);
+                foreach (var r in simBoard.Rows)
+                {
+                    for (int tj = 0; tj < r.Tiles.Count; tj++)
+                    {
+                        var t = r.Tiles[tj];
+                        if (!activityTiles.TryGetValue(t.ActivityId, out var list))
+                        {
+                            list = new List<Tile>(4);
+                            activityTiles[t.ActivityId] = list;
+                        }
+                        list.Add(t);
+                    }
+                }
+
+                int pointsGained = 0;
+                var targetBuffer = new List<Tile>(8);
 
                 double time = 0.0;
                 bool unlockedNext = false;
@@ -86,58 +117,48 @@ public class MonteCarloLookaheadStrategy : IStrategy
                     if (step == 0)
                     {
                         stepActivityId = activityId;
-                        // Precompute unlocked rows once for this step
-                        var rowUnlocked = ComputeRowUnlocked(simBoard);
-                        // Collect unlocked & incomplete tiles for this activity
-                        var buffer = new List<Tile>(4);
-                        foreach (var row in simBoard.Rows)
-                        {
-                            bool rowIsUnlocked = rowUnlocked[row.Index];
-                            if (!rowIsUnlocked) continue;
-                            foreach (var t in row.Tiles)
-                            {
-                                if (!t.Completed && t.ActivityId == stepActivityId)
-                                {
-                                    buffer.Add(t);
-                                }
-                            }
-                        }
-                        if (buffer.Count == 0) break; // nothing to do
-                        targetTiles = buffer;
                     }
                     else
                     {
-                        var greedy = GreedyPick(simBoard);
-                        if (greedy == null) break;
-                        stepActivityId = greedy.ActivityId;
-                        targetTiles = new List<Tile>(1) { greedy };
+                        var nextAct = BestActivityIdGreedy(activityTiles, rowUnlockedBuf);
+                        if (string.IsNullOrEmpty(nextAct)) break;
+                        stepActivityId = nextAct;
                     }
+
+                    // Build target tiles for chosen activity into reusable buffer (unlocked & incomplete only)
+                    targetBuffer.Clear();
+                    if (activityTiles.TryGetValue(stepActivityId, out var actList))
+                    {
+                        for (int ti = 0; ti < actList.Count; ti++)
+                        {
+                            var t = actList[ti];
+                            if (!t.Completed && rowUnlockedBuf[t.RowIndex]) targetBuffer.Add(t);
+                        }
+                    }
+                    if (targetBuffer.Count == 0) break; // nothing to do
+                    targetTiles = targetBuffer;
 
                     // Compute attempt time (max among targets)
                     double attemptTime = 0.0;
                     for (int i = 0; i < targetTiles.Count; i++)
                     {
                         var tt = targetTiles[i];
-                        if (tt.AvgTimePerAttemptMinutes > attemptTime) attemptTime = tt.AvgTimePerAttemptMinutes;
+                        if (tt.AvgTimePerAttemptSeconds > attemptTime) attemptTime = tt.AvgTimePerAttemptSeconds;
                     }
                     time += attemptTime;
-
-                    // Precompute unlocked rows for this step
-                    var rowUnlocked2 = ComputeRowUnlocked(simBoard);
 
                     // Roll across all incomplete tiles tied to this activity
                     Tile? bestTile = null;
                     int bestQty = 0;
                     int bestRemaining = int.MaxValue;
 
-                    // enumerate tiles to roll
-                    foreach (var row in simBoard.Rows)
+                    if (activityTiles.TryGetValue(stepActivityId, out var tilesForAct))
                     {
-                        foreach (var tile in row.Tiles)
+                        for (int idx = 0; idx < tilesForAct.Count; idx++)
                         {
-                            if (tile.Completed || tile.ActivityId != stepActivityId) continue;
-
-                            bool unlockedTile = rowUnlocked2[tile.RowIndex];
+                            var tile = tilesForAct[idx];
+                            if (tile.Completed) continue;
+                            bool unlockedTile = rowUnlockedBuf[tile.RowIndex];
 
                             if (tile.Sources.Count > 0)
                             {
@@ -188,14 +209,23 @@ public class MonteCarloLookaheadStrategy : IStrategy
 
                     if (bestTile != null)
                     {
+                        bool wasCompleted = bestTile.Completed;
                         ApplyProgress(simBoard, bestTile, bestQty);
-                    }
-
-                    // Check unlock
-                    if (!unlockedNext && hasNextRow && RowUnlocked(simBoard, nextRowIndex))
-                    {
-                        unlockedNext = true;
-                        unlockTime = time;
+                        if (!wasCompleted && bestTile.Completed)
+                        {
+                            pointsGained += bestTile.Points;
+                            int ri2 = bestTile.RowIndex;
+                            if ((uint)ri2 < (uint)rowPoints.Length)
+                            {
+                                rowPoints[ri2] += bestTile.Points;
+                                ComputeRowUnlockedFast(rowPoints, rowUnlockedBuf);
+                                if (!unlockedNext && hasNextRow && nextRowIndex < rowUnlockedBuf.Length && rowUnlockedBuf[nextRowIndex])
+                                {
+                                    unlockedNext = true;
+                                    unlockTime = time;
+                                }
+                            }
+                        }
                     }
 
                     // Early stop if finished
@@ -217,9 +247,7 @@ public class MonteCarloLookaheadStrategy : IStrategy
                     unlockTimes[p] = unlockTime;
                 }
 
-                int pointsEnd = 0;
-                foreach (var row in simBoard.Rows) pointsEnd += row.PointsCompleted;
-                pointsGains[p] = Math.Max(0, pointsEnd - pointsStart);
+                pointsGains[p] = pointsGained;
             };
 
             if (_parallelPlayouts && _playouts >= 4)
@@ -309,7 +337,7 @@ public class MonteCarloLookaheadStrategy : IStrategy
                     ActivityId = t.ActivityId,
                     ItemsNeeded = t.ItemsNeeded,
                     DropChancePerAttempt = t.DropChancePerAttempt,
-                    AvgTimePerAttemptMinutes = t.AvgTimePerAttemptMinutes,
+                    AvgTimePerAttemptSeconds = t.AvgTimePerAttemptSeconds,
                     // Share immutable Sources list to reduce allocations
                     Sources = t.Sources, 
                     Completed = t.Completed,
@@ -425,12 +453,50 @@ public class MonteCarloLookaheadStrategy : IStrategy
                 units = Math.Max(0.0, t.DropChancePerAttempt);
             }
             units = Math.Max(units, 1e-9);
-            double time = Math.Max(t.AvgTimePerAttemptMinutes, 1e-9);
+            double time = Math.Max(t.AvgTimePerAttemptSeconds, 1e-9);
             return (t.Points * units) / time;
         });
     }
 
-    private static int HashSeed(string s)
+    private static void ComputeRowUnlockedFast(int[] rowPoints, bool[] rowUnlocked)
+        {
+            int n = rowUnlocked.Length;
+            if (n == 0) return;
+            rowUnlocked[0] = true;
+            for (int i = 1; i < n; i++)
+            {
+                rowUnlocked[i] = rowPoints[i - 1] >= 5;
+            }
+        }
+
+        private static string BestActivityIdGreedy(Dictionary<string, List<Tile>> activityTiles, bool[] rowUnlocked)
+        {
+            string bestAct = string.Empty;
+            double bestScore = double.NegativeInfinity;
+            foreach (var kv in activityTiles)
+            {
+                var list = kv.Value;
+                double sum = 0.0;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var t = list[i];
+                    if (t.Completed) continue;
+                    if (!rowUnlocked[t.RowIndex]) continue;
+                    int remaining = t.ItemsNeeded - t.ItemsObtained;
+                    if (remaining <= 0) continue;
+                    double k = GreedyK(t);
+                    sum += k / remaining;
+                }
+                if (sum > bestScore)
+                {
+                    bestScore = sum;
+                    bestAct = kv.Key;
+                }
+            }
+            return bestAct;
+        }
+
+        private static int HashSeed(string s)
     {
         unchecked
         {
@@ -441,3 +507,5 @@ public class MonteCarloLookaheadStrategy : IStrategy
         }
     }
 }
+
+

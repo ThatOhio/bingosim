@@ -38,6 +38,6 @@ public class CompletionistRowSweepStrategy : IStrategy
         double remaining = Math.Max(0, t.ItemsNeeded - t.ItemsObtained);
         double unitsPerAttempt = Math.Max(t.ExpectedUnitsPerAttempt(), 1e-9);
         double attempts = remaining / unitsPerAttempt;
-        return attempts * t.AvgTimePerAttemptMinutes;
+        return attempts * t.AvgTimePerAttemptSeconds;
     }
 }

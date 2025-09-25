@@ -78,7 +78,10 @@ public class TileConfig
     public string ActivityId { get; set; } = string.Empty;
     public int ItemsNeeded { get; set; } = 1;
     public double DropChancePerAttempt { get; set; } = 0.05;
-    public double AvgTimePerAttemptMinutes { get; set; } = 2.0;
+    // Legacy minutes field (supported for backward compatibility)
+    public double? AvgTimePerAttemptMinutes { get; set; }
+    // New seconds field
+    public double? AvgTimePerAttemptSeconds { get; set; }
     public List<ProgressSourceConfig>? Sources { get; set; }
 
     public Tile ToTile(int rowIndex)
@@ -90,9 +93,22 @@ public class TileConfig
             Difficulty = Difficulty,
             ActivityId = ActivityId,
             ItemsNeeded = ItemsNeeded,
-            DropChancePerAttempt = DropChancePerAttempt,
-            AvgTimePerAttemptMinutes = AvgTimePerAttemptMinutes
+            DropChancePerAttempt = DropChancePerAttempt
         };
+
+        // Map time: prefer explicit seconds; else convert minutes to seconds; default 120s
+        if (AvgTimePerAttemptSeconds.HasValue)
+        {
+            tile.AvgTimePerAttemptSeconds = AvgTimePerAttemptSeconds.Value;
+        }
+        else if (AvgTimePerAttemptMinutes.HasValue)
+        {
+            tile.AvgTimePerAttemptSeconds = AvgTimePerAttemptMinutes.Value * 60.0;
+        }
+        else
+        {
+            tile.AvgTimePerAttemptSeconds = 120.0;
+        }
 
         if (Sources != null && Sources.Count > 0)
         {

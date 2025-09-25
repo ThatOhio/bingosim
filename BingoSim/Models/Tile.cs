@@ -18,8 +18,8 @@ public class Tile
     // Legacy simple model fields (kept for backward compatibility with configs without "sources")
     public double DropChancePerAttempt { get; set; } = 0.05; // probability 0..1 per attempt (legacy)
 
-    // Average time per attempt for the activity
-    public double AvgTimePerAttemptMinutes { get; set; } = 2.0;
+    // Average time per attempt for the activity (in seconds)
+    public double AvgTimePerAttemptSeconds { get; set; } = 120.0;
 
     // New: one tile can progress from multiple independent sources per attempt (e.g., normal table rolls and rare unique)
     public List<ProgressSource> Sources { get; set; } = new();
