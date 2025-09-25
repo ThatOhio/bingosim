@@ -60,7 +60,8 @@
           "description": "4x Antler Guard",
           "itemsNeeded": 1, 
           "dropChancePerAttempt": 0.00153846153846, 
-          "AvgTimePerAttemptSeconds": 23
+          "AvgTimePerAttemptSeconds": 70,
+          "note": "The time to kill is getting up there, higher than I would expect, but I am trying to match the expected rate from Herc."
         },
         { 
           "id": "R0-Medium", 
@@ -69,7 +70,7 @@
           "description": "13 Barrows Uniques, excluding bolt racks",
           "itemsNeeded": 13, 
           "dropChancePerAttempt": 0.0686341798216, 
-          "AvgTimePerAttemptSeconds": 160
+          "AvgTimePerAttemptSeconds": 300
         },
         { 
           "id": "R0-Hard",   
@@ -78,7 +79,7 @@
           "description": "4x Duke / Whisperer Uniques",
           "itemsNeeded": 4, 
           "dropChancePerAttempt": 0.01, 
-          "AvgTimePerAttemptSeconds": 120
+          "AvgTimePerAttemptSeconds": 180
         },
         {
           "id": "R0-Elite",
@@ -86,7 +87,7 @@
           "activityId": "raid_toa",
           "description": "280 Coconut Milk from ToA",
           "itemsNeeded": 280,
-          "AvgTimePerAttemptSeconds": 1800,
+          "AvgTimePerAttemptSeconds": 1900,
           "sources": [
             { "name": "normal_loot_coconut_milk", "rollsPerAttempt": 3, "chancePerRoll": 0.037, "quantityPerSuccess": 20 },
             { "name": "unique_counts_as_milk",    "rollsPerAttempt": 1, "chancePerRoll": 0.237214156941,        "quantityPerSuccess": 40 }
@@ -114,7 +115,7 @@
           "description": "400 LMS Points",
           "itemsNeeded": 400, 
           "dropChancePerAttempt": 1, 
-          "AvgTimePerAttemptSeconds": 180
+          "AvgTimePerAttemptSeconds": 120
         },
         {
           "id": "R1-Hard",
@@ -122,7 +123,7 @@
           "activityId": "cox",
           "description": "7x Torn Prayer Scrolls (Purple counts as 3)",
           "itemsNeeded": 7,
-          "AvgTimePerAttemptSeconds": 1200,
+          "AvgTimePerAttemptSeconds": 1800,
           "sources": [
             { "name": "torn_prayer_scroll", "rollsPerAttempt": 2, "chancePerRoll": 0.030303030303, "quantityPerSuccess": 1 },
             { "name": "unique_counts_as_three", "rollsPerAttempt": 1, "chancePerRoll": 0.166666666667, "quantityPerSuccess": 3 }
@@ -136,7 +137,7 @@
           "itemsNeeded": 4, 
           "note": "Treating this as 4 individual drops of each hilt for simplicity.",
           "dropChancePerAttempt": 0.00196850393701, 
-          "AvgTimePerAttemptSeconds": 90
+          "AvgTimePerAttemptSeconds": 100
         }
       ]
     },
@@ -151,8 +152,8 @@
           "description": "8x Guild Hunter Outfit Pieces",
           "itemsNeeded": 8, 
           "dropChancePerAttempt": 0.02, 
-          "AvgTimePerAttemptSeconds": 540,
-          "note": "Based on an assumed average of 9 minutes per rumor, no idea if this is accurate"
+          "AvgTimePerAttemptSeconds": 155,
+          "note": "Based on an assumed average of ~3 minutes per rumor, no idea if this is accurate"
         },
         { 
           "id": "R2-Medium", 
@@ -161,7 +162,7 @@
           "description": "4x Venator Shards",
           "itemsNeeded": 4, 
           "dropChancePerAttempt": 0.01, 
-          "AvgTimePerAttemptSeconds": 126
+          "AvgTimePerAttemptSeconds": 140
         },
         {
           "id": "R2-Hard",
@@ -169,7 +170,8 @@
           "activityId": "cg",
           "description": "5x Seeds, enhanced counts as 3",
           "itemsNeeded": 5,
-          "AvgTimePerAttemptSeconds": 600,
+          "AvgTimePerAttemptSeconds": 1500,
+          "note": "baseline time has this tile taking way longer than my sim, so inflating the time a bit above what is likely realistic to compensate",
           "sources": [
             { "name": "weapon_seed", "rollsPerAttempt": 3, "chancePerRoll": 0.02, "quantityPerSuccess": 1 },
             { "name": "armor_seed", "rollsPerAttempt": 3, "chancePerRoll": 0.02, "quantityPerSuccess": 1 },
@@ -182,7 +184,7 @@
           "activityId": "cox",
           "description": "20000 Dynamite, purple counts as 4000",
           "itemsNeeded": 20000,
-          "AvgTimePerAttemptSeconds": 1200,
+          "AvgTimePerAttemptSeconds": 1500,
           "sources": [
             { "name": "dynamite", "rollsPerAttempt": 2, "chancePerRoll": 0.030303030303, "quantityPerSuccess": 1148 },
             { "name": "unique_counts_as_4000", "rollsPerAttempt": 1, "chancePerRoll": 0.166666666667, "quantityPerSuccess": 4000 }
@@ -201,7 +203,7 @@
           "description": "4x Shaman Mask",
           "itemsNeeded": 4,
           "dropChancePerAttempt": 0.00083,
-          "AvgTimePerAttemptSeconds": 10
+          "AvgTimePerAttemptSeconds": 12
         },
         {
           "id": "R3-Medium",
@@ -219,7 +221,7 @@
           "description": "2x Yama Uniques",
           "itemsNeeded": 2,
           "dropChancePerAttempt": 0.0083,
-          "AvgTimePerAttemptSeconds": 180
+          "AvgTimePerAttemptSeconds": 360
         },
         { 
           "id": "R3-Elite",   
@@ -228,7 +230,7 @@
           "description": "4x Vard/Levi Uniques",
           "itemsNeeded": 4, 
           "dropChancePerAttempt": 0.01, 
-          "AvgTimePerAttemptSeconds": 120
+          "AvgTimePerAttemptSeconds": 130
         }
       ]
     },
@@ -243,8 +245,8 @@
           "description": "4x Thing under the bed KC",
           "itemsNeeded": 4,
           "dropChancePerAttempt": 0.0169491525424,
-          "AvgTimePerAttemptSeconds": 30,
-          "note": "I have no idea the average time for these, 30 is probably too high but who knows. 1/59 for drop rate."
+          "AvgTimePerAttemptSeconds": 240,
+          "note": "I have no idea the average time for these 1/59 for drop rate."
         },
         {
           "id": "R4-Medium",
@@ -253,7 +255,7 @@
           "description": "5x Kree / Garage Door Uniques",
           "itemsNeeded": 5,
           "dropChancePerAttempt": 0.00980392156863,
-          "AvgTimePerAttemptSeconds": 60
+          "AvgTimePerAttemptSeconds": 80
         },
         {
           "id": "R4-Hard",
@@ -262,7 +264,7 @@
           "description": "1x Giant's Club or Bryophyta's Essence",
           "itemsNeeded": 1,
           "dropChancePerAttempt": 0.0078125,
-          "AvgTimePerAttemptSeconds": 300,
+          "AvgTimePerAttemptSeconds": 480,
           "note": "Assuming about 5 minutes to get a key"
         },
         {
@@ -290,7 +292,7 @@
           "description": "20x Scurrius Spines",
           "itemsNeeded": 20,
           "dropChancePerAttempt": 0.030303030303,
-          "AvgTimePerAttemptSeconds": 80
+          "AvgTimePerAttemptSeconds": 69
         },
         {
           "id": "R5-Medium",
@@ -299,7 +301,7 @@
           "description": "1x Tome of Fire OR Water, or 5x Tome of Earth",
           "itemsNeeded": 1,
           "dropChancePerAttempt": 0.001,
-          "AvgTimePerAttemptSeconds": 210,
+          "AvgTimePerAttemptSeconds": 95,
           "note": "Taking a bit of a shot in the dark with this one on the rate and time. We simply need to get spooned."
         },
         {
@@ -309,7 +311,7 @@
           "description": "3x Doom of Mokhaiotl Uniques",
           "itemsNeeded": 3,
           "dropChancePerAttempt": 0.0153846153846, 
-          "AvgTimePerAttemptSeconds": 180,
+          "AvgTimePerAttemptSeconds": 340,
           "note": "Assumes level 7 delves"
         },
         {
@@ -334,7 +336,7 @@
           "description": "6x Earthbound Tecpatl",
           "itemsNeeded": 6,
           "dropChancePerAttempt": 0.0025,
-          "AvgTimePerAttemptSeconds": 12
+          "AvgTimePerAttemptSeconds": 18
         },
         {
           "id": "R6-Medium",
@@ -343,7 +345,8 @@
           "description": "5x cerb or 3x noxious halberd pieces, we are targetting araxxor",
           "itemsNeeded": 3,
           "dropChancePerAttempt": 0.005,
-          "AvgTimePerAttemptSeconds": 120
+          "AvgTimePerAttemptSeconds": 98,
+          "note": "source numbers have this at a pretty quick tile, but i dont know how considering you have to wait for the boss to respawn"
         },
         {
           "id": "R6-Hard",
@@ -352,7 +355,7 @@
           "description": "1x Nightmare / Phosanis Unique",
           "itemsNeeded": 1,
           "dropChancePerAttempt": 0.0149992500375,
-          "AvgTimePerAttemptSeconds": 270
+          "AvgTimePerAttemptSeconds": 550
         },
         {
           "id": "R6-Elite",
@@ -380,7 +383,7 @@
           "description": "4x Slayer Boot Sets, all boots up to araxyte boots",
           "itemsNeeded": 4,
           "dropChancePerAttempt": 0.00125,
-          "AvgTimePerAttemptSeconds": 8,
+          "AvgTimePerAttemptSeconds": 20,
           "note": "Based on araxyte boots as others are very fast"
         },
         {
@@ -423,7 +426,7 @@
           "description": "3x full light mystic sets",
           "itemsNeeded": 15,
           "dropChancePerAttempt": 0.001953125,
-          "AvgTimePerAttemptSeconds": 6,
+          "AvgTimePerAttemptSeconds": 8.5,
           "note": "Drop rate is the same across all enemies, and ttk is roughly the same, so multiplying sets by 5 and treating it as individual drops from one monster."
         },
         {
@@ -433,7 +436,7 @@
           "description": "2x Complete Wildy Shield Sets",
           "itemsNeeded": 12,
           "dropChancePerAttempt": 0.00390625,
-          "AvgTimePerAttemptSeconds": 15,
+          "AvgTimePerAttemptSeconds": 20,
           "note": "Treating as 12 individual drops for simplicity, using the 1/256 chance of a specific shard. TTK inflated because fanatic is slower than the other two."
         },
         {
@@ -443,7 +446,8 @@
           "description": "1x Nex Unique",
           "itemsNeeded": 1,
           "dropChancePerAttempt": 0.0232558139535,
-          "AvgTimePerAttemptSeconds": 160
+          "AvgTimePerAttemptSeconds": 1500,
+          "note": "the sim is somehow finishing this tile way too fast, increasing time by a lot to compensate."
         },
         {
           "id": "R8-Elite",
@@ -467,8 +471,8 @@
           "description": "6x Beginner Clue Boots",
           "itemsNeeded": 6,
           "dropChancePerAttempt": 0.02,
-          "AvgTimePerAttemptSeconds": 300,
-          "note": "Assuming 5 minutes between getting a clue and solving a clue, might be too high"
+          "AvgTimePerAttemptSeconds": 180,
+          "note": "Assuming ~2-4 minutes between getting a clue and solving a clue, might be too high"
         },
         {
           "id": "R9-Medium",
@@ -477,7 +481,7 @@
           "description": "4x Zenyte Shard",
           "itemsNeeded": 4,
           "dropChancePerAttempt": 0.00333333333333,
-          "AvgTimePerAttemptSeconds": 45
+          "AvgTimePerAttemptSeconds": 60
         },
         {
           "id": "R9-Hard",
@@ -498,7 +502,7 @@
           "description": "3x Corp Uniques",
           "itemsNeeded": 3,
           "dropChancePerAttempt": 0.00585823081429,
-          "AvgTimePerAttemptSeconds": 60,
+          "AvgTimePerAttemptSeconds": 240,
           "note": "Rate is based on holy elixer as it is far more common than any of the other drops"
         }
       ]
@@ -514,7 +518,7 @@
           "description": "3x Mask of Ranul",
           "itemsNeeded": 3,
           "dropChancePerAttempt": 0.001,
-          "AvgTimePerAttemptSeconds": 9
+          "AvgTimePerAttemptSeconds": 17
         },
         {
           "id": "R10-Medium",
@@ -531,7 +535,7 @@
           "activityId": "clue",
           "description": "6x Any Boater / Headband from Medium Clues",
           "itemsNeeded": 6,
-          "AvgTimePerAttemptSeconds": 180,
+          "AvgTimePerAttemptSeconds": 360,
           "note": "Assuming 3 minutes per clue and solve, which is a main rate.",
           "sources": [
             { "name": "red_boater", "rollsPerAttempt": 4, "chancePerRoll": 0.000882612533098, "quantityPerSuccess": 1 },
@@ -559,7 +563,7 @@
           "description": "Any boss jar, excluding skotizo",
           "itemsNeeded": 1,
           "dropChancePerAttempt": 0.001,
-          "AvgTimePerAttemptSeconds": 48,
+          "AvgTimePerAttemptSeconds": 75,
           "note": "I believe I assumed kraken"
         }
       ]
@@ -575,7 +579,7 @@
           "description": "3x Champion Scrolls",
           "itemsNeeded": 3,
           "dropChancePerAttempt": 0.0002,
-          "AvgTimePerAttemptSeconds": 2,
+          "AvgTimePerAttemptSeconds": 2.4,
           "note": "Goblins"
         },
         {
@@ -585,7 +589,7 @@
           "description": "4x TD Uniques",
           "itemsNeeded": 4,
           "dropChancePerAttempt": 0.004,
-          "AvgTimePerAttemptSeconds": 75
+          "AvgTimePerAttemptSeconds": 65
         },
         {
           "id": "R11-Hard",
@@ -603,7 +607,7 @@
           "description": "1x Any Soulreaper Axe Piece",
           "itemsNeeded": 1,
           "dropChancePerAttempt": 0.001953125,
-          "AvgTimePerAttemptSeconds": 180,
+          "AvgTimePerAttemptSeconds": 110,
           "note": "Based on Whisperer but should be roughly the same"
         }
       ]
@@ -619,7 +623,7 @@
           "description": "3x Pharoah Sceptre",
           "itemsNeeded": 3,
           "dropChancePerAttempt": 0.01,
-          "AvgTimePerAttemptSeconds": 120,
+          "AvgTimePerAttemptSeconds": 185,
           "note": "Rough guess as different players will have different thieving and speed at which they can do the mini game."
         },
         {
@@ -629,7 +633,7 @@
           "description": "6x Royal Titan Uniques",
           "itemsNeeded": 6,
           "dropChancePerAttempt": 0.0133333333333,
-          "AvgTimePerAttemptSeconds": 60,
+          "AvgTimePerAttemptSeconds": 120,
           "note": "Based on the crown pieces alone as most of us have the scrolls already and they stop dropping."
         },
         {
@@ -646,7 +650,7 @@
             { "name": "lockpick_floor_2", "rollsPerAttempt": 1, "chancePerRoll": 0.00833333333333, "quantityPerSuccess": 1 },
             { "name": "lockpick_floor_1", "rollsPerAttempt": 1, "chancePerRoll": 0.005, "quantityPerSuccess": 1 }
           ],
-          "AvgTimePerAttemptSeconds": 390
+          "AvgTimePerAttemptSeconds": 600
         },
         {
           "id": "R12-Elite",
@@ -655,7 +659,7 @@
           "description": "1x Torva Piece",
           "itemsNeeded": 1,
           "dropChancePerAttempt": 0.0116279069767,
-          "AvgTimePerAttemptSeconds": 165
+          "AvgTimePerAttemptSeconds": 1500
         }
       ]
     },
@@ -670,7 +674,7 @@
           "description": "2x Sarachnix Cudgels",
           "itemsNeeded": 2,
           "dropChancePerAttempt": 0.00260416666667,
-          "AvgTimePerAttemptSeconds": 45
+          "AvgTimePerAttemptSeconds": 66
         },
         {
           "id": "R13-Medium",
@@ -682,7 +686,7 @@
             { "name": "chainbody", "rollsPerAttempt": 1, "chancePerRoll": 0.0078125, "quantityPerSuccess": 1 },
             { "name": "jar", "rollsPerAttempt": 1, "chancePerRoll": 0.0005, "quantityPerSuccess": 3 }
           ],
-          "AvgTimePerAttemptSeconds": 75
+          "AvgTimePerAttemptSeconds": 120
         },
         {
           "id": "R13-Hard",
@@ -691,7 +695,7 @@
           "description": "1x Dragon Warhammer",
           "itemsNeeded": 1,
           "dropChancePerAttempt": 0.000333333333333,
-          "AvgTimePerAttemptSeconds": 20
+          "AvgTimePerAttemptSeconds": 30
         },
         {
           "id": "R13-Elite",
@@ -704,7 +708,7 @@
             { "name": "tyrannical_ring", "rollsPerAttempt": 1, "chancePerRoll": 0.001953125, "quantityPerSuccess": 1 },
             { "name": "treasonous_ring", "rollsPerAttempt": 1, "chancePerRoll": 0.001953125, "quantityPerSuccess": 1 }
           ],
-          "AvgTimePerAttemptSeconds": 90,
+          "AvgTimePerAttemptSeconds": 92,
           "note": "Rolling each ring individually seemed like the best way to handle this tile. 1.5 kill time based on getting pk'd"
         }
       ]
