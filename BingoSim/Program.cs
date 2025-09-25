@@ -17,10 +17,10 @@ class Program
     {
         // Args: --config <path> --runs <N> --strategy <greedy|grouped|unlocker|row-threshold|risk-averse|risk-seeking|ppm-row-bonus|row-sweep|monte-carlo|all> --seed <int> --threads <N> [--csv <path>]
         string configPath = Path.Combine(AppContext.BaseDirectory, "bingo-board.json");
-        int runs = 500;
+        int runs = 1;
         string strategyName = "monte-carlo"; // default strategy
         int? seed = null;
-        int threads = Environment.ProcessorCount * 2;
+        int threads = Environment.ProcessorCount;
         string? csvPath = $"/home/ohio/Documents/Temp/Bingo/{strategyName}{DateTime.Now.ToShortTimeString()}.csv";
 
         for (int i = 0; i < args.Length; i++)

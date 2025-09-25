@@ -1,5 +1,7 @@
 using BingoSim.Models;
 using BingoSim.Util;
+using System.Runtime.CompilerServices;
+using System.Collections.Concurrent;
 
 namespace BingoSim.Strategies;
 
@@ -16,7 +18,7 @@ public class MonteCarloLookaheadStrategy : IStrategy
     private readonly int _seedJitter;
     private readonly bool _parallelPlayouts;
 
-    public MonteCarloLookaheadStrategy(int playouts = 32, int steps = 15, int seedJitter = 1337, bool parallelPlayouts = true)
+    public MonteCarloLookaheadStrategy(int playouts = 16, int steps = 15, int seedJitter = 1337, bool parallelPlayouts = true)
     {
         _playouts = Math.Max(1, playouts);
         _steps = Math.Max(1, steps);
@@ -84,13 +86,17 @@ public class MonteCarloLookaheadStrategy : IStrategy
                     if (step == 0)
                     {
                         stepActivityId = activityId;
+                        // Precompute unlocked rows once for this step
+                        var rowUnlocked = ComputeRowUnlocked(simBoard);
                         // Collect unlocked & incomplete tiles for this activity
                         var buffer = new List<Tile>(4);
                         foreach (var row in simBoard.Rows)
                         {
+                            bool rowIsUnlocked = rowUnlocked[row.Index];
+                            if (!rowIsUnlocked) continue;
                             foreach (var t in row.Tiles)
                             {
-                                if (!t.Completed && t.ActivityId == stepActivityId && simBoard.IsTileUnlocked(t))
+                                if (!t.Completed && t.ActivityId == stepActivityId)
                                 {
                                     buffer.Add(t);
                                 }
@@ -116,6 +122,9 @@ public class MonteCarloLookaheadStrategy : IStrategy
                     }
                     time += attemptTime;
 
+                    // Precompute unlocked rows for this step
+                    var rowUnlocked2 = ComputeRowUnlocked(simBoard);
+
                     // Roll across all incomplete tiles tied to this activity
                     Tile? bestTile = null;
                     int bestQty = 0;
@@ -128,7 +137,7 @@ public class MonteCarloLookaheadStrategy : IStrategy
                         {
                             if (tile.Completed || tile.ActivityId != stepActivityId) continue;
 
-                            bool unlockedTile = simBoard.IsTileUnlocked(tile);
+                            bool unlockedTile = rowUnlocked2[tile.RowIndex];
 
                             if (tile.Sources.Count > 0)
                             {
@@ -235,7 +244,7 @@ public class MonteCarloLookaheadStrategy : IStrategy
             double fallbackGreedy = 0.0;
             for (int i = 0; i < tilesForActivity.Count; i++)
             {
-                double s = GreedyScore(tilesForActivity[i]);
+                double s = GreedyScoreCached(board, tilesForActivity[i]);
                 if (s > fallbackGreedy) fallbackGreedy = s;
             }
 
@@ -301,13 +310,8 @@ public class MonteCarloLookaheadStrategy : IStrategy
                     ItemsNeeded = t.ItemsNeeded,
                     DropChancePerAttempt = t.DropChancePerAttempt,
                     AvgTimePerAttemptMinutes = t.AvgTimePerAttemptMinutes,
-                    Sources = t.Sources.Select(s => new ProgressSource
-                    {
-                        Name = s.Name,
-                        RollsPerAttempt = s.RollsPerAttempt,
-                        ChancePerRoll = s.ChancePerRoll,
-                        QuantityPerSuccess = s.QuantityPerSuccess
-                    }).ToList(),
+                    // Share immutable Sources list to reduce allocations
+                    Sources = t.Sources, 
                     Completed = t.Completed,
                     ItemsObtained = t.ItemsObtained
                 }).ToList()
@@ -325,23 +329,105 @@ public class MonteCarloLookaheadStrategy : IStrategy
         }
     }
 
-    private static Tile? GreedyPick(Board board)
+    // Compute unlocked status per row based on current completion points
+    private static bool[] ComputeRowUnlocked(Board board)
     {
-        var candidates = board.AllTiles().Where(t => !t.Completed && board.IsTileUnlocked(t)).ToList();
-        if (candidates.Count == 0) return null;
-        return candidates
-            .OrderByDescending(t => GreedyScore(t))
-            .ThenBy(t => t.RowIndex)
-            .First();
+        var rows = board.Rows;
+        int n = rows.Count;
+        var arr = new bool[n];
+        if (n == 0) return arr;
+        arr[0] = true;
+        for (int i = 1; i < n; i++)
+        {
+            arr[i] = rows[i - 1].PointsCompleted >= 5;
+        }
+        return arr;
     }
 
-    private static double GreedyScore(Tile t)
+    // Heavy-cached greedy picker: avoids LINQ, uses global cached constants keyed by tile ID, and precomputes row unlocks per call
+    private static Tile? GreedyPick(Board board)
     {
-        double remaining = Math.Max(0, t.ItemsNeeded - t.ItemsObtained);
-        double units = Math.Max(t.ExpectedUnitsPerAttempt(), 1e-9);
-        double attempts = remaining / units;
-        double time = attempts * t.AvgTimePerAttemptMinutes;
-        return t.Points / Math.Max(time, 1e-9);
+        var rows = board.Rows;
+        int rowCount = rows.Count;
+        if (rowCount == 0) return null;
+
+        // Compute points completed per row and unlocked rows (avoid Board.IsTileUnlocked per tile)
+        var pointsCompleted = new int[rowCount];
+        for (int i = 0; i < rowCount; i++)
+        {
+            int sum = 0;
+            var r = rows[i];
+            var tiles = r.Tiles;
+            for (int j = 0; j < tiles.Count; j++)
+            {
+                var t = tiles[j];
+                if (t.Completed) sum += t.Points;
+            }
+            pointsCompleted[i] = sum;
+        }
+        var rowUnlocked = new bool[rowCount];
+        rowUnlocked[0] = true;
+        for (int i = 1; i < rowCount; i++) rowUnlocked[i] = pointsCompleted[i - 1] >= 5;
+
+        Tile? best = null;
+        double bestScore = double.NegativeInfinity;
+        int bestRowIndex = int.MaxValue;
+
+        for (int ri = 0; ri < rowCount; ri++)
+        {
+            if (!rowUnlocked[ri]) continue;
+            var tiles = rows[ri].Tiles;
+            for (int j = 0; j < tiles.Count; j++)
+            {
+                var t = tiles[j];
+                if (t.Completed) continue;
+                double k = GreedyK(t);
+                int remaining = t.ItemsNeeded - t.ItemsObtained;
+                if (remaining <= 0) continue;
+                double score = k / remaining;
+                if (score > bestScore || (score == bestScore && t.RowIndex < bestRowIndex))
+                {
+                    bestScore = score;
+                    best = t;
+                    bestRowIndex = t.RowIndex;
+                }
+            }
+        }
+
+        return best;
+    }
+
+    private static double GreedyScoreCached(Board board, Tile t)
+    {
+        double k = GreedyK(t);
+        int remaining = Math.Max(1, t.ItemsNeeded - t.ItemsObtained);
+        return k / remaining;
+    }
+
+    // Global cache for greedy scoring constants (thread-safe)
+    private static readonly ConcurrentDictionary<string, double> s_kByTileId = new();
+
+    private static double GreedyK(Tile t)
+    {
+        return s_kByTileId.GetOrAdd(t.Id, _ =>
+        {
+            double units = 0.0;
+            if (t.Sources != null && t.Sources.Count > 0)
+            {
+                for (int i = 0; i < t.Sources.Count; i++)
+                {
+                    var s = t.Sources[i];
+                    units += Math.Max(0, s.RollsPerAttempt) * Math.Max(0.0, s.ChancePerRoll) * Math.Max(0, s.QuantityPerSuccess);
+                }
+            }
+            else
+            {
+                units = Math.Max(0.0, t.DropChancePerAttempt);
+            }
+            units = Math.Max(units, 1e-9);
+            double time = Math.Max(t.AvgTimePerAttemptMinutes, 1e-9);
+            return (t.Points * units) / time;
+        });
     }
 
     private static int HashSeed(string s)
