@@ -80,7 +80,7 @@ class Program
         {
             var sw = Stopwatch.StartNew();
             // Run simulations for this strategy
-            var (times, points, sample) = RunMany(baseBoard, strat, runs, threads, baseSeed);
+            var (times, points, sample, avgOwn) = RunMany(baseBoard, strat, runs, threads, baseSeed);
             sw.Stop();
 
             double avgTime = times.Average();
@@ -105,22 +105,33 @@ class Program
             // For the first strategy (or single run), print a sample breakdown
             if (sample != null && strategies.Count == 1)
             {
-                Console.WriteLine("Sample run unlock times and per-tile completion times:");
-                // For each unlocked row, print the unlock time and tile completion times (absolute and delta from unlock)
+                Console.WriteLine("Sample run row unlock times:");
                 foreach (var kv in sample.RowUnlockTimesSeconds.OrderBy(k => k.Key))
                 {
                     int rowIndex = kv.Key;
                     double unlockT = kv.Value;
                     Console.WriteLine($"  Row {rowIndex}: unlock {FormatHms(unlockT)}");
+                }
 
-                    var rowTiles = sample.CompletionOrder
-                        .Where(c => c.RowIndex == rowIndex)
-                        .OrderBy(c => c.CompletionTimeSeconds)
+                // Build lookup of tiles by id to difficulty and row
+                var tileMeta = baseBoard.Rows
+                    .SelectMany(r => r.Tiles)
+                    .ToDictionary(t => t.Id, t => (t.Difficulty, t.RowIndex));
+
+                Console.WriteLine("Tiles by difficulty (ordered by row):");
+                var difficulties = new[] { TileDifficulty.Easy, TileDifficulty.Medium, TileDifficulty.Hard, TileDifficulty.Elite };
+                foreach (var diff in difficulties)
+                {
+                    Console.WriteLine($"  {diff}:");
+                    var tilesOfDiff = sample.CompletionOrder
+                        .Where(c => tileMeta.TryGetValue(c.TileId, out var meta) && meta.Difficulty == diff)
+                        .OrderBy(c => tileMeta[c.TileId].RowIndex)
+                        .ThenBy(c => c.CompletionTimeSeconds)
                         .ToList();
-                    foreach (var c in rowTiles)
+                    foreach (var c in tilesOfDiff)
                     {
-                        double delta = Math.Max(0, c.CompletionTimeSeconds - unlockT);
-                        Console.WriteLine($"    - {c.TileId}: {FormatHms(c.CompletionTimeSeconds)} (Δ {FormatHms(delta)}), own={FormatHms(c.OwnActiveTimeSeconds)}");
+                        double avgOwnSec = avgOwn.TryGetValue(c.TileId, out var v) ? v : c.OwnActiveTimeSeconds;
+                        Console.WriteLine($"    - [Row {tileMeta[c.TileId].RowIndex}] {c.TileId}: t={FormatHms(c.CompletionTimeSeconds)}, own={FormatHms(c.OwnActiveTimeSeconds)}, avgOwn={FormatHms(avgOwnSec)}");
                     }
                 }
 
@@ -177,12 +188,15 @@ class Program
         return $"{s}s";
     }
 
-    private static (double[] times, int[] points, RunResult? sample) RunMany(Board baseBoard, IStrategy strategy, int runs, int threads, int baseSeed)
+    private static (double[] times, int[] points, RunResult? sample, Dictionary<string, double> avgOwnActiveByTile) RunMany(Board baseBoard, IStrategy strategy, int runs, int threads, int baseSeed)
     {
         var runTimes = new double[runs];
         var runPoints = new int[runs];
         RunResult? sample = null;
         var po = new ParallelOptions { MaxDegreeOfParallelism = threads };
+
+        // Collect per-run tile own-active times then aggregate after parallel for thread-safety
+        var perRunTileOwn = new Dictionary<string, double>[runs];
 
         Parallel.For(0, runs, po, i =>
         {
@@ -196,9 +210,37 @@ class Program
             {
                 sample = res;
             }
+            // Record own-active time per tile for this run
+            var dict = new Dictionary<string, double>();
+            foreach (var c in res.CompletionOrder)
+            {
+                dict[c.TileId] = c.OwnActiveTimeSeconds;
+            }
+            perRunTileOwn[i] = dict;
         });
 
-        return (runTimes, runPoints, sample);
+        // Aggregate averages across runs
+        var sum = new Dictionary<string, double>();
+        var count = new Dictionary<string, int>();
+        for (int i = 0; i < runs; i++)
+        {
+            var d = perRunTileOwn[i];
+            if (d == null) continue;
+            foreach (var kv in d)
+            {
+                if (!sum.ContainsKey(kv.Key)) { sum[kv.Key] = 0.0; count[kv.Key] = 0; }
+                sum[kv.Key] += kv.Value;
+                count[kv.Key] += 1;
+            }
+        }
+        var avg = new Dictionary<string, double>();
+        foreach (var k in sum.Keys)
+        {
+            int n = Math.Max(1, count[k]);
+            avg[k] = sum[k] / n;
+        }
+
+        return (runTimes, runPoints, sample, avg);
     }
 
     private static List<IStrategy> GetAllStrategies() => new()
