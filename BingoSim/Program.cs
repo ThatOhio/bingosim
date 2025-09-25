@@ -18,7 +18,7 @@ class Program
         // Args: --config <path> --runs <N> --strategy <greedy|grouped|unlocker|combo-unlocker|row-threshold|risk-averse|risk-seeking|ppm-row-bonus|row-sweep|monte-carlo|all> --seed <int> --threads <N> [--csv <path>]
         string configPath = Path.Combine(AppContext.BaseDirectory, "bingo-board.json");
         int runs = 1000;
-        string strategyName = "all"; // default strategy
+        string strategyName = "combo-unlocker"; // default strategy
         int? seed = null;
         int threads = Environment.ProcessorCount;
         string? csvPath = $"/home/ohio/Documents/Temp/Bingo/{strategyName}{DateTime.Now.ToShortTimeString()}.csv";
@@ -105,11 +105,25 @@ class Program
             // For the first strategy (or single run), print a sample breakdown
             if (sample != null && strategies.Count == 1)
             {
-                Console.WriteLine("Sample run unlock times (row: h:m:s):");
+                Console.WriteLine("Sample run unlock times and per-tile completion times:");
+                // For each unlocked row, print the unlock time and tile completion times (absolute and delta from unlock)
                 foreach (var kv in sample.RowUnlockTimesSeconds.OrderBy(k => k.Key))
                 {
-                    Console.WriteLine($"  Row {kv.Key}: {FormatHms(kv.Value)}");
+                    int rowIndex = kv.Key;
+                    double unlockT = kv.Value;
+                    Console.WriteLine($"  Row {rowIndex}: unlock {FormatHms(unlockT)}");
+
+                    var rowTiles = sample.CompletionOrder
+                        .Where(c => c.RowIndex == rowIndex)
+                        .OrderBy(c => c.CompletionTimeSeconds)
+                        .ToList();
+                    foreach (var c in rowTiles)
+                    {
+                        double delta = Math.Max(0, c.CompletionTimeSeconds - unlockT);
+                        Console.WriteLine($"    - {c.TileId}: {FormatHms(c.CompletionTimeSeconds)} (Δ {FormatHms(delta)}), own={FormatHms(c.OwnActiveTimeSeconds)}");
+                    }
                 }
+
                 Console.WriteLine("Sample run completion order:");
                 foreach (var c in sample.CompletionOrder)
                 {

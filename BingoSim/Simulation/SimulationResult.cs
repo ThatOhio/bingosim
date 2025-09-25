@@ -9,6 +9,8 @@ public class TileCompletion
     public int Points { get; set; }
     // Stored in seconds
     public double CompletionTimeSeconds { get; set; }
+    // New: time actively spent performing this tile's activity until it completed (seconds)
+    public double OwnActiveTimeSeconds { get; set; }
 }
 
 public class RunResult

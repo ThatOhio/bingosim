@@ -30,10 +30,15 @@ public class Tile
     [JsonIgnore]
     public int ItemsObtained { get; set; }
 
+    // Tracks how much time (seconds) was actively spent performing this tile's activity while it was incomplete
+    [JsonIgnore]
+    public double ActiveTimeSpentSeconds { get; set; }
+
     public void ResetProgress()
     {
         Completed = false;
         ItemsObtained = 0;
+        ActiveTimeSpentSeconds = 0.0;
     }
 
     // Expected units of progress per attempt considering all sources (or legacy chance)

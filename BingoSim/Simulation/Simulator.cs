@@ -52,6 +52,12 @@ public class Simulator
             // Progress is only applied to unlocked tiles; successes for locked tiles are wasted
             var rollTiles = _board.AllTiles().Where(t => t.ActivityId == activityId && !t.Completed).ToList();
 
+            // Accumulate per-tile active time spent this attempt
+            foreach (var tile in rollTiles)
+            {
+                tile.ActiveTimeSpentSeconds += attemptTime;
+            }
+
             // Roll drops across all progress sources
             var successEvents = new List<(Tile tile, int qty)>();
             foreach (var tile in rollTiles)
@@ -118,7 +124,8 @@ public class Simulator
                 TileId = tile.Id,
                 RowIndex = tile.RowIndex,
                 Points = tile.Points,
-                CompletionTimeSeconds = time
+                CompletionTimeSeconds = time,
+                OwnActiveTimeSeconds = tile.ActiveTimeSpentSeconds
             });
 
             // Check unlock of next row
