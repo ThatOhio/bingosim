@@ -6,4 +6,8 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\BingoSim.Shared\BingoSim.Shared.csproj" />
+    </ItemGroup>
+
 </Project>
