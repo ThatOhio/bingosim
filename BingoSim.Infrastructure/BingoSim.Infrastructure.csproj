@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\BingoSim.Application\BingoSim.Application.csproj" />
+      <ProjectReference Include="..\BingoSim.Core\BingoSim.Core.csproj" />
+      <ProjectReference Include="..\BingoSim.Shared\BingoSim.Shared.csproj" />
+    </ItemGroup>
+
+</Project>

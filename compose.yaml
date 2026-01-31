@@ -5,3 +5,9 @@
       context: .
       dockerfile: BingoSim.Web/Dockerfile
 
+  bingosim.worker:
+    image: bingosim.worker
+    build:
+      context: .
+      dockerfile: BingoSim.Worker/Dockerfile
+

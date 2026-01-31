@@ -2,10 +2,29 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BingoSim.Web", "BingoSim.Web\BingoSim.Web.csproj", "{220B8530-E7F6-4DB9-AEFD-F2116526F595}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{F8845E2A-21BF-4617-B2D4-E3A6E9098F45}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "00 Solution Items", "00 Solution Items", "{F8845E2A-21BF-4617-B2D4-E3A6E9098F45}"
 	ProjectSection(SolutionItems) = preProject
 		compose.yaml = compose.yaml
+		README.md = README.md
+		.dockerignore = .dockerignore
+		.gitignore = .gitignore
 	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "01 Presentation", "01 Presentation", "{D6970800-8D2C-4845-8E74-CE6F2C4B7738}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BingoSim.Worker", "BingoSim.Worker\BingoSim.Worker.csproj", "{045F1536-6430-417E-A02A-8E83F173FF9B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "02 Domain", "02 Domain", "{936E95B7-EBA1-441F-9131-AEF12961F3F0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BingoSim.Core", "BingoSim.Core\BingoSim.Core.csproj", "{18A2935C-6070-479B-93AA-DE0E815F80C8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BingoSim.Application", "BingoSim.Application\BingoSim.Application.csproj", "{B1360C63-A9B6-4E3E-A96D-4CD5DAB54313}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BingoSim.Shared", "BingoSim.Shared\BingoSim.Shared.csproj", "{9C0FEABF-A560-40BE-8889-6EE30277E9A1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "03 Infrastructure", "03 Infrastructure", "{B09F0F72-38B3-45F4-BD1B-42FB67B5C5EF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BingoSim.Infrastructure", "BingoSim.Infrastructure\BingoSim.Infrastructure.csproj", "{54D30D53-C1AD-4EBF-8954-116192713EE0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,5 +36,33 @@ Global
 		{220B8530-E7F6-4DB9-AEFD-F2116526F595}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{220B8530-E7F6-4DB9-AEFD-F2116526F595}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{220B8530-E7F6-4DB9-AEFD-F2116526F595}.Release|Any CPU.Build.0 = Release|Any CPU
+		{045F1536-6430-417E-A02A-8E83F173FF9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{045F1536-6430-417E-A02A-8E83F173FF9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{045F1536-6430-417E-A02A-8E83F173FF9B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{045F1536-6430-417E-A02A-8E83F173FF9B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{18A2935C-6070-479B-93AA-DE0E815F80C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{18A2935C-6070-479B-93AA-DE0E815F80C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{18A2935C-6070-479B-93AA-DE0E815F80C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{18A2935C-6070-479B-93AA-DE0E815F80C8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B1360C63-A9B6-4E3E-A96D-4CD5DAB54313}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B1360C63-A9B6-4E3E-A96D-4CD5DAB54313}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B1360C63-A9B6-4E3E-A96D-4CD5DAB54313}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B1360C63-A9B6-4E3E-A96D-4CD5DAB54313}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9C0FEABF-A560-40BE-8889-6EE30277E9A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9C0FEABF-A560-40BE-8889-6EE30277E9A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9C0FEABF-A560-40BE-8889-6EE30277E9A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9C0FEABF-A560-40BE-8889-6EE30277E9A1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{54D30D53-C1AD-4EBF-8954-116192713EE0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{54D30D53-C1AD-4EBF-8954-116192713EE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{54D30D53-C1AD-4EBF-8954-116192713EE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{54D30D53-C1AD-4EBF-8954-116192713EE0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{220B8530-E7F6-4DB9-AEFD-F2116526F595} = {D6970800-8D2C-4845-8E74-CE6F2C4B7738}
+		{045F1536-6430-417E-A02A-8E83F173FF9B} = {D6970800-8D2C-4845-8E74-CE6F2C4B7738}
+		{18A2935C-6070-479B-93AA-DE0E815F80C8} = {936E95B7-EBA1-441F-9131-AEF12961F3F0}
+		{B1360C63-A9B6-4E3E-A96D-4CD5DAB54313} = {936E95B7-EBA1-441F-9131-AEF12961F3F0}
+		{9C0FEABF-A560-40BE-8889-6EE30277E9A1} = {936E95B7-EBA1-441F-9131-AEF12961F3F0}
+		{54D30D53-C1AD-4EBF-8954-116192713EE0} = {B09F0F72-38B3-45F4-BD1B-42FB67B5C5EF}
 	EndGlobalSection
 EndGlobal
