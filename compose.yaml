@@ -1,0 +1,7 @@
+﻿services:
+  bingosim.web:
+    image: bingosim.web
+    build:
+      context: .
+      dockerfile: BingoSim.Web/Dockerfile
+
