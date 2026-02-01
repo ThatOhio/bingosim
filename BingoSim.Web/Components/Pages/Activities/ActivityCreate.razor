@@ -19,19 +19,11 @@
             <div class="form-group">
                 <label for="key">Key</label>
                 <InputText id="key" @bind-Value="_model.Key" class="form-control" placeholder="e.g., activity.zulrah" />
-                @if (_errors.ContainsKey("Key"))
-                {
-                    <span class="field-error">@_errors["Key"]</span>
-                }
             </div>
 
             <div class="form-group">
                 <label for="name">Name</label>
                 <InputText id="name" @bind-Value="_model.Name" class="form-control" placeholder="e.g., Zulrah" />
-                @if (_errors.ContainsKey("Name"))
-                {
-                    <span class="field-error">@_errors["Name"]</span>
-                }
             </div>
         </div>
 
@@ -266,7 +258,7 @@
 
         try
         {
-            var request = _model.ToCreateRequest();
+            var request = _model.ToRequest();
             var validationResult = await Validator.ValidateAsync(request);
 
             if (!validationResult.IsValid)
@@ -304,7 +296,7 @@
         public List<AttemptFormModel> Attempts { get; set; } = [new AttemptFormModel()];
         public List<BandFormModel> Bands { get; set; } = [];
 
-        public CreateActivityDefinitionRequest ToCreateRequest()
+        public CreateActivityDefinitionRequest ToRequest()
         {
             return new CreateActivityDefinitionRequest(
                 Key: Key,
@@ -312,21 +304,6 @@
                 ModeSupport: new ActivityModeSupportDto(SupportsSolo, SupportsGroup, MinGroupSize, MaxGroupSize),
                 Attempts: Attempts.Select(x => x.ToDto()).ToList(),
                 GroupScalingBands: Bands.Select(x => x.ToDto()).ToList());
-        }
-
-        public static ActivityFormModel FromResponse(ActivityDefinitionResponse response)
-        {
-            return new ActivityFormModel
-            {
-                Key = response.Key,
-                Name = response.Name,
-                SupportsSolo = response.ModeSupport.SupportsSolo,
-                SupportsGroup = response.ModeSupport.SupportsGroup,
-                MinGroupSize = response.ModeSupport.MinGroupSize,
-                MaxGroupSize = response.ModeSupport.MaxGroupSize,
-                Attempts = response.Attempts.Select(AttemptFormModel.FromDto).ToList(),
-                Bands = response.GroupScalingBands.Select(BandFormModel.FromDto).ToList()
-            };
         }
     }
 
@@ -347,19 +324,6 @@
                 new AttemptTimeModelDto(BaselineTimeSeconds, Distribution, VarianceSeconds),
                 Outcomes.Select(x => x.ToDto()).ToList());
         }
-
-        public static AttemptFormModel FromDto(ActivityAttemptDefinitionDto dto)
-        {
-            return new AttemptFormModel
-            {
-                Key = dto.Key,
-                RollScope = dto.RollScope,
-                BaselineTimeSeconds = dto.TimeModel.BaselineTimeSeconds,
-                Distribution = dto.TimeModel.Distribution,
-                VarianceSeconds = dto.TimeModel.VarianceSeconds,
-                Outcomes = dto.Outcomes.Select(OutcomeFormModel.FromDto).ToList()
-            };
-        }
     }
 
     private class OutcomeFormModel
@@ -373,17 +337,6 @@
         {
             return new ActivityOutcomeDefinitionDto(Key, WeightNumerator, WeightDenominator, Grants.Select(x => x.ToDto()).ToList());
         }
-
-        public static OutcomeFormModel FromDto(ActivityOutcomeDefinitionDto dto)
-        {
-            return new OutcomeFormModel
-            {
-                Key = dto.Key,
-                WeightNumerator = dto.WeightNumerator,
-                WeightDenominator = dto.WeightDenominator,
-                Grants = dto.Grants.Select(GrantFormModel.FromDto).ToList()
-            };
-        }
     }
 
     private class GrantFormModel
@@ -392,8 +345,6 @@
         public int Units { get; set; } = 1;
 
         public ProgressGrantDto ToDto() => new ProgressGrantDto(DropKey, Units);
-
-        public static GrantFormModel FromDto(ProgressGrantDto dto) => new() { DropKey = dto.DropKey, Units = dto.Units };
     }
 
     private class BandFormModel
@@ -404,13 +355,5 @@
         public decimal ProbabilityMultiplier { get; set; } = 1.0m;
 
         public GroupSizeBandDto ToDto() => new GroupSizeBandDto(MinSize, MaxSize, TimeMultiplier, ProbabilityMultiplier);
-
-        public static BandFormModel FromDto(GroupSizeBandDto dto) => new()
-        {
-            MinSize = dto.MinSize,
-            MaxSize = dto.MaxSize,
-            TimeMultiplier = dto.TimeMultiplier,
-            ProbabilityMultiplier = dto.ProbabilityMultiplier
-        };
     }
 }

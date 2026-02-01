@@ -30,19 +30,11 @@ else
                 <div class="form-group">
                     <label for="key">Key</label>
                     <InputText id="key" @bind-Value="_model.Key" class="form-control" placeholder="e.g., activity.zulrah" />
-                    @if (_errors.ContainsKey("Key"))
-                    {
-                        <span class="field-error">@_errors["Key"]</span>
-                    }
                 </div>
 
                 <div class="form-group">
                     <label for="name">Name</label>
                     <InputText id="name" @bind-Value="_model.Name" class="form-control" placeholder="e.g., Zulrah" />
-                    @if (_errors.ContainsKey("Name"))
-                    {
-                        <span class="field-error">@_errors["Name"]</span>
-                    }
                 </div>
             </div>
 
@@ -312,7 +304,7 @@ else
 
         try
         {
-            var request = _model.ToUpdateRequest();
+            var request = _model.ToRequest();
             var validationResult = await Validator.ValidateAsync(request);
 
             if (!validationResult.IsValid)
@@ -350,7 +342,7 @@ else
         public List<AttemptFormModel> Attempts { get; set; } = [];
         public List<BandFormModel> Bands { get; set; } = [];
 
-        public UpdateActivityDefinitionRequest ToUpdateRequest()
+        public UpdateActivityDefinitionRequest ToRequest()
         {
             return new UpdateActivityDefinitionRequest(
                 Key: Key,

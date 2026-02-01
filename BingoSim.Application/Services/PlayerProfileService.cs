@@ -73,9 +73,7 @@ public class PlayerProfileService(
     {
         var exists = await repository.ExistsAsync(id, cancellationToken);
         if (!exists)
-        {
             throw new PlayerProfileNotFoundException(id);
-        }
 
         await repository.DeleteAsync(id, cancellationToken);
 

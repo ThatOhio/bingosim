@@ -39,11 +39,8 @@ public class ActivityDefinitionService(
         var attempts = request.Attempts.Select(ActivityDefinitionMapper.ToEntity).ToList();
         entity.SetAttempts(attempts);
 
-        if (request.GroupScalingBands is { Count: > 0 })
-        {
-            var bands = request.GroupScalingBands.Select(ActivityDefinitionMapper.ToEntity).ToList();
-            entity.SetGroupScalingBands(bands);
-        }
+        var bands = request.GroupScalingBands?.Select(ActivityDefinitionMapper.ToEntity).ToList() ?? [];
+        entity.SetGroupScalingBands(bands);
 
         await repository.AddAsync(entity, cancellationToken);
 
