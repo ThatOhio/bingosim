@@ -8,6 +8,7 @@ namespace BingoSim.Core.Interfaces;
 public interface IActivityDefinitionRepository
 {
     Task<ActivityDefinition?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ActivityDefinition>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
     Task<ActivityDefinition?> GetByKeyAsync(string key, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ActivityDefinition>> GetAllAsync(CancellationToken cancellationToken = default);
     Task AddAsync(ActivityDefinition entity, CancellationToken cancellationToken = default);

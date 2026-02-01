@@ -1,0 +1,122 @@
+@page "/events"
+@inject IEventService EventService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Events</PageTitle>
+
+<div class="page-header">
+    <h1>Events</h1>
+    <a href="/events/create" class="btn btn-primary">Create Event</a>
+</div>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_events.Count == 0)
+{
+    <div class="empty-state">
+        <p>No events found. Create your first event to get started.</p>
+    </div>
+}
+else
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Duration</th>
+                    <th>Unlock Pts/Row</th>
+                    <th>Rows</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var evt in _events)
+                {
+                    <tr @key="evt.Id">
+                        <td>@evt.Name</td>
+                        <td>@FormatDuration(evt.Duration)</td>
+                        <td>@evt.UnlockPointsRequiredPerRow</td>
+                        <td>@evt.Rows.Count</td>
+                        <td>@evt.CreatedAt.ToString("g")</td>
+                        <td class="actions">
+                            <a href="/events/@evt.Id/edit" class="btn btn-sm btn-secondary">Edit</a>
+                            <button type="button" class="btn btn-sm btn-danger" @onclick="() => ShowDeleteConfirmation(evt)">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<DeleteConfirmationModal
+    IsVisible="_showDeleteModal"
+    Title="Delete Event"
+    Message="@($"Are you sure you want to delete '{_eventToDelete?.Name}'? This action cannot be undone.")"
+    OnConfirm="ConfirmDelete"
+    OnCancel="CancelDelete" />
+
+@code {
+    private List<EventResponse> _events = [];
+    private bool _loading = true;
+    private bool _showDeleteModal;
+    private EventResponse? _eventToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEventsAsync();
+    }
+
+    private async Task LoadEventsAsync()
+    {
+        _loading = true;
+        try
+        {
+            var list = await EventService.GetAllAsync();
+            _events = list.ToList();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalHours >= 1)
+            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+        if (duration.TotalMinutes >= 1)
+            return $"{(int)duration.TotalMinutes}m";
+        return $"{duration.TotalSeconds}s";
+    }
+
+    private void ShowDeleteConfirmation(EventResponse evt)
+    {
+        _eventToDelete = evt;
+        _showDeleteModal = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (_eventToDelete is not null)
+        {
+            await EventService.DeleteAsync(_eventToDelete.Id);
+            await LoadEventsAsync();
+        }
+        _showDeleteModal = false;
+        _eventToDelete = null;
+    }
+
+    private void CancelDelete()
+    {
+        _showDeleteModal = false;
+        _eventToDelete = null;
+    }
+}

@@ -1,0 +1,338 @@
+@page "/events/create"
+@inject IEventService EventService
+@inject IActivityDefinitionService ActivityDefinitionService
+@inject IValidator<CreateEventRequest> Validator
+@inject NavigationManager NavigationManager
+@inject ILogger<EventCreate> Logger
+@rendermode InteractiveServer
+
+<PageTitle>Create Event</PageTitle>
+
+<div class="page-header">
+    <h1>Create Event</h1>
+</div>
+
+<div class="form-container">
+    <EditForm Model="_model" OnValidSubmit="HandleSubmit" FormName="CreateEventForm">
+        <div class="form-section">
+            <h2>Basic Information</h2>
+            <div class="form-group">
+                <label for="name">Name</label>
+                <InputText id="name" @bind-Value="_model.Name" class="form-control" placeholder="e.g., Winter Bingo 2025" />
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="durationHours">Duration (hours)</label>
+                    <InputNumber id="durationHours" @bind-Value="_model.DurationHours" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label for="durationMinutes">Duration (minutes)</label>
+                    <InputNumber id="durationMinutes" @bind-Value="_model.DurationMinutes" class="form-control" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="unlockPoints">Unlock points per row</label>
+                <InputNumber id="unlockPoints" @bind-Value="_model.UnlockPointsRequiredPerRow" class="form-control" />
+            </div>
+        </div>
+
+        <div class="form-section">
+            <div class="section-header">
+                <h2>Rows (4 tiles each: points 1, 2, 3, 4)</h2>
+                <button type="button" class="btn btn-sm btn-secondary" @onclick="AddRow">Add Row</button>
+            </div>
+            @for (var r = 0; r < _model.Rows.Count; r++)
+            {
+                var rowIndex = r;
+                var row = _model.Rows[r];
+                <div class="row-block">
+                    <h3>Row @(rowIndex + 1)</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Row index</label>
+                            <input type="number" @bind="row.Index" class="form-control" />
+                        </div>
+                        <button type="button" class="btn btn-sm btn-danger remove-btn" disabled="@(_model.Rows.Count == 1)" @onclick="() => RemoveRow(rowIndex)">Remove Row</button>
+                    </div>
+                    @for (var t = 0; t < row.Tiles.Count; t++)
+                    {
+                        var tileIndex = t;
+                        var tile = row.Tiles[t];
+                        <div class="tile-block">
+                            <h4>Tile @(tileIndex + 1) (Points @tile.Points)</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Key</label>
+                                    <input type="text" @bind="tile.Key" class="form-control" placeholder="e.g., tile.r1.p1" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Name</label>
+                                    <input type="text" @bind="tile.Name" class="form-control" placeholder="e.g., Zulrah" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Required count</label>
+                                    <input type="number" @bind="tile.RequiredCount" class="form-control" />
+                                </div>
+                            </div>
+                            <div class="rules-subsection">
+                                <div class="section-header">
+                                    <h5>Allowed activities (1+ rules)</h5>
+                                    <button type="button" class="btn btn-sm btn-outline" @onclick="() => AddRule(rowIndex, tileIndex)">Add rule</button>
+                                </div>
+                                @for (var a = 0; a < tile.AllowedActivities.Count; a++)
+                                {
+                                    var ruleIndex = a;
+                                    var rule = tile.AllowedActivities[a];
+                                    <div class="rule-block">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label>Activity</label>
+                                                <InputSelect TValue="Guid" class="form-control" @bind-Value="rule.ActivityDefinitionId" @bind-Value:after="() => SyncRuleActivityKey(rowIndex, tileIndex, ruleIndex)">
+                                                    <option value="@Guid.Empty">-- Select --</option>
+                                                    @foreach (var act in _activities)
+                                                    {
+                                                        <option value="@act.Id">@act.Key - @act.Name</option>
+                                                    }
+                                                </InputSelect>
+                                            </div>
+                                            <span class="form-control-plaintext">@(rule.ActivityKey ?? "")</span>
+                                            <button type="button" class="btn btn-sm btn-danger" disabled="@(tile.AllowedActivities.Count == 1)" @onclick="() => RemoveRule(rowIndex, tileIndex, ruleIndex)">Remove</button>
+                                        </div>
+                                        <div class="form-row">
+                                            <label>Accepted drop keys (comma or one per line)</label>
+                                            <input type="text" @bind="rule.AcceptedDropKeysText" class="form-control" placeholder="drop.key1, drop.key2" />
+                                        </div>
+                                        <div class="form-row">
+                                            <label>Requirements (capability keys, comma-separated)</label>
+                                            <input type="text" @bind="rule.RequirementsText" class="form-control" placeholder="quest.ds2, item.dhl" />
+                                        </div>
+                                        <div class="section-header">
+                                            <h6>Modifiers</h6>
+                                            <button type="button" class="btn btn-sm btn-outline" @onclick="() => AddModifier(rowIndex, tileIndex, ruleIndex)">Add modifier</button>
+                                        </div>
+                                        @for (var m = 0; m < rule.Modifiers.Count; m++)
+                                        {
+                                            var modIndex = m;
+                                            var mod = rule.Modifiers[m];
+                                            <div class="form-row modifier-row">
+                                                <input type="text" @bind="mod.CapabilityKey" class="form-control" placeholder="Capability key" />
+                                                <input type="text" @bind="mod.CapabilityName" class="form-control" placeholder="Capability name" />
+                                                <input type="number" step="0.01" @bind="mod.TimeMultiplier" class="form-control" placeholder="Time mult" />
+                                                <input type="number" step="0.01" @bind="mod.ProbabilityMultiplier" class="form-control" placeholder="Prob mult" />
+                                                <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveModifier(rowIndex, tileIndex, ruleIndex, modIndex)">Remove</button>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        @if (_errorMessage is not null)
+        {
+            <div class="alert alert-danger">
+                <p>@_errorMessage</p>
+                @if (_errors.Count > 0)
+                {
+                    <ul class="validation-errors">
+                        @foreach (var err in _errors)
+                        {
+                            <li><strong>@err.Key:</strong> @err.Value</li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+
+        <div class="form-actions">
+            <a href="/events" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary" disabled="@_saving">
+                @(_saving ? "Creating..." : "Create Event")
+            </button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private EventFormModel _model = new();
+    private List<ActivityDefinitionResponse> _activities = [];
+    private Dictionary<string, string> _errors = [];
+    private string? _errorMessage;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var list = await ActivityDefinitionService.GetAllAsync();
+        _activities = list.ToList();
+        if (_model.Rows.Count == 0)
+            _model.Rows.Add(RowFormModel.CreateDefault());
+    }
+
+    private void AddRow()
+    {
+        var nextIndex = _model.Rows.Count > 0 ? _model.Rows.Max(x => x.Index) + 1 : 0;
+        _model.Rows.Add(RowFormModel.CreateWithIndex(nextIndex));
+    }
+
+    private void RemoveRow(int index)
+    {
+        if (_model.Rows.Count > 1)
+            _model.Rows.RemoveAt(index);
+    }
+
+    private void AddRule(int rowIndex, int tileIndex)
+    {
+        _model.Rows[rowIndex].Tiles[tileIndex].AllowedActivities.Add(new TileActivityRuleFormModel());
+    }
+
+    private void RemoveRule(int rowIndex, int tileIndex, int ruleIndex)
+    {
+        var list = _model.Rows[rowIndex].Tiles[tileIndex].AllowedActivities;
+        if (list.Count > 1)
+            list.RemoveAt(ruleIndex);
+    }
+
+    private void SyncRuleActivityKey(int rowIndex, int tileIndex, int ruleIndex)
+    {
+        var rule = _model.Rows[rowIndex].Tiles[tileIndex].AllowedActivities[ruleIndex];
+        var act = _activities.FirstOrDefault(a => a.Id == rule.ActivityDefinitionId);
+        rule.ActivityKey = act?.Key ?? "";
+    }
+
+    private void AddModifier(int rowIndex, int tileIndex, int ruleIndex)
+    {
+        _model.Rows[rowIndex].Tiles[tileIndex].AllowedActivities[ruleIndex].Modifiers.Add(new ActivityModifierRuleFormModel());
+    }
+
+    private void RemoveModifier(int rowIndex, int tileIndex, int ruleIndex, int modIndex)
+    {
+        _model.Rows[rowIndex].Tiles[tileIndex].AllowedActivities[ruleIndex].Modifiers.RemoveAt(modIndex);
+    }
+
+    private async Task HandleSubmit()
+    {
+        _errors.Clear();
+        _errorMessage = null;
+        _saving = true;
+        try
+        {
+            var request = _model.ToCreateRequest();
+            var validationResult = await Validator.ValidateAsync(request);
+            if (!validationResult.IsValid)
+            {
+                foreach (var error in validationResult.Errors)
+                    _errors[error.PropertyName] = error.ErrorMessage;
+                _errorMessage = "Please correct the errors above.";
+                return;
+            }
+            await EventService.CreateAsync(request);
+            NavigationManager.NavigateTo("/events");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create event");
+            _errorMessage = "An error occurred while creating the event. Please try again.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private class EventFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public int DurationHours { get; set; } = 24;
+        public int DurationMinutes { get; set; }
+        public int UnlockPointsRequiredPerRow { get; set; } = 5;
+        public List<RowFormModel> Rows { get; set; } = [];
+
+        public CreateEventRequest ToCreateRequest()
+        {
+            var duration = TimeSpan.FromHours(DurationHours) + TimeSpan.FromMinutes(DurationMinutes);
+            if (duration <= TimeSpan.Zero) duration = TimeSpan.FromHours(24);
+            return new CreateEventRequest(Name, duration, UnlockPointsRequiredPerRow, Rows.Select(x => x.ToDto()).ToList());
+        }
+    }
+
+    private class RowFormModel
+    {
+        public int Index { get; set; }
+        public List<TileFormModel> Tiles { get; set; } = [];
+
+        public static RowFormModel CreateDefault()
+        {
+            return new RowFormModel
+            {
+                Index = 0,
+                Tiles =
+                [
+                    new TileFormModel { Points = 1, Key = "r0.p1", Name = "Tile 1", RequiredCount = 1, AllowedActivities = [new TileActivityRuleFormModel()] },
+                    new TileFormModel { Points = 2, Key = "r0.p2", Name = "Tile 2", RequiredCount = 1, AllowedActivities = [new TileActivityRuleFormModel()] },
+                    new TileFormModel { Points = 3, Key = "r0.p3", Name = "Tile 3", RequiredCount = 1, AllowedActivities = [new TileActivityRuleFormModel()] },
+                    new TileFormModel { Points = 4, Key = "r0.p4", Name = "Tile 4", RequiredCount = 1, AllowedActivities = [new TileActivityRuleFormModel()] }
+                ]
+            };
+        }
+
+        public static RowFormModel CreateWithIndex(int index)
+        {
+            var row = CreateDefault();
+            row.Index = index;
+            row.Tiles[0].Key = $"r{index}.p1"; row.Tiles[1].Key = $"r{index}.p2"; row.Tiles[2].Key = $"r{index}.p3"; row.Tiles[3].Key = $"r{index}.p4";
+            return row;
+        }
+
+        public RowDto ToDto() => new RowDto(Index, Tiles.Select(t => t.ToDto()).ToList());
+    }
+
+    private class TileFormModel
+    {
+        public string Key { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int Points { get; set; }
+        public int RequiredCount { get; set; } = 1;
+        public List<TileActivityRuleFormModel> AllowedActivities { get; set; } = [];
+
+        public TileDto ToDto() => new TileDto(Key, Name, Points, RequiredCount, AllowedActivities.Select(a => a.ToDto()).ToList());
+    }
+
+    private class TileActivityRuleFormModel
+    {
+        public Guid ActivityDefinitionId { get; set; }
+        public string ActivityKey { get; set; } = string.Empty;
+        public string AcceptedDropKeysText { get; set; } = string.Empty;
+        public string RequirementsText { get; set; } = string.Empty;
+        public List<ActivityModifierRuleFormModel> Modifiers { get; set; } = [];
+
+        public TileActivityRuleDto ToDto()
+        {
+            var dropKeys = AcceptedDropKeysText.Split([',', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+            var reqKeys = RequirementsText.Split([',', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var requirements = reqKeys.Select(k => new CapabilityDto(k, k)).ToList();
+            return new TileActivityRuleDto(
+                ActivityDefinitionId,
+                ActivityKey,
+                null,
+                dropKeys,
+                requirements,
+                Modifiers.Select(m => m.ToDto()).ToList());
+        }
+    }
+
+    private class ActivityModifierRuleFormModel
+    {
+        public string CapabilityKey { get; set; } = string.Empty;
+        public string CapabilityName { get; set; } = string.Empty;
+        public decimal? TimeMultiplier { get; set; }
+        public decimal? ProbabilityMultiplier { get; set; }
+
+        public ActivityModifierRuleDto ToDto() => new ActivityModifierRuleDto(
+            new CapabilityDto(CapabilityKey, CapabilityName),
+            TimeMultiplier,
+            ProbabilityMultiplier);
+    }
+}

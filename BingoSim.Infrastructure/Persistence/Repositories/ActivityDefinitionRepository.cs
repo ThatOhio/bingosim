@@ -15,6 +15,17 @@ public class ActivityDefinitionRepository(AppDbContext context) : IActivityDefin
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ActivityDefinition>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        var idList = ids.Distinct().ToList();
+        if (idList.Count == 0)
+            return [];
+
+        return await context.ActivityDefinitions
+            .Where(e => idList.Contains(e.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<ActivityDefinition?> GetByKeyAsync(string key, CancellationToken cancellationToken = default)
     {
         return await context.ActivityDefinitions
