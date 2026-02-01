@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BingoSim.Core.ValueObjects;
 
 /// <summary>
@@ -28,8 +30,9 @@ public sealed record ActivityModifierRule
     }
 
     /// <summary>
-    /// Parameterless constructor for EF Core deserialization from JSON.
+    /// Parameterless constructor for EF Core / System.Text.Json deserialization.
     /// </summary>
+    [JsonConstructor]
     private ActivityModifierRule()
     {
     }

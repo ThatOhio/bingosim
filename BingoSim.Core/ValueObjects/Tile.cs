@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BingoSim.Core.ValueObjects;
 
 /// <summary>
@@ -9,7 +11,8 @@ public sealed record Tile
     public string Name { get; init; } = string.Empty;
     public int Points { get; init; }
     public int RequiredCount { get; init; }
-    /// <summary>Private set for EF Core JSON deserialization.</summary>
+    /// <summary>Private set for System.Text.Json deserialization.</summary>
+    [JsonInclude]
     public List<TileActivityRule> AllowedActivities { get; private set; } = [];
 
     public Tile(string key, string name, int points, int requiredCount, IEnumerable<TileActivityRule> allowedActivities)
@@ -40,8 +43,9 @@ public sealed record Tile
     }
 
     /// <summary>
-    /// Parameterless constructor for EF Core deserialization from JSON.
+    /// Parameterless constructor for EF Core / System.Text.Json deserialization.
     /// </summary>
+    [JsonConstructor]
     private Tile()
     {
     }

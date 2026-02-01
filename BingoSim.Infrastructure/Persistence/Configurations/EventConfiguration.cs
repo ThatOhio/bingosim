@@ -1,12 +1,12 @@
 using BingoSim.Core.Entities;
-using BingoSim.Core.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace BingoSim.Infrastructure.Persistence.Configurations;
 
 /// <summary>
-/// EF Core configuration for Event entity. Rows (with Tiles and TileActivityRules) stored as JSON.
+/// EF Core configuration for Event entity. Rows stored as JSON string column.
+/// Event entity uses _rowsJson backing field; Rows property deserializes on access.
 /// </summary>
 public class EventConfiguration : IEntityTypeConfiguration<Event>
 {
@@ -32,43 +32,9 @@ public class EventConfiguration : IEntityTypeConfiguration<Event>
         builder.HasIndex(e => e.CreatedAt)
             .IsDescending();
 
-        // Rows as JSON (nested: Row -> Tiles -> TileActivityRules with Requirements, Modifiers)
-        builder.Navigation(e => e.Rows).HasField("_rows");
-        builder.OwnsMany(e => e.Rows, rowBuilder =>
-        {
-            rowBuilder.ToJson("Rows");
-            rowBuilder.Property(r => r.Index);
-
-            rowBuilder.OwnsMany(r => r.Tiles, tileBuilder =>
-            {
-                tileBuilder.Property(t => t.Key).HasMaxLength(100);
-                tileBuilder.Property(t => t.Name).HasMaxLength(200);
-                tileBuilder.Property(t => t.Points);
-                tileBuilder.Property(t => t.RequiredCount);
-
-                tileBuilder.OwnsMany(t => t.AllowedActivities, ruleBuilder =>
-                {
-                    ruleBuilder.Property(r => r.ActivityDefinitionId);
-                    ruleBuilder.Property(r => r.ActivityKey).HasMaxLength(100);
-
-                    ruleBuilder.OwnsMany(r => r.Requirements, reqBuilder =>
-                    {
-                        reqBuilder.Property(c => c.Key).HasMaxLength(100);
-                        reqBuilder.Property(c => c.Name).HasMaxLength(200);
-                    });
-
-                    ruleBuilder.OwnsMany(r => r.Modifiers, modBuilder =>
-                    {
-                        modBuilder.OwnsOne(m => m.Capability, capBuilder =>
-                        {
-                            capBuilder.Property(c => c.Key).HasMaxLength(100);
-                            capBuilder.Property(c => c.Name).HasMaxLength(200);
-                        });
-                        modBuilder.Property(m => m.TimeMultiplier).HasPrecision(9, 4);
-                        modBuilder.Property(m => m.ProbabilityMultiplier).HasPrecision(9, 4);
-                    });
-                });
-            });
-        });
+        // Rows as JSON string - Event._rowsJson; no ValueConverter so EF does not discover Row/Tile/ActivityModifierRule
+        builder.Property<string>("_rowsJson")
+            .HasColumnName("Rows")
+            .HasColumnType("jsonb");
     }
 }

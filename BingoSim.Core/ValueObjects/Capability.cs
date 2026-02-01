@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BingoSim.Core.ValueObjects;
 
 /// <summary>
@@ -9,12 +11,12 @@ public sealed record Capability
     /// <summary>
     /// Stable identifier (e.g., "quest.ds2", "item.dragon_hunter_lance").
     /// </summary>
-    public string Key { get; }
+    public string Key { get; init; } = string.Empty;
 
     /// <summary>
     /// Display name for the capability.
     /// </summary>
-    public string Name { get; }
+    public string Name { get; init; } = string.Empty;
 
     public Capability(string key, string name)
     {
@@ -29,11 +31,8 @@ public sealed record Capability
     }
 
     /// <summary>
-    /// Parameterless constructor for EF Core deserialization from JSON.
+    /// Parameterless constructor for EF Core / System.Text.Json deserialization.
     /// </summary>
-    private Capability()
-    {
-        Key = string.Empty;
-        Name = string.Empty;
-    }
+    [JsonConstructor]
+    private Capability() { }
 }

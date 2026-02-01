@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+using BingoSim.Core.Serialization;
 using BingoSim.Core.ValueObjects;
 
 namespace BingoSim.Core.Entities;
@@ -13,8 +15,12 @@ public class Event
     public int UnlockPointsRequiredPerRow { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
-    private readonly List<Row> _rows = [];
-    public IReadOnlyList<Row> Rows => _rows.AsReadOnly();
+    /// <summary>JSON-serialized rows. EF maps this column; Rows property deserializes on access.</summary>
+    private string _rowsJson = "[]";
+
+    /// <summary>Computed from _rowsJson; not mapped by EF.</summary>
+    [NotMapped]
+    public IReadOnlyList<Row> Rows => EventRowsSerializer.FromJson(_rowsJson);
 
     /// <summary>
     /// Parameterless constructor for EF Core.
@@ -90,7 +96,6 @@ public class Event
         if (allKeys.Distinct(StringComparer.Ordinal).Count() != allKeys.Count)
             throw new InvalidOperationException("Tile keys must be unique within the event.");
 
-        _rows.Clear();
-        _rows.AddRange(rowList);
+        _rowsJson = EventRowsSerializer.ToJson(rowList);
     }
 }

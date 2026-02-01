@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BingoSim.Core.ValueObjects;
 
 /// <summary>
@@ -6,7 +8,8 @@ namespace BingoSim.Core.ValueObjects;
 public sealed record Row
 {
     public int Index { get; init; }
-    /// <summary>Private set for EF Core JSON deserialization.</summary>
+    /// <summary>Private set for System.Text.Json deserialization.</summary>
+    [JsonInclude]
     public List<Tile> Tiles { get; private set; } = [];
 
     public Row(int index, IEnumerable<Tile> tiles)
@@ -30,8 +33,9 @@ public sealed record Row
     }
 
     /// <summary>
-    /// Parameterless constructor for EF Core deserialization from JSON.
+    /// Parameterless constructor for EF Core / System.Text.Json deserialization.
     /// </summary>
+    [JsonConstructor]
     private Row()
     {
     }
