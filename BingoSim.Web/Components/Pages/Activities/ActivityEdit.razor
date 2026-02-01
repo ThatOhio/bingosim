@@ -1,0 +1,462 @@
+@page "/activities/{Id:guid}/edit"
+@inject IActivityDefinitionService ActivityDefinitionService
+@inject IValidator<UpdateActivityDefinitionRequest> Validator
+@inject NavigationManager NavigationManager
+@inject ILogger<ActivityEdit> Logger
+@rendermode InteractiveServer
+
+<PageTitle>Edit Activity</PageTitle>
+
+<div class="page-header">
+    <h1>Edit Activity</h1>
+</div>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_notFound)
+{
+    <div class="alert alert-warning">Activity not found.</div>
+    <a href="/activities" class="btn btn-secondary">Back to Activities</a>
+}
+else
+{
+    <div class="form-container">
+        <EditForm Model="_model" OnValidSubmit="HandleSubmit" FormName="EditActivityForm">
+            <div class="form-section">
+                <h2>Basic Information</h2>
+
+                <div class="form-group">
+                    <label for="key">Key</label>
+                    <InputText id="key" @bind-Value="_model.Key" class="form-control" placeholder="e.g., activity.zulrah" />
+                    @if (_errors.ContainsKey("Key"))
+                    {
+                        <span class="field-error">@_errors["Key"]</span>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <InputText id="name" @bind-Value="_model.Name" class="form-control" placeholder="e.g., Zulrah" />
+                    @if (_errors.ContainsKey("Name"))
+                    {
+                        <span class="field-error">@_errors["Name"]</span>
+                    }
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Mode Support</h2>
+                <div class="form-row">
+                    <div class="form-group checkbox-group">
+                        <label><InputCheckbox @bind-Value="_model.SupportsSolo" /> Supports Solo</label>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label><InputCheckbox @bind-Value="_model.SupportsGroup" /> Supports Group</label>
+                    </div>
+                </div>
+                @if (_model.SupportsGroup)
+                {
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="minGroupSize">Min Group Size</label>
+                            <InputNumber id="minGroupSize" @bind-Value="_model.MinGroupSize" class="form-control" />
+                        </div>
+                        <div class="form-group">
+                            <label for="maxGroupSize">Max Group Size</label>
+                            <InputNumber id="maxGroupSize" @bind-Value="_model.MaxGroupSize" class="form-control" />
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="form-section">
+                <div class="section-header">
+                    <h2>Attempt Definitions (Loot Lines)</h2>
+                    <button type="button" class="btn btn-sm btn-secondary" @onclick="AddAttempt">Add Attempt</button>
+                </div>
+
+                @for (var a = 0; a < _model.Attempts.Count; a++)
+                {
+                    var attemptIndex = a;
+                    var attempt = _model.Attempts[a];
+                    <div class="attempt-block">
+                        <h3>Attempt @(attemptIndex + 1)</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Attempt Key</label>
+                                <input type="text" @bind="attempt.Key" class="form-control" />
+                            </div>
+                            <div class="form-group">
+                                <label>Roll Scope</label>
+                                <select @bind="attempt.RollScope" class="form-control">
+                                    <option value="0">Per Player</option>
+                                    <option value="1">Per Group</option>
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-danger remove-btn" disabled="@(_model.Attempts.Count == 1)" @onclick="() => RemoveAttempt(attemptIndex)" title="@(_model.Attempts.Count == 1 ? "At least one attempt is required." : "Remove attempt")">Remove Attempt</button>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Baseline Time (sec)</label>
+                                <input type="number" @bind="attempt.BaselineTimeSeconds" class="form-control" />
+                            </div>
+                            <div class="form-group">
+                                <label>Distribution</label>
+                                <select @bind="attempt.Distribution" class="form-control">
+                                    <option value="0">Uniform</option>
+                                    <option value="1">NormalApprox</option>
+                                    <option value="2">Custom</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Variance (sec, optional)</label>
+                                <input type="number" @bind="attempt.VarianceSeconds" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="outcomes-subsection">
+                            <div class="section-header">
+                                <h4>Outcomes</h4>
+                                <button type="button" class="btn btn-sm btn-secondary" @onclick="() => AddOutcome(attemptIndex)">Add Outcome</button>
+                            </div>
+                            @for (var o = 0; o < attempt.Outcomes.Count; o++)
+                            {
+                                var outcomeIndex = o;
+                                var outcome = attempt.Outcomes[o];
+                                <div class="outcome-block">
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Outcome Key</label>
+                                            <input type="text" @bind="outcome.Key" class="form-control" />
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Weight (num / denom)</label>
+                                            <div class="inline-inputs">
+                                                <input type="number" @bind="outcome.WeightNumerator" class="form-control" />
+                                                <span>/</span>
+                                                <input type="number" @bind="outcome.WeightDenominator" class="form-control" />
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-danger remove-btn" disabled="@(attempt.Outcomes.Count == 1)" @onclick="() => RemoveOutcome(attemptIndex, outcomeIndex)" title="@(attempt.Outcomes.Count == 1 ? "At least one outcome is required per attempt." : "Remove outcome")">Remove</button>
+                                    </div>
+                                    <div class="grants-subsection">
+                                        <button type="button" class="btn btn-sm btn-outline" @onclick="() => AddGrant(attemptIndex, outcomeIndex)">Add Grant</button>
+                                        @for (var g = 0; g < outcome.Grants.Count; g++)
+                                        {
+                                            var grantIndex = g;
+                                            var grant = outcome.Grants[g];
+                                            <div class="form-row grant-row">
+                                                <input type="text" @bind="grant.DropKey" class="form-control" placeholder="DropKey" />
+                                                <input type="number" @bind="grant.Units" class="form-control" placeholder="Units" />
+                                                <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveGrant(attemptIndex, outcomeIndex, grantIndex)">Remove</button>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="form-section">
+                <div class="section-header">
+                    <h2>Group Scaling Bands</h2>
+                    <button type="button" class="btn btn-sm btn-secondary" @onclick="AddBand">Add Band</button>
+                </div>
+                @for (var b = 0; b < _model.Bands.Count; b++)
+                {
+                    var bandIndex = b;
+                    var band = _model.Bands[b];
+                    <div class="form-row band-row">
+                        <div class="form-group">
+                            <label>Min Size</label>
+                            <input type="number" @bind="band.MinSize" class="form-control" />
+                        </div>
+                        <div class="form-group">
+                            <label>Max Size</label>
+                            <input type="number" @bind="band.MaxSize" class="form-control" />
+                        </div>
+                        <div class="form-group">
+                            <label>Time Mult</label>
+                            <input type="number" @bind="band.TimeMultiplier" step="0.01" class="form-control" />
+                        </div>
+                        <div class="form-group">
+                            <label>Prob Mult</label>
+                            <input type="number" @bind="band.ProbabilityMultiplier" step="0.01" class="form-control" />
+                        </div>
+                        <button type="button" class="btn btn-sm btn-danger remove-btn" @onclick="() => RemoveBand(bandIndex)">Remove</button>
+                    </div>
+                }
+            </div>
+
+            @if (_errorMessage is not null)
+            {
+                <div class="alert alert-danger">
+                    <p>@_errorMessage</p>
+                    @if (_errors.Count > 0)
+                    {
+                        <ul class="validation-errors">
+                            @foreach (var err in _errors)
+                            {
+                                <li><strong>@err.Key:</strong> @err.Value</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+
+            <div class="form-actions">
+                <a href="/activities" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>Save Changes</span>
+                    }
+                </button>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private ActivityFormModel _model = new();
+    private Dictionary<string, string> _errors = [];
+    private string? _errorMessage;
+    private bool _loading = true;
+    private bool _notFound;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadActivityAsync();
+    }
+
+    private async Task LoadActivityAsync()
+    {
+        _loading = true;
+        try
+        {
+            var activity = await ActivityDefinitionService.GetByIdAsync(Id);
+            if (activity is null)
+            {
+                _notFound = true;
+                return;
+            }
+            _model = ActivityFormModel.FromResponse(activity);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load activity {ActivityId}", Id);
+            _notFound = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void AddAttempt()
+    {
+        _model.Attempts.Add(new AttemptFormModel());
+    }
+
+    private void RemoveAttempt(int index)
+    {
+        _model.Attempts.RemoveAt(index);
+    }
+
+    private void AddOutcome(int attemptIndex)
+    {
+        _model.Attempts[attemptIndex].Outcomes.Add(new OutcomeFormModel());
+    }
+
+    private void RemoveOutcome(int attemptIndex, int outcomeIndex)
+    {
+        _model.Attempts[attemptIndex].Outcomes.RemoveAt(outcomeIndex);
+    }
+
+    private void AddGrant(int attemptIndex, int outcomeIndex)
+    {
+        _model.Attempts[attemptIndex].Outcomes[outcomeIndex].Grants.Add(new GrantFormModel());
+    }
+
+    private void RemoveGrant(int attemptIndex, int outcomeIndex, int grantIndex)
+    {
+        _model.Attempts[attemptIndex].Outcomes[outcomeIndex].Grants.RemoveAt(grantIndex);
+    }
+
+    private void AddBand()
+    {
+        _model.Bands.Add(new BandFormModel());
+    }
+
+    private void RemoveBand(int index)
+    {
+        _model.Bands.RemoveAt(index);
+    }
+
+    private async Task HandleSubmit()
+    {
+        _errors.Clear();
+        _errorMessage = null;
+        _saving = true;
+
+        try
+        {
+            var request = _model.ToUpdateRequest();
+            var validationResult = await Validator.ValidateAsync(request);
+
+            if (!validationResult.IsValid)
+            {
+                foreach (var error in validationResult.Errors)
+                {
+                    _errors[error.PropertyName] = error.ErrorMessage;
+                }
+                _errorMessage = "Please correct the errors above.";
+                return;
+            }
+
+            await ActivityDefinitionService.UpdateAsync(Id, request);
+            NavigationManager.NavigateTo("/activities");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update activity {ActivityId}", Id);
+            _errorMessage = "An error occurred while saving the activity. Please try again.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private class ActivityFormModel
+    {
+        public string Key { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public bool SupportsSolo { get; set; } = true;
+        public bool SupportsGroup { get; set; } = true;
+        public int? MinGroupSize { get; set; }
+        public int? MaxGroupSize { get; set; }
+        public List<AttemptFormModel> Attempts { get; set; } = [];
+        public List<BandFormModel> Bands { get; set; } = [];
+
+        public UpdateActivityDefinitionRequest ToUpdateRequest()
+        {
+            return new UpdateActivityDefinitionRequest(
+                Key: Key,
+                Name: Name,
+                ModeSupport: new ActivityModeSupportDto(SupportsSolo, SupportsGroup, MinGroupSize, MaxGroupSize),
+                Attempts: Attempts.Select(x => x.ToDto()).ToList(),
+                GroupScalingBands: Bands.Select(x => x.ToDto()).ToList());
+        }
+
+        public static ActivityFormModel FromResponse(ActivityDefinitionResponse response)
+        {
+            return new ActivityFormModel
+            {
+                Key = response.Key,
+                Name = response.Name,
+                SupportsSolo = response.ModeSupport.SupportsSolo,
+                SupportsGroup = response.ModeSupport.SupportsGroup,
+                MinGroupSize = response.ModeSupport.MinGroupSize,
+                MaxGroupSize = response.ModeSupport.MaxGroupSize,
+                Attempts = response.Attempts.Select(AttemptFormModel.FromDto).ToList(),
+                Bands = response.GroupScalingBands.Select(BandFormModel.FromDto).ToList()
+            };
+        }
+    }
+
+    private class AttemptFormModel
+    {
+        public string Key { get; set; } = string.Empty;
+        public int RollScope { get; set; }
+        public int BaselineTimeSeconds { get; set; } = 60;
+        public int Distribution { get; set; }
+        public int? VarianceSeconds { get; set; }
+        public List<OutcomeFormModel> Outcomes { get; set; } = [];
+
+        public ActivityAttemptDefinitionDto ToDto()
+        {
+            return new ActivityAttemptDefinitionDto(
+                Key,
+                RollScope,
+                new AttemptTimeModelDto(BaselineTimeSeconds, Distribution, VarianceSeconds),
+                Outcomes.Select(x => x.ToDto()).ToList());
+        }
+
+        public static AttemptFormModel FromDto(ActivityAttemptDefinitionDto dto)
+        {
+            return new AttemptFormModel
+            {
+                Key = dto.Key,
+                RollScope = dto.RollScope,
+                BaselineTimeSeconds = dto.TimeModel.BaselineTimeSeconds,
+                Distribution = dto.TimeModel.Distribution,
+                VarianceSeconds = dto.TimeModel.VarianceSeconds,
+                Outcomes = dto.Outcomes.Select(OutcomeFormModel.FromDto).ToList()
+            };
+        }
+    }
+
+    private class OutcomeFormModel
+    {
+        public string Key { get; set; } = string.Empty;
+        public int WeightNumerator { get; set; } = 1;
+        public int WeightDenominator { get; set; } = 1;
+        public List<GrantFormModel> Grants { get; set; } = [];
+
+        public ActivityOutcomeDefinitionDto ToDto()
+        {
+            return new ActivityOutcomeDefinitionDto(Key, WeightNumerator, WeightDenominator, Grants.Select(x => x.ToDto()).ToList());
+        }
+
+        public static OutcomeFormModel FromDto(ActivityOutcomeDefinitionDto dto)
+        {
+            return new OutcomeFormModel
+            {
+                Key = dto.Key,
+                WeightNumerator = dto.WeightNumerator,
+                WeightDenominator = dto.WeightDenominator,
+                Grants = dto.Grants.Select(GrantFormModel.FromDto).ToList()
+            };
+        }
+    }
+
+    private class GrantFormModel
+    {
+        public string DropKey { get; set; } = string.Empty;
+        public int Units { get; set; } = 1;
+
+        public ProgressGrantDto ToDto() => new ProgressGrantDto(DropKey, Units);
+
+        public static GrantFormModel FromDto(ProgressGrantDto dto) => new() { DropKey = dto.DropKey, Units = dto.Units };
+    }
+
+    private class BandFormModel
+    {
+        public int MinSize { get; set; } = 1;
+        public int MaxSize { get; set; } = 1;
+        public decimal TimeMultiplier { get; set; } = 1.0m;
+        public decimal ProbabilityMultiplier { get; set; } = 1.0m;
+
+        public GroupSizeBandDto ToDto() => new GroupSizeBandDto(MinSize, MaxSize, TimeMultiplier, ProbabilityMultiplier);
+
+        public static BandFormModel FromDto(GroupSizeBandDto dto) => new()
+        {
+            MinSize = dto.MinSize,
+            MaxSize = dto.MaxSize,
+            TimeMultiplier = dto.TimeMultiplier,
+            ProbabilityMultiplier = dto.ProbabilityMultiplier
+        };
+    }
+}

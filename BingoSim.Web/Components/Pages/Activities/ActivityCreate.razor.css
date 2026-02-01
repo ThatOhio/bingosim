@@ -1,0 +1,155 @@
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    margin: 0;
+}
+
+.form-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+}
+
+.form-section {
+    margin-bottom: 2rem;
+}
+
+.form-section h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+}
+
+.form-section h3 {
+    margin: 1rem 0 0.5rem;
+    font-size: 1rem;
+}
+
+.form-section h4 {
+    margin: 0.5rem 0;
+    font-size: 0.95rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.section-header h2,
+.section-header h4 {
+    margin: 0;
+}
+
+.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.form-group {
+    flex: 1;
+    min-width: 120px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+
+.checkbox-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.inline-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.inline-inputs .form-control {
+    width: 5rem;
+}
+
+.remove-btn {
+    align-self: center;
+}
+
+.attempt-block {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: #fafafa;
+}
+
+.outcome-block {
+    border-left: 3px solid #ddd;
+    padding-left: 1rem;
+    margin-bottom: 1rem;
+}
+
+.grants-subsection {
+    margin-top: 0.5rem;
+    margin-left: 1rem;
+}
+
+.grant-row {
+    margin-bottom: 0.5rem;
+}
+
+.grant-row .form-control:first-child {
+    min-width: 150px;
+}
+
+.grant-row .form-control:last-of-type {
+    width: 5rem;
+}
+
+.band-row {
+    margin-bottom: 1rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.field-error {
+    color: #c00;
+    font-size: 0.875rem;
+    display: block;
+    margin-top: 0.25rem;
+}
+
+.validation-errors {
+    margin: 0.5rem 0 0;
+    padding-left: 1.25rem;
+    font-size: 0.875rem;
+}
+
+.form-hint {
+    font-size: 0.875rem;
+    color: #666;
+    display: block;
+    margin-top: 0.25rem;
+}
+
+.btn-outline {
+    border: 1px solid #ccc;
+    background: white;
+    margin-bottom: 0.5rem;
+}

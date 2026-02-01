@@ -9,6 +9,7 @@ namespace BingoSim.Infrastructure.Persistence;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<PlayerProfile> PlayerProfiles => Set<PlayerProfile>();
+    public DbSet<ActivityDefinition> ActivityDefinitions => Set<ActivityDefinition>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

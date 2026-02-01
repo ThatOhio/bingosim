@@ -30,6 +30,7 @@ public class Program
         {
             using var scope = app.Services.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await EnsureMigrationsHistoryTableExistsAsync(dbContext);
             await dbContext.Database.MigrateAsync();
         }
 
@@ -51,5 +52,21 @@ public class Program
             .AddInteractiveServerRenderMode();
 
         await app.RunAsync();
+    }
+
+    /// <summary>
+    /// Ensures the EF Core migrations history table exists. Required on PostgreSQL when the database
+    /// has never had migrations applied (Npgsql tries to query the table before creating it).
+    /// </summary>
+    private static async Task EnsureMigrationsHistoryTableExistsAsync(AppDbContext dbContext)
+    {
+        const string sql = """
+            CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+                "MigrationId" character varying(150) NOT NULL,
+                "ProductVersion" character varying(32) NOT NULL,
+                CONSTRAINT "PK___EFMigrationsHistory__" PRIMARY KEY ("MigrationId")
+            );
+            """;
+        await dbContext.Database.ExecuteSqlRawAsync(sql);
     }
 }
