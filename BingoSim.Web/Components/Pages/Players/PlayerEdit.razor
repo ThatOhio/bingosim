@@ -1,0 +1,302 @@
+@page "/players/{Id:guid}/edit"
+@inject IPlayerProfileService PlayerProfileService
+@inject IValidator<UpdatePlayerProfileRequest> Validator
+@inject NavigationManager NavigationManager
+@inject ILogger<PlayerEdit> Logger
+@rendermode InteractiveServer
+
+<PageTitle>Edit Player</PageTitle>
+
+<div class="page-header">
+    <h1>Edit Player</h1>
+</div>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_notFound)
+{
+    <div class="alert alert-warning">Player not found.</div>
+    <a href="/players" class="btn btn-secondary">Back to Players</a>
+}
+else
+{
+    <div class="form-container">
+        <EditForm Model="_model" OnValidSubmit="HandleSubmit" FormName="EditPlayerForm">
+            <div class="form-section">
+                <h2>Basic Information</h2>
+                
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <InputText id="name" @bind-Value="_model.Name" class="form-control" placeholder="Enter player name" />
+                    @if (_errors.ContainsKey("Name"))
+                    {
+                        <span class="field-error">@_errors["Name"]</span>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label for="skillMultiplier">Skill Time Multiplier</label>
+                    <InputNumber id="skillMultiplier" @bind-Value="_model.SkillTimeMultiplier" class="form-control" step="0.1" />
+                    <span class="form-hint">1.0 = normal, lower = faster, higher = slower</span>
+                    @if (_errors.ContainsKey("SkillTimeMultiplier"))
+                    {
+                        <span class="field-error">@_errors["SkillTimeMultiplier"]</span>
+                    }
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="section-header">
+                    <h2>Capabilities</h2>
+                    <button type="button" class="btn btn-sm btn-secondary" @onclick="AddCapability">Add Capability</button>
+                </div>
+
+                @if (_model.Capabilities.Count == 0)
+                {
+                    <p class="empty-hint">No capabilities added yet.</p>
+                }
+                else
+                {
+                    @for (var i = 0; i < _model.Capabilities.Count; i++)
+                    {
+                        var index = i;
+                        <div class="capability-row">
+                            <div class="form-group">
+                                <label>Key</label>
+                                <InputText @bind-Value="_model.Capabilities[index].Key" class="form-control" placeholder="e.g., quest.ds2" />
+                            </div>
+                            <div class="form-group">
+                                <label>Name</label>
+                                <InputText @bind-Value="_model.Capabilities[index].Name" class="form-control" placeholder="e.g., Desert Treasure 2" />
+                            </div>
+                            <button type="button" class="btn btn-sm btn-danger remove-btn" @onclick="() => RemoveCapability(index)">Remove</button>
+                        </div>
+                    }
+                }
+            </div>
+
+            <div class="form-section">
+                <div class="section-header">
+                    <h2>Weekly Schedule</h2>
+                    <button type="button" class="btn btn-sm btn-secondary" @onclick="AddSession">Add Session</button>
+                </div>
+
+                @if (_model.Sessions.Count == 0)
+                {
+                    <p class="empty-hint">No sessions scheduled yet.</p>
+                }
+                else
+                {
+                    @for (var i = 0; i < _model.Sessions.Count; i++)
+                    {
+                        var index = i;
+                        <div class="session-row">
+                            <div class="form-group">
+                                <label>Day</label>
+                                <InputSelect @bind-Value="_model.Sessions[index].DayOfWeek" class="form-control">
+                                    @foreach (DayOfWeek day in Enum.GetValues<DayOfWeek>())
+                                    {
+                                        <option value="@day">@day</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="form-group">
+                                <label>Start Time</label>
+                                <InputText @bind-Value="_model.Sessions[index].StartTimeString" class="form-control" placeholder="HH:mm" />
+                            </div>
+                            <div class="form-group">
+                                <label>Duration (min)</label>
+                                <InputNumber @bind-Value="_model.Sessions[index].DurationMinutes" class="form-control" />
+                            </div>
+                            <button type="button" class="btn btn-sm btn-danger remove-btn" @onclick="() => RemoveSession(index)">Remove</button>
+                        </div>
+                    }
+                }
+            </div>
+
+            @if (_errorMessage is not null)
+            {
+                <div class="alert alert-danger">@_errorMessage</div>
+            }
+
+            <div class="form-actions">
+                <a href="/players" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>Save Changes</span>
+                    }
+                </button>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private PlayerFormModel _model = new();
+    private Dictionary<string, string> _errors = [];
+    private string? _errorMessage;
+    private bool _loading = true;
+    private bool _notFound;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPlayerAsync();
+    }
+
+    private async Task LoadPlayerAsync()
+    {
+        _loading = true;
+        try
+        {
+            var player = await PlayerProfileService.GetByIdAsync(Id);
+            if (player is null)
+            {
+                _notFound = true;
+                return;
+            }
+
+            _model = PlayerFormModel.FromResponse(player);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load player profile {PlayerId}", Id);
+            _notFound = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void AddCapability()
+    {
+        _model.Capabilities.Add(new CapabilityFormModel());
+    }
+
+    private void RemoveCapability(int index)
+    {
+        _model.Capabilities.RemoveAt(index);
+    }
+
+    private void AddSession()
+    {
+        _model.Sessions.Add(new SessionFormModel());
+    }
+
+    private void RemoveSession(int index)
+    {
+        _model.Sessions.RemoveAt(index);
+    }
+
+    private async Task HandleSubmit()
+    {
+        _errors.Clear();
+        _errorMessage = null;
+        _saving = true;
+
+        try
+        {
+            var request = _model.ToRequest();
+            var validationResult = await Validator.ValidateAsync(request);
+
+            if (!validationResult.IsValid)
+            {
+                foreach (var error in validationResult.Errors)
+                {
+                    _errors[error.PropertyName] = error.ErrorMessage;
+                }
+                _errorMessage = "Please correct the errors above.";
+                return;
+            }
+
+            await PlayerProfileService.UpdateAsync(Id, request);
+            NavigationManager.NavigateTo("/players");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update player profile {PlayerId}", Id);
+            _errorMessage = "An error occurred while saving the player. Please try again.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private class PlayerFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public decimal SkillTimeMultiplier { get; set; } = 1.0m;
+        public List<CapabilityFormModel> Capabilities { get; set; } = [];
+        public List<SessionFormModel> Sessions { get; set; } = [];
+
+        public static PlayerFormModel FromResponse(PlayerProfileResponse response)
+        {
+            return new PlayerFormModel
+            {
+                Name = response.Name,
+                SkillTimeMultiplier = response.SkillTimeMultiplier,
+                Capabilities = response.Capabilities
+                    .Select(c => new CapabilityFormModel { Key = c.Key, Name = c.Name })
+                    .ToList(),
+                Sessions = response.WeeklySchedule.Sessions
+                    .Select(s => new SessionFormModel
+                    {
+                        DayOfWeek = s.DayOfWeek,
+                        StartTimeString = s.StartTime.ToString("HH:mm"),
+                        DurationMinutes = s.DurationMinutes
+                    })
+                    .ToList()
+            };
+        }
+
+        public UpdatePlayerProfileRequest ToRequest()
+        {
+            return new UpdatePlayerProfileRequest(
+                Name: Name,
+                SkillTimeMultiplier: SkillTimeMultiplier,
+                Capabilities: Capabilities.Select(c => new CapabilityDto(c.Key, c.Name)).ToList(),
+                WeeklySchedule: new WeeklyScheduleDto(
+                    Sessions: Sessions.Select(s => new ScheduledSessionDto(
+                        DayOfWeek: s.DayOfWeek,
+                        StartTime: s.GetStartTime(),
+                        DurationMinutes: s.DurationMinutes
+                    )).ToList()
+                )
+            );
+        }
+    }
+
+    private class CapabilityFormModel
+    {
+        public string Key { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class SessionFormModel
+    {
+        public DayOfWeek DayOfWeek { get; set; } = DayOfWeek.Monday;
+        public string StartTimeString { get; set; } = "18:00";
+        public int DurationMinutes { get; set; } = 120;
+
+        public TimeOnly GetStartTime()
+        {
+            if (TimeOnly.TryParse(StartTimeString, out var time))
+            {
+                return time;
+            }
+            return new TimeOnly(18, 0);
+        }
+    }
+}

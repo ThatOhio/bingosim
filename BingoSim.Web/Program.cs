@@ -1,10 +1,15 @@
+using BingoSim.Application.Validators;
+using BingoSim.Infrastructure;
+using BingoSim.Infrastructure.Persistence;
 using BingoSim.Web.Components;
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 
 namespace BingoSim.Web;
 
 public class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +17,21 @@ public class Program
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
 
+        // Add Infrastructure services (DbContext, Repositories, Application Services)
+        builder.Services.AddInfrastructure(builder.Configuration);
+
+        // Add FluentValidation validators
+        builder.Services.AddValidatorsFromAssemblyContaining<CreatePlayerProfileRequestValidator>();
+
         var app = builder.Build();
+
+        // Apply migrations automatically in development
+        if (app.Environment.IsDevelopment())
+        {
+            using var scope = app.Services.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await dbContext.Database.MigrateAsync();
+        }
 
         // Configure the HTTP request pipeline.
         if (!app.Environment.IsDevelopment())
@@ -31,6 +50,6 @@ public class Program
         app.MapRazorComponents<App>()
             .AddInteractiveServerRenderMode();
 
-        app.Run();
+        await app.RunAsync();
     }
 }

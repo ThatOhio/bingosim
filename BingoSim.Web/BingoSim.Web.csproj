@@ -15,6 +15,14 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="FluentValidation" Version="11.11.0" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
       <ProjectReference Include="..\BingoSim.Application\BingoSim.Application.csproj" />
       <ProjectReference Include="..\BingoSim.Core\BingoSim.Core.csproj" />
       <ProjectReference Include="..\BingoSim.Infrastructure\BingoSim.Infrastructure.csproj" />

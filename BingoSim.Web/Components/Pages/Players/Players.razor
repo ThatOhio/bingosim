@@ -1,0 +1,113 @@
+@page "/players"
+@inject IPlayerProfileService PlayerProfileService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Players Library</PageTitle>
+
+<div class="page-header">
+    <h1>Players Library</h1>
+    <a href="/players/create" class="btn btn-primary">Create Player</a>
+</div>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_players.Count == 0)
+{
+    <div class="empty-state">
+        <p>No players found. Create your first player to get started.</p>
+    </div>
+}
+else
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Skill Multiplier</th>
+                    <th>Capabilities</th>
+                    <th>Weekly Sessions</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var player in _players)
+                {
+                    <tr @key="player.Id">
+                        <td>@player.Name</td>
+                        <td>@player.SkillTimeMultiplier.ToString("F2")x</td>
+                        <td>@player.Capabilities.Count</td>
+                        <td>@player.WeeklySchedule.Sessions.Count</td>
+                        <td>@player.CreatedAt.ToString("g")</td>
+                        <td class="actions">
+                            <a href="/players/@player.Id/edit" class="btn btn-sm btn-secondary">Edit</a>
+                            <button type="button" class="btn btn-sm btn-danger" @onclick="() => ShowDeleteConfirmation(player)">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<DeleteConfirmationModal 
+    IsVisible="_showDeleteModal"
+    Title="Delete Player"
+    Message="@($"Are you sure you want to delete '{_playerToDelete?.Name}'? This action cannot be undone.")"
+    OnConfirm="ConfirmDelete"
+    OnCancel="CancelDelete" />
+
+@code {
+    private List<PlayerProfileResponse> _players = [];
+    private bool _loading = true;
+    private bool _showDeleteModal;
+    private PlayerProfileResponse? _playerToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPlayersAsync();
+    }
+
+    private async Task LoadPlayersAsync()
+    {
+        _loading = true;
+        try
+        {
+            var players = await PlayerProfileService.GetAllAsync();
+            _players = players.ToList();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ShowDeleteConfirmation(PlayerProfileResponse player)
+    {
+        _playerToDelete = player;
+        _showDeleteModal = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (_playerToDelete is not null)
+        {
+            await PlayerProfileService.DeleteAsync(_playerToDelete.Id);
+            await LoadPlayersAsync();
+        }
+        _showDeleteModal = false;
+        _playerToDelete = null;
+    }
+
+    private void CancelDelete()
+    {
+        _showDeleteModal = false;
+        _playerToDelete = null;
+    }
+}

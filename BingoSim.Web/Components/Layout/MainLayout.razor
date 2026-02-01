@@ -1,6 +1,30 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
-@Body
+<div class="page">
+    <nav class="sidebar">
+        <div class="brand">
+            <a href="/">BingoSim</a>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <NavLink href="/" Match="NavLinkMatch.All">
+                    Home
+                </NavLink>
+            </li>
+            <li class="nav-item">
+                <NavLink href="/players" Match="NavLinkMatch.Prefix">
+                    Players
+                </NavLink>
+            </li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <article class="content">
+            @Body
+        </article>
+    </main>
+</div>
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
