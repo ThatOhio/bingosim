@@ -1,0 +1,192 @@
+---
+description: Rules for the BingoSim.Application project (Application Layer).
+globs: ["BingoSim.Application/**/*.cs"]
+alwaysApply: false
+---
+
+# Application Layer Guidelines
+
+The Application layer contains use cases and orchestrates domain logic.
+
+## Dependencies
+- **Can reference**: `BingoSim.Core`
+- **Cannot reference**: `BingoSim.Infrastructure`, `BingoSim.Web`, `BingoSim.Worker`
+- **Infrastructure Ignorant**: Use interfaces, never concrete implementations (EF Core, MassTransit, etc.)
+
+## Content Types
+
+### Application Services
+Thin orchestration layer that coordinates domain entities:
+
+```csharp
+namespace BingoSim.Application.Services;
+
+public class SimulationService(
+    ISimulationRepository repository,
+    IJobQueue jobQueue,
+    ILogger<SimulationService> logger) : ISimulationService
+{
+    public async Task<Guid> CreateSimulationAsync(CreateSimulationRequest request)
+    {
+        // Validation happens via FluentValidation before this point
+
+        var simulation = new Simulation(request.Name);
+        await repository.AddAsync(simulation);
+
+        logger.LogInformation("Created simulation {Id}", simulation.Id);
+
+        return simulation.Id;
+    }
+
+    public async Task StartSimulationAsync(Guid id)
+    {
+        var simulation = await repository.GetByIdAsync(id)
+            ?? throw new SimulationNotFoundException(id);
+
+        simulation.Start(); // Domain logic
+        await repository.UpdateAsync(simulation);
+
+        await jobQueue.EnqueueAsync(new SimulationJobMessage(id));
+    }
+}
+```
+
+### Randomness & Reproducibility
+- All randomness must be driven from an explicit RNG instance.
+- RNG must be seeded from a known seed (user-provided or system-generated).
+- No use of static or ambient randomness.
+
+### DTOs (Data Transfer Objects)
+Transfer data between layers. Keep simple, no logic:
+
+```csharp
+namespace BingoSim.Application.DTOs;
+
+public record CreateSimulationRequest(
+    string Name,
+    int Iterations,
+    BingoCardConfiguration CardConfig);
+
+public record SimulationResponse(
+    Guid Id,
+    string Name,
+    string Status,
+    DateTime CreatedAt,
+    DateTime? CompletedAt,
+    SimulationResults? Results);
+```
+
+### Commands & Queries (CQRS)
+Separate read and write operations:
+
+```csharp
+// Commands (write operations)
+namespace BingoSim.Application.Commands;
+
+public record CreateSimulationCommand(string Name, int Iterations);
+
+public class CreateSimulationCommandHandler(
+    ISimulationRepository repository) : ICommandHandler<CreateSimulationCommand, Guid>
+{
+    public async Task<Guid> HandleAsync(CreateSimulationCommand command)
+    {
+        var simulation = new Simulation(command.Name);
+        await repository.AddAsync(simulation);
+        return simulation.Id;
+    }
+}
+
+// Queries (read operations)
+namespace BingoSim.Application.Queries;
+
+public record GetSimulationQuery(Guid Id);
+
+public class GetSimulationQueryHandler(
+    ISimulationRepository repository) : IQueryHandler<GetSimulationQuery, SimulationResponse?>
+{
+    public async Task<SimulationResponse?> HandleAsync(GetSimulationQuery query)
+    {
+        var simulation = await repository.GetByIdAsync(query.Id);
+        return simulation != null ? MapToResponse(simulation) : null;
+    }
+
+    private SimulationResponse MapToResponse(Simulation s) =>
+        new(s.Id, s.Name, s.Status.ToString(), s.CreatedAt, s.CompletedAt, s.Results);
+}
+```
+
+### FluentValidation
+Validate all incoming requests:
+
+```csharp
+namespace BingoSim.Application.Validators;
+
+public class CreateSimulationRequestValidator : AbstractValidator<CreateSimulationRequest>
+{
+    public CreateSimulationRequestValidator()
+    {
+        RuleFor(x => x.Name)
+            .NotEmpty().WithMessage("Simulation name is required")
+            .MaximumLength(100).WithMessage("Name cannot exceed 100 characters");
+
+        RuleFor(x => x.Iterations)
+            .GreaterThan(0).WithMessage("Iterations must be positive")
+            .LessThanOrEqualTo(1_000_000).WithMessage("Iterations cannot exceed 1,000,000");
+
+        RuleFor(x => x.CardConfig)
+            .NotNull().WithMessage("Card configuration is required")
+            .SetValidator(new BingoCardConfigurationValidator());
+    }
+}
+```
+
+### Application Interfaces
+Define contracts for infrastructure concerns:
+
+```csharp
+namespace BingoSim.Application.Interfaces;
+
+public interface IJobQueue
+{
+    Task EnqueueAsync<T>(T message) where T : class;
+}
+
+public interface ISimulationService
+{
+    Task<Guid> CreateSimulationAsync(CreateSimulationRequest request);
+    Task StartSimulationAsync(Guid id);
+    Task<SimulationResponse?> GetSimulationAsync(Guid id);
+}
+```
+
+## Best Practices
+- **Thin services**: Delegate business logic to domain entities
+- **Always validate**: Use FluentValidation for all input
+- **Manual mapping**: Prefer explicit mapping over AutoMapper for simplicity
+- **No logic in DTOs**: DTOs are data containers only
+
+## Testing
+- **Project**: `Tests/BingoSim.Application.UnitTests`
+- **Strategy**: Mock ALL infrastructure dependencies with NSubstitute
+- **Coverage**: Every service method, command handler, and query handler
+
+Example test:
+```csharp
+[Fact]
+public async Task CreateSimulationAsync_ValidRequest_CreatesAndReturnsId()
+{
+    // Arrange
+    var repository = Substitute.For<ISimulationRepository>();
+    var jobQueue = Substitute.For<IJobQueue>();
+    var logger = Substitute.For<ILogger<SimulationService>>();
+    var service = new SimulationService(repository, jobQueue, logger);
+    var request = new CreateSimulationRequest("Test", 1000, new BingoCardConfiguration());
+
+    // Act
+    var id = await service.CreateSimulationAsync(request);
+
+    // Assert
+    id.Should().NotBe(Guid.Empty);
+    await repository.Received(1).AddAsync(Arg.Any<Simulation>());
+}
+```

@@ -1,0 +1,257 @@
+---
+description: Rules for the BingoSim.Infrastructure project (Infrastructure Layer).
+globs: ["BingoSim.Infrastructure/**/*.cs"]
+alwaysApply: false
+---
+
+# Infrastructure Layer Guidelines
+
+The Infrastructure layer implements interfaces from Core and Application layers.
+
+## Dependencies
+- **Can reference**: `BingoSim.Core`, `BingoSim.Application`
+- **Contains**: Third-party packages (EF Core, MassTransit, etc.)
+
+## Responsibilities
+
+### 1. Persistence (Entity Framework Core)
+
+**DbContext**:
+```csharp
+namespace BingoSim.Infrastructure.Persistence;
+
+public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+{
+    public DbSet<Simulation> Simulations => Set<Simulation>();
+    public DbSet<SimulationResult> SimulationResults => Set<SimulationResult>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+    }
+}
+```
+
+**Entity Configuration**:
+```csharp
+namespace BingoSim.Infrastructure.Persistence.Configurations;
+
+public class SimulationConfiguration : IEntityTypeConfiguration<Simulation>
+{
+    public void Configure(EntityTypeBuilder<Simulation> builder)
+    {
+        builder.HasKey(s => s.Id);
+
+        builder.Property(s => s.Name)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(s => s.Status)
+            .HasConversion<string>()
+            .IsRequired();
+
+        builder.HasIndex(s => s.CreatedAt);
+    }
+}
+```
+
+**Repository Implementation**:
+```csharp
+namespace BingoSim.Infrastructure.Persistence.Repositories;
+
+public class SimulationRepository(AppDbContext context) : ISimulationRepository
+{
+    public async Task<Simulation?> GetByIdAsync(Guid id) =>
+        await context.Simulations
+            .Include(s => s.Results) // Prevent N+1
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+    public async Task<IEnumerable<Simulation>> GetAllAsync() =>
+        await context.Simulations
+            .AsNoTracking()
+            .OrderByDescending(s => s.CreatedAt)
+            .ToListAsync();
+
+    public async Task AddAsync(Simulation simulation)
+    {
+        await context.Simulations.AddAsync(simulation);
+        await context.SaveChangesAsync();
+    }
+
+    public async Task UpdateAsync(Simulation simulation)
+    {
+        context.Simulations.Update(simulation);
+        await context.SaveChangesAsync();
+    }
+}
+```
+
+**Avoid N+1 Queries**:
+```csharp
+// Bad - N+1 problem
+var simulations = await context.Simulations.ToListAsync();
+foreach (var sim in simulations)
+{
+    var results = sim.Results; // Additional query per simulation!
+}
+
+// Good - Single query with Include
+var simulations = await context.Simulations
+    .Include(s => s.Results)
+    .ToListAsync();
+
+// Good - Explicit projection if you don't need full entities
+var simulations = await context.Simulations
+    .Select(s => new SimulationDto
+    {
+        Id = s.Id,
+        Name = s.Name,
+        ResultCount = s.Results.Count
+    })
+    .ToListAsync();
+```
+
+**Pagination**:
+```csharp
+public async Task<PagedResult<Simulation>> GetPagedAsync(int page, int pageSize)
+{
+    var total = await context.Simulations.CountAsync();
+    var items = await context.Simulations
+        .OrderByDescending(s => s.CreatedAt)
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
+        .ToListAsync();
+
+    return new PagedResult<Simulation>(items, total, page, pageSize);
+}
+```
+
+### 2. Messaging (MassTransit)
+
+**Configuration**:
+```csharp
+namespace BingoSim.Infrastructure.Messaging;
+
+public static class MassTransitConfiguration
+{
+    public static IServiceCollection AddMessaging(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddMassTransit(x =>
+        {
+            x.AddConsumer<SimulationJobConsumer>();
+
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.Host(configuration["RabbitMQ:Host"], h =>
+                {
+                    h.Username(configuration["RabbitMQ:Username"]);
+                    h.Password(configuration["RabbitMQ:Password"]);
+                });
+
+                cfg.ConfigureEndpoints(context);
+            });
+        });
+
+        return services;
+    }
+}
+```
+
+**Consumer**:
+```csharp
+namespace BingoSim.Infrastructure.Messaging.Consumers;
+
+public class SimulationJobConsumer(
+    ISimulationRepository repository,
+    ILogger<SimulationJobConsumer> logger) : IConsumer<SimulationJobMessage>
+{
+    public async Task Consume(ConsumeContext<SimulationJobMessage> context)
+    {
+        var message = context.Message;
+        logger.LogInformation("Processing simulation {Id}", message.SimulationId);
+
+        var simulation = await repository.GetByIdAsync(message.SimulationId);
+        if (simulation == null)
+        {
+            logger.LogWarning("Simulation {Id} not found", message.SimulationId);
+            return;
+        }
+
+        // Process simulation
+        // ...
+    }
+}
+```
+
+**Publisher**:
+```csharp
+namespace BingoSim.Infrastructure.Messaging;
+
+public class JobQueue(IPublishEndpoint publishEndpoint) : IJobQueue
+{
+    public async Task EnqueueAsync<T>(T message) where T : class
+    {
+        await publishEndpoint.Publish(message);
+    }
+}
+```
+
+### 3. Caching
+
+**Memory Cache** (single instance):
+```csharp
+public class CachedSimulationRepository(
+    ISimulationRepository inner,
+    IMemoryCache cache) : ISimulationRepository
+{
+    public async Task<Simulation?> GetByIdAsync(Guid id)
+    {
+        var key = $"simulation:{id}";
+        if (cache.TryGetValue<Simulation>(key, out var cached))
+            return cached;
+
+        var simulation = await inner.GetByIdAsync(id);
+        if (simulation != null)
+        {
+            cache.Set(key, simulation, TimeSpan.FromMinutes(5));
+        }
+        return simulation;
+    }
+
+    // Implement other methods...
+}
+```
+
+**Distributed Cache** (multiple instances):
+```csharp
+public class DistributedCachedRepository(
+    ISimulationRepository inner,
+    IDistributedCache cache,
+    ILogger<DistributedCachedRepository> logger) : ISimulationRepository
+{
+    public async Task<Simulation?> GetByIdAsync(Guid id)
+    {
+        var key = $"simulation:{id}";
+        var cached = await cache.GetStringAsync(key);
+        if (cached != null)
+            return JsonSerializer.Deserialize<Simulation>(cached);
+
+        var simulation = await inner.GetByIdAsync(id);
+        if (simulation != null)
+        {
+            await cache.SetStringAsync(
+                key,
+                JsonSerializer.Serialize(simulation),
+                new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5) });
+        }
+        return simulation;
+    }
+}
+```
+
+## Testing
+- **Project**: `Tests/BingoSim.Infrastructure.IntegrationTests`
+- **Strategy**: Use real dependencies (containerized PostgreSQL, RabbitMQ)
+- **Coverage**: Repository implementations, messaging consumers, database migrations

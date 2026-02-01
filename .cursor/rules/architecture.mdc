@@ -1,0 +1,73 @@
+---
+description: High-level architectural principles and project structure for BingoSim.
+alwaysApply: true
+---
+
+# Architecture Principles
+
+The project follows Clean Architecture (Hexagonal Architecture) and SOLID principles to ensure maintainability and scalability.
+
+## Layered Structure
+- **Core** (`BingoSim.Core`): Domain entities and business logic. No external dependencies.
+- **Application** (`BingoSim.Application`): Use cases and orchestration. Depends only on Core.
+- **Infrastructure** (`BingoSim.Infrastructure`): Implementation of persistence, messaging, and external services. Depends on Core and Application.
+- **Presentation** (`BingoSim.Web`/`BingoSim.Worker`): Entry points and UI. Depends on Core, Application, and Infrastructure.
+
+## Dependency Rule (Critical)
+
+Dependencies must point inwards. Outer layers can depend on inner layers, but **never** vice versa.
+
+**Valid:**
+```csharp
+// In BingoSim.Application
+using BingoSim.Core.Entities;
+using BingoSim.Core.Interfaces;
+```
+
+**Invalid:**
+```csharp
+// In BingoSim.Core - NEVER DO THIS
+using BingoSim.Infrastructure.Persistence;
+using BingoSim.Application.Services;
+```
+
+Use interfaces in Core/Application, implement in Infrastructure:
+
+```csharp
+// BingoSim.Core/Interfaces/ISimulationRepository.cs
+public interface ISimulationRepository
+{
+    Task<Simulation> GetByIdAsync(Guid id);
+}
+
+// BingoSim.Infrastructure/Repositories/SimulationRepository.cs
+public class SimulationRepository : ISimulationRepository
+{
+    private readonly AppDbContext _context;
+    // Implementation uses EF Core
+}
+```
+
+## SOLID Principles
+- **S**ingle Responsibility: One class, one reason to change
+- **O**pen/Closed: Open for extension, closed for modification
+- **L**iskov Substitution: Derived classes must be substitutable for base classes
+- **I**nterface Segregation: Many specific interfaces > one general interface
+- **D**ependency Inversion: Depend on abstractions, not concretions
+
+## Security
+- All web communication uses **HTTPS** in production
+- Implement **CORS policies** for API endpoints
+- Use **ASP.NET Core Identity** or **JWT** for authentication
+- Never commit secrets; use User Secrets (dev) and environment variables (prod)
+
+## Distributed Simulation
+- **MassTransit** for messaging between Web and Worker
+- **Entity Framework Core** with PostgreSQL for persistence
+- Workers are stateless to enable horizontal scaling across machines
+
+### Performance Constraints
+- Simulation execution must be optimized for high-throughput batch processing.
+- Avoid per-attempt persistence or logging inside simulation loops.
+- Persist only aggregate results per run.
+

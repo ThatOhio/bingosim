@@ -1,0 +1,147 @@
+---
+description: Rules for the BingoSim.Core project (Domain Layer).
+globs: ["BingoSim.Core/**/*.cs"]
+alwaysApply: false
+---
+
+# Core Layer Guidelines
+
+The Core layer contains domain models and business logic. It is the **heart** of the application.
+
+## Critical Constraints
+- **Zero Dependencies**: No references to Infrastructure, Web, Worker, or third-party libraries (except domain-specific ones)
+- **No EF Core**: Never use `DbContext`, `DbSet`, or EF attributes in Core
+- **No MassTransit**: Message bus concerns belong in Infrastructure
+- **Pure Logic**: Domain logic should be pure (no side effects like I/O)
+
+## Content Types
+
+### Entities
+Domain objects with identity. Use `Guid` or other unique identifiers:
+
+```csharp
+namespace BingoSim.Core.Entities;
+
+public class Simulation
+{
+    public Guid Id { get; private set; }
+    public string Name { get; private set; }
+    public JobStatus Status { get; private set; }
+    public DateTime CreatedAt { get; private set; }
+
+    private Simulation() { } // EF Core
+
+    public Simulation(string name)
+    {
+        Id = Guid.NewGuid();
+        Name = name ?? throw new ArgumentNullException(nameof(name));
+        Status = JobStatus.Pending;
+        CreatedAt = DateTime.UtcNow;
+    }
+
+    public void Start()
+    {
+        if (Status != JobStatus.Pending)
+            throw new InvalidOperationException("Only pending simulations can be started");
+
+        Status = JobStatus.Running;
+    }
+}
+```
+
+### Value Objects
+Objects defined by their attributes (no identity). Immutable:
+
+```csharp
+namespace BingoSim.Core.ValueObjects;
+
+public record BingoCard(IReadOnlyList<int> Numbers)
+{
+    public const int RequiredNumberCount = 25;
+
+    public BingoCard(IReadOnlyList<int> Numbers) : this(Numbers)
+    {
+        if (Numbers.Count != RequiredNumberCount)
+            throw new ArgumentException($"Card must have exactly {RequiredNumberCount} numbers");
+
+        if (Numbers.Distinct().Count() != Numbers.Count)
+            throw new ArgumentException("Card cannot have duplicate numbers");
+    }
+
+    public bool HasNumber(int number) => Numbers.Contains(number);
+}
+```
+
+### Domain Services
+Logic that doesn't fit into a single entity:
+
+```csharp
+namespace BingoSim.Core.Services;
+
+public class BingoSimulationEngine
+{
+    public SimulationResult Execute(BingoCard card, IEnumerable<int> draws)
+    {
+        var drawCount = 0;
+        var markedNumbers = new HashSet<int>();
+
+        foreach (var draw in draws)
+        {
+            drawCount++;
+            if (card.HasNumber(draw))
+            {
+                markedNumbers.Add(draw);
+                if (IsWinningConfiguration(card, markedNumbers))
+                    return new SimulationResult(true, drawCount);
+            }
+        }
+
+        return new SimulationResult(false, drawCount);
+    }
+
+    private bool IsWinningConfiguration(BingoCard card, HashSet<int> marked)
+    {
+        // Domain logic for checking win conditions
+        return false; // Placeholder
+    }
+}
+```
+
+### Interfaces
+Define contracts for external services:
+
+```csharp
+namespace BingoSim.Core.Interfaces;
+
+public interface ISimulationRepository
+{
+    Task<Simulation?> GetByIdAsync(Guid id);
+    Task<IEnumerable<Simulation>> GetAllAsync();
+    Task AddAsync(Simulation simulation);
+    Task UpdateAsync(Simulation simulation);
+}
+```
+
+### Domain Exceptions
+Specific exceptions for domain violations:
+
+```csharp
+namespace BingoSim.Core.Exceptions;
+
+public class SimulationNotFoundException : Exception
+{
+    public Guid SimulationId { get; }
+
+    public SimulationNotFoundException(Guid simulationId)
+        : base($"Simulation with ID {simulationId} was not found")
+    {
+        SimulationId = simulationId;
+    }
+}
+```
+
+## Testing
+- **Project**: `Tests/BingoSim.Core.UnitTests`
+- **Requirement**: 100% coverage for entities, value objects, and domain services
+- **Focus**: Business rules, invariants, edge cases
+- **No mocking**: Core should have minimal dependencies to mock

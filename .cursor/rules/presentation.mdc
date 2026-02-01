@@ -1,0 +1,367 @@
+---
+description: Rules for BingoSim.Web and BingoSim.Worker (Presentation & Execution).
+globs: ["BingoSim.Web/**/*.cs", "BingoSim.Web/**/*.razor", "BingoSim.Worker/**/*.cs"]
+alwaysApply: false
+---
+
+# Presentation & Execution Layer Guidelines
+
+Entry points: Blazor Web application and Worker service.
+
+## BingoSim.Web (Blazor Interactive Server)
+
+### Component Design
+
+**Small, reusable components**:
+```razor
+@* SimulationCard.razor *@
+<div class="simulation-card">
+    <h3>@Simulation.Name</h3>
+    <p>Status: @Simulation.Status</p>
+    <button @onclick="OnStartClicked">Start</button>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public SimulationDto Simulation { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<Guid> OnStart { get; set; }
+
+    private async Task OnStartClicked()
+    {
+        await OnStart.InvokeAsync(Simulation.Id);
+    }
+}
+```
+
+**Code-behind for complex logic**:
+```csharp
+// SimulationList.razor.cs
+public partial class SimulationList : ComponentBase
+{
+    [Inject] private ISimulationService SimulationService { get; set; } = default!;
+    [Inject] private ILogger<SimulationList> Logger { get; set; } = default!;
+
+    private List<SimulationDto> _simulations = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSimulationsAsync();
+    }
+
+    private async Task LoadSimulationsAsync()
+    {
+        _loading = true;
+        try
+        {
+            _simulations = await SimulationService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load simulations");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
+```
+
+### Lifecycle Methods
+
+```csharp
+// OnInitializedAsync - Component first rendered
+protected override async Task OnInitializedAsync()
+{
+    // Load initial data
+    await LoadDataAsync();
+}
+
+// OnParametersSetAsync - Parameters changed
+protected override async Task OnParametersSetAsync()
+{
+    // React to parameter changes
+    if (_previousId != SimulationId)
+    {
+        await LoadSimulationAsync(SimulationId);
+        _previousId = SimulationId;
+    }
+}
+
+// OnAfterRenderAsync - After component rendered
+protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    if (firstRender)
+    {
+        // Initialize JS interop or third-party libraries
+        await JsRuntime.InvokeVoidAsync("initChart");
+    }
+}
+```
+
+### Data Binding
+
+```razor
+@* Two-way binding *@
+<input @bind="searchQuery" @bind:event="oninput" />
+
+@* Forms *@
+<EditForm Model="model" OnValidSubmit="HandleSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <InputText @bind-Value="model.Name" />
+    <InputNumber @bind-Value="model.Iterations" />
+
+    <button type="submit">Submit</button>
+</EditForm>
+
+@code {
+    private string searchQuery = "";
+    private CreateSimulationRequest model = new();
+
+    private async Task HandleSubmit()
+    {
+        await SimulationService.CreateAsync(model);
+    }
+}
+```
+
+### Performance Optimization
+
+```csharp
+// Prevent unnecessary re-renders
+protected override bool ShouldRender()
+{
+    // Only re-render if data actually changed
+    return _dataChanged;
+}
+
+// Call StateHasChanged() only when necessary
+private async Task UpdateDataAsync()
+{
+    _data = await Service.GetDataAsync();
+    _dataChanged = true;
+    StateHasChanged(); // Manual refresh
+}
+
+// Use @key to help Blazor track list items
+@foreach (var sim in simulations)
+{
+    <SimulationCard @key="sim.Id" Simulation="sim" />
+}
+```
+
+### Error Handling
+
+```razor
+<ErrorBoundary>
+    <ChildContent>
+        <SimulationList />
+    </ChildContent>
+    <ErrorContent Context="exception">
+        <div class="error">
+            <h3>Something went wrong</h3>
+            <p>@exception.Message</p>
+        </div>
+    </ErrorContent>
+</ErrorBoundary>
+```
+
+### Component Communication
+
+```razor
+@* Parent Component *@
+<SimulationCard Simulation="sim" OnStart="HandleStart" />
+
+@code {
+    private async Task HandleStart(Guid id)
+    {
+        await SimulationService.StartAsync(id);
+        await RefreshListAsync();
+    }
+}
+
+@* Child Component *@
+@code {
+    [Parameter]
+    public EventCallback<Guid> OnStart { get; set; }
+
+    private async Task StartClicked()
+    {
+        await OnStart.InvokeAsync(SimulationId);
+    }
+}
+```
+
+## BingoSim.Worker (Background Service)
+
+### Background Service Implementation
+
+```csharp
+namespace BingoSim.Worker.Services;
+
+public class SimulationWorker(
+    ILogger<SimulationWorker> logger,
+    IServiceProvider serviceProvider) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        logger.LogInformation("Simulation Worker starting");
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                // Use scoped services within the loop
+                using var scope = serviceProvider.CreateScope();
+                var processor = scope.ServiceProvider.GetRequiredService<ISimulationProcessor>();
+
+                await processor.ProcessNextJobAsync(stoppingToken);
+
+                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected during shutdown
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error processing simulation");
+                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+            }
+        }
+
+        logger.LogInformation("Simulation Worker stopping");
+    }
+}
+```
+
+### CPU-Bound Work
+
+```csharp
+public class SimulationProcessor(ILogger<SimulationProcessor> logger)
+{
+    public async Task<SimulationResult> ProcessAsync(SimulationJob job)
+    {
+        // Offload CPU-intensive work to thread pool
+        return await Task.Run(() => ExecuteSimulation(job));
+    }
+
+    private SimulationResult ExecuteSimulation(SimulationJob job)
+    {
+        // CPU-bound simulation logic
+        var wins = 0;
+        for (int i = 0; i < job.Iterations; i++)
+        {
+            if (SimulateGame(job.CardConfig))
+                wins++;
+
+            if (i % 10000 == 0)
+                logger.LogDebug("Progress: {Iteration}/{Total}", i, job.Iterations);
+        }
+
+        return new SimulationResult(wins, job.Iterations);
+    }
+}
+```
+
+## Shared Rules
+
+### Dependency Injection Lifetimes
+
+```csharp
+// Program.cs - Web
+builder.Services.AddScoped<ISimulationService, SimulationService>();  // Blazor components
+builder.Services.AddSingleton<IMemoryCache, MemoryCache>();
+
+// Program.cs - Worker
+builder.Services.AddSingleton<SimulationWorker>();  // Long-running background service
+builder.Services.AddScoped<ISimulationProcessor, SimulationProcessor>();  // Per-job scope
+```
+
+### Configuration
+
+```json
+// appsettings.json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=bingosim;Username=postgres"
+  },
+  "RabbitMQ": {
+    "Host": "localhost",
+    "Username": "guest",
+    "Password": "guest"
+  }
+}
+
+// Use environment variables for secrets (never commit)
+// export ConnectionStrings__DefaultConnection="Host=prod;..."
+```
+
+### Structured Logging
+
+```csharp
+logger.LogInformation("Processing simulation {SimulationId} with {Iterations} iterations",
+    simulation.Id, simulation.Iterations);
+
+logger.LogError(exception, "Failed to process simulation {SimulationId}", simulationId);
+
+// Log scopes for context
+using (logger.BeginScope(new Dictionary<string, object>
+{
+    ["SimulationId"] = simulationId,
+    ["UserId"] = userId
+}))
+{
+    logger.LogInformation("Starting simulation");
+    // All logs in scope include SimulationId and UserId
+}
+```
+
+## Testing
+
+### Blazor (bUnit)
+```csharp
+[Fact]
+public void SimulationCard_ClickStart_RaisesCallback()
+{
+    // Arrange
+    using var ctx = new TestContext();
+    var simulation = new SimulationDto { Id = Guid.NewGuid(), Name = "Test" };
+    var callbackInvoked = false;
+
+    var component = ctx.RenderComponent<SimulationCard>(parameters => parameters
+        .Add(p => p.Simulation, simulation)
+        .Add(p => p.OnStart, EventCallback.Factory.Create<Guid>(this, _ => callbackInvoked = true)));
+
+    // Act
+    component.Find("button").Click();
+
+    // Assert
+    callbackInvoked.Should().BeTrue();
+}
+```
+
+### Worker
+```csharp
+[Fact]
+public async Task ProcessAsync_ValidJob_ReturnsResult()
+{
+    // Arrange
+    var logger = Substitute.For<ILogger<SimulationProcessor>>();
+    var processor = new SimulationProcessor(logger);
+    var job = new SimulationJob(Guid.NewGuid(), 1000);
+
+    // Act
+    var result = await processor.ProcessAsync(job);
+
+    // Assert
+    result.TotalIterations.Should().Be(1000);
+    result.Wins.Should().BeGreaterOrEqualTo(0);
+}
+```

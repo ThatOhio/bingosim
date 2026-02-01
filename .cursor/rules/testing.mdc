@@ -1,0 +1,163 @@
+---
+description: General testing guidelines and requirements for BingoSim.
+alwaysApply: true
+---
+
+# Testing Guidelines
+
+**Critical**: When adding new functionality, logic, or bug fixes, you **MUST** create corresponding tests.
+
+## Testing Stack
+- **Framework**: xUnit
+- **Mocking**: NSubstitute
+- **Assertions**: FluentAssertions
+- **Blazor**: bUnit
+
+## Project Mapping
+- `BingoSim.Core` → `Tests/BingoSim.Core.UnitTests`
+- `BingoSim.Application` → `Tests/BingoSim.Application.UnitTests`
+- `BingoSim.Infrastructure` → `Tests/BingoSim.Infrastructure.IntegrationTests`
+- `BingoSim.Web` → `Tests/BingoSim.Web.Tests`
+- `BingoSim.Worker` → `Tests/BingoSim.Worker.UnitTests`
+
+## Test Structure: AAA Pattern
+
+Always follow Arrange-Act-Assert:
+
+```csharp
+[Fact]
+public async Task ExecuteAsync_ValidSimulation_ReturnsSuccess()
+{
+    // Arrange
+    var repository = Substitute.For<ISimulationRepository>();
+    var simulation = new Simulation { Id = Guid.NewGuid(), Status = JobStatus.Pending };
+    repository.GetByIdAsync(simulation.Id).Returns(simulation);
+    var service = new SimulationService(repository);
+
+    // Act
+    var result = await service.ExecuteAsync(simulation.Id);
+
+    // Assert
+    result.Should().BeSuccessful();
+    await repository.Received(1).GetByIdAsync(simulation.Id);
+}
+```
+
+## Naming Convention
+
+Use `MethodName_StateUnderTest_ExpectedBehavior`:
+
+```csharp
+[Fact]
+public void Create_WithNullName_ThrowsArgumentNullException() { }
+
+[Fact]
+public async Task GetByIdAsync_NonExistentId_ReturnsNull() { }
+
+[Fact]
+public void CalculateWinProbability_EmptyBoard_ReturnsZero() { }
+```
+
+## NSubstitute Mocking Examples
+
+```csharp
+// Basic mock
+var repository = Substitute.For<ISimulationRepository>();
+
+// Setup return value
+repository.GetByIdAsync(Arg.Any<Guid>()).Returns(simulation);
+
+// Verify call was made
+await repository.Received(1).GetByIdAsync(simulation.Id);
+
+// Verify call was NOT made
+await repository.DidNotReceive().DeleteAsync(Arg.Any<Guid>());
+
+// Throw exception
+repository.GetByIdAsync(Arg.Any<Guid>()).Throws(new NotFoundException());
+```
+
+## FluentAssertions Examples
+
+```csharp
+// Value assertions
+result.Should().Be(42);
+result.Should().BeNull();
+result.Should().BeTrue();
+
+// Collection assertions
+items.Should().HaveCount(3);
+items.Should().Contain(x => x.Id == expectedId);
+items.Should().BeInAscendingOrder(x => x.CreatedAt);
+
+// Object assertions
+simulation.Should().NotBeNull();
+simulation.Status.Should().Be(JobStatus.Completed);
+
+// Exception assertions
+var act = () => service.Process(null);
+act.Should().Throw<ArgumentNullException>()
+    .WithMessage("*simulation*");
+
+// Async exception assertions
+var act = async () => await service.GetByIdAsync(Guid.Empty);
+await act.Should().ThrowAsync<NotFoundException>();
+```
+
+## Coverage Requirements
+
+- **Domain Logic (Core)**: 100% coverage for entities, value objects, domain services
+- **Use Cases (Application)**: Every command, query, and service must have tests
+- **Infrastructure**: Integration tests for repositories and consumers
+- **Presentation**: bUnit tests for complex Blazor components
+- **Worker**: Tests for computation and job handling logic
+
+## Unit vs Integration Tests
+
+**Unit Tests** (use NSubstitute):
+```csharp
+// Mock ALL external dependencies
+var repository = Substitute.For<ISimulationRepository>();
+var logger = Substitute.For<ILogger<SimulationService>>();
+var service = new SimulationService(repository, logger);
+```
+
+**Integration Tests** (use real dependencies):
+```csharp
+// Use test database, message broker, etc.
+var context = new AppDbContext(options);
+var repository = new SimulationRepository(context);
+```
+
+## Common Patterns
+
+### Testing async methods:
+```csharp
+[Fact]
+public async Task GetByIdAsync_ExistingId_ReturnsSimulation()
+{
+    // Arrange
+    var repository = Substitute.For<ISimulationRepository>();
+    var expected = new Simulation { Id = Guid.NewGuid() };
+    repository.GetByIdAsync(expected.Id).Returns(expected);
+
+    // Act
+    var result = await repository.GetByIdAsync(expected.Id);
+
+    // Assert
+    result.Should().Be(expected);
+}
+```
+
+### Testing multiple scenarios (Theory):
+```csharp
+[Theory]
+[InlineData(JobStatus.Pending, true)]
+[InlineData(JobStatus.Running, false)]
+[InlineData(JobStatus.Completed, false)]
+public void CanStart_VariousStatuses_ReturnsExpected(JobStatus status, bool expected)
+{
+    var simulation = new Simulation { Status = status };
+    simulation.CanStart().Should().Be(expected);
+}
+```

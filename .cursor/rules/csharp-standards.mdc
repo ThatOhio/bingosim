@@ -1,0 +1,141 @@
+---
+description: General C# and .NET 10 coding standards for BingoSim.
+alwaysApply: true
+---
+
+# C# and .NET Coding Standards
+
+Follow these standards to ensure consistency and high quality across the codebase.
+
+## Language & Framework
+- **C# 14**: Use latest language features
+- **.NET 10**: Target for all projects
+
+## Code Style
+
+### File-Scoped Namespaces
+Always use file-scoped namespaces:
+
+```csharp
+namespace BingoSim.Core.Entities;
+
+public class Simulation
+{
+    // ...
+}
+```
+
+### Naming Conventions
+- **PascalCase**: Classes, methods, properties, public fields
+  ```csharp
+  public class SimulationService
+  public async Task<Result> ExecuteSimulationAsync()
+  public int TotalIterations { get; set; }
+  ```
+- **camelCase with `_` prefix**: Private fields
+  ```csharp
+  private readonly ISimulationRepository _repository;
+  private int _counter;
+  ```
+- **UPPERCASE**: Constants
+  ```csharp
+  private const int MAX_ITERATIONS = 1000000;
+  ```
+- **`I` prefix**: Interfaces
+  ```csharp
+  public interface ISimulationService { }
+  ```
+
+### Implicit Typing
+Use `var` when type is obvious:
+
+```csharp
+// Good
+var simulation = new Simulation();
+var items = GetItems();
+
+// Bad (type not obvious)
+var result = ProcessData();  // Use explicit type
+```
+
+### Primary Constructors (C# 14)
+Use for dependency injection:
+
+```csharp
+public class SimulationService(ISimulationRepository repository, ILogger<SimulationService> logger) : ISimulationService
+{
+    public async Task<Simulation> GetAsync(Guid id)
+    {
+        logger.LogInformation("Fetching simulation {Id}", id);
+        return await repository.GetByIdAsync(id);
+    }
+}
+```
+
+### Collection Expressions (C# 14)
+```csharp
+// Good
+int[] numbers = [1, 2, 3, 4, 5];
+List<string> names = ["Alice", "Bob", "Charlie"];
+
+// Spread operator
+int[] combined = [..numbers, 6, 7, 8];
+```
+
+### Pattern Matching
+Use modern pattern matching:
+
+```csharp
+return status switch
+{
+    JobStatus.Pending => "Waiting to start",
+    JobStatus.Running => "In progress",
+    JobStatus.Completed => "Done",
+    _ => "Unknown"
+};
+
+if (obj is Simulation { Status: JobStatus.Running } simulation)
+{
+    // Use simulation
+}
+```
+
+### Async/Await
+- Use `async`/`await` for all I/O-bound operations
+- **Never** use `.Result` or `.Wait()` (causes deadlocks)
+
+```csharp
+// Good
+var result = await repository.GetByIdAsync(id);
+
+// Bad
+var result = repository.GetByIdAsync(id).Result;  // NEVER DO THIS
+```
+
+### LINQ
+Prefer LINQ for collections:
+
+```csharp
+var activeSimulations = simulations
+    .Where(s => s.Status == JobStatus.Running)
+    .OrderByDescending(s => s.CreatedAt)
+    .ToList();
+```
+
+## Clean Code Principles
+- **Small methods**: One responsibility per method
+- **Guard clauses**: Early returns instead of deep nesting
+```csharp
+public async Task<Result> ProcessAsync(Simulation simulation)
+{
+    if (simulation is null)
+        return Result.Fail("Simulation cannot be null");
+
+    if (simulation.Status != JobStatus.Pending)
+        return Result.Fail("Simulation must be pending");
+
+    // Main logic here
+}
+```
+- **Meaningful names**: Use domain language (OSRS Bingo context)
+- **Avoid magic numbers**: Use named constants
