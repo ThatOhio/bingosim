@@ -1,5 +1,6 @@
 using BingoSim.Application.DTOs;
 using BingoSim.Application.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using BingoSim.Application.Simulation;
 using BingoSim.Application.Simulation.Snapshot;
 using BingoSim.Core.Entities;
@@ -11,7 +12,7 @@ using Microsoft.Extensions.Logging;
 namespace BingoSim.Application.Services;
 
 /// <summary>
-/// Starts simulation batches, creates snapshot and runs, enqueues for local execution; queries batch progress and results.
+/// Starts simulation batches, creates snapshot and runs; enqueues (local) or publishes (distributed) for execution.
 /// </summary>
 public class SimulationBatchService(
     IEventRepository eventRepo,
@@ -23,6 +24,7 @@ public class SimulationBatchService(
     IBatchTeamAggregateRepository aggregateRepo,
     EventSnapshotBuilder snapshotBuilder,
     ISimulationRunQueue runQueue,
+    [FromKeyedServices("distributed")] ISimulationRunWorkPublisher distributedWorkPublisher,
     IListBatchesQuery listBatchesQuery,
     ILogger<SimulationBatchService> logger) : ISimulationBatchService
 {
@@ -64,12 +66,18 @@ public class SimulationBatchService(
         }
         await runRepo.AddRangeAsync(runs, cancellationToken);
 
+        batch.SetStatus(BatchStatus.Running);
+        await batchRepo.UpdateAsync(batch, cancellationToken);
+
         if (request.ExecutionMode == ExecutionMode.Local)
         {
-            batch.SetStatus(BatchStatus.Running);
-            await batchRepo.UpdateAsync(batch, cancellationToken);
             foreach (var run in runs)
                 await runQueue.EnqueueAsync(run.Id, cancellationToken);
+        }
+        else
+        {
+            foreach (var run in runs)
+                await distributedWorkPublisher.PublishRunWorkAsync(run.Id, cancellationToken);
         }
 
         logger.LogInformation("Simulation batch {BatchId} started: {RunCount} runs, seed {Seed}, mode {Mode}",

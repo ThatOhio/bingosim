@@ -45,12 +45,13 @@ public class SimulationBatchServiceTests
         var aggregateRepo = Substitute.For<IBatchTeamAggregateRepository>();
         var snapshotBuilder = new EventSnapshotBuilder(eventRepo, teamRepo, activityRepo, playerRepo);
         var runQueue = Substitute.For<ISimulationRunQueue>();
+        var distributedWorkPublisher = Substitute.For<ISimulationRunWorkPublisher>();
         var listBatchesQuery = Substitute.For<IListBatchesQuery>();
         var logger = Substitute.For<ILogger<SimulationBatchService>>();
 
         var service = new SimulationBatchService(
             eventRepo, teamRepo, batchRepo, snapshotRepo, runRepo, resultRepo, aggregateRepo,
-            snapshotBuilder, runQueue, listBatchesQuery, logger);
+            snapshotBuilder, runQueue, distributedWorkPublisher, listBatchesQuery, logger);
 
         var progress = await service.GetProgressAsync(batchId);
 
@@ -97,11 +98,12 @@ public class SimulationBatchServiceTests
         var aggregateRepo = Substitute.For<IBatchTeamAggregateRepository>();
         var snapshotBuilder = new EventSnapshotBuilder(eventRepo, teamRepo, activityRepo, playerRepo);
         var runQueue = Substitute.For<ISimulationRunQueue>();
+        var distributedWorkPublisher = Substitute.For<ISimulationRunWorkPublisher>();
         var logger = Substitute.For<ILogger<SimulationBatchService>>();
 
         var service = new SimulationBatchService(
             eventRepo, teamRepo, batchRepo, snapshotRepo, runRepo, resultRepo, aggregateRepo,
-            snapshotBuilder, runQueue, listBatchesQuery, logger);
+            snapshotBuilder, runQueue, distributedWorkPublisher, listBatchesQuery, logger);
 
         var result = await service.GetBatchesAsync(request);
 

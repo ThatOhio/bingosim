@@ -1,4 +1,5 @@
 using BingoSim.Core.Entities;
+using BingoSim.Core.Enums;
 using BingoSim.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,5 +20,17 @@ public class SimulationBatchRepository(AppDbContext context) : ISimulationBatchR
     {
         context.SimulationBatches.Update(batch);
         await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> TryTransitionToFinalAsync(Guid id, BatchStatus newStatus, DateTimeOffset completedAt, string? errorMessage, CancellationToken cancellationToken = default)
+    {
+        var rowsAffected = await context.SimulationBatches
+            .Where(b => b.Id == id && (b.Status == BatchStatus.Pending || b.Status == BatchStatus.Running))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(b => b.Status, newStatus)
+                .SetProperty(b => b.CompletedAt, completedAt)
+                .SetProperty(b => b.ErrorMessage, errorMessage),
+                cancellationToken);
+        return rowsAffected > 0;
     }
 }

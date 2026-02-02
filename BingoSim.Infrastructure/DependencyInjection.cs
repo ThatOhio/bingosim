@@ -7,6 +7,7 @@ using BingoSim.Core.Interfaces;
 using BingoSim.Infrastructure.Persistence;
 using BingoSim.Infrastructure.Persistence.Repositories;
 using BingoSim.Infrastructure.Queries;
+using BingoSim.Infrastructure.Services;
 using BingoSim.Infrastructure.Simulation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -43,6 +44,7 @@ public static class DependencyInjection
 
         // Queries (Application interface, Infrastructure implementation)
         services.AddScoped<IListBatchesQuery, ListBatchesQuery>();
+        services.AddScoped<IUnfinalizedBatchesQuery, UnfinalizedBatchesQuery>();
 
         // Simulation (Application)
         services.AddSingleton<IProgressAllocatorFactory, ProgressAllocatorFactory>();
@@ -50,8 +52,11 @@ public static class DependencyInjection
         services.AddScoped<SimulationRunner>();
         services.AddSingleton<ISimulationMetrics, InMemorySimulationMetrics>();
         services.AddScoped<ISimulationRunExecutor, SimulationRunExecutor>();
-        services.AddSingleton<ISimulationRunQueue, SimulationRunQueue>();
+        services.AddSingleton<SimulationRunQueue>();
+        services.AddSingleton<ISimulationRunQueue>(sp => sp.GetRequiredService<SimulationRunQueue>());
+        services.AddSingleton<ISimulationRunWorkPublisher>(sp => sp.GetRequiredService<SimulationRunQueue>());
         services.AddScoped<ISimulationBatchService, SimulationBatchService>();
+        services.AddScoped<IBatchFinalizationService, BatchFinalizationService>();
 
         // Application Services
         services.AddScoped<IPlayerProfileService, PlayerProfileService>();

@@ -1,4 +1,5 @@
 using BingoSim.Core.Entities;
+using BingoSim.Core.Enums;
 using BingoSim.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,5 +26,25 @@ public class SimulationRunRepository(AppDbContext context) : ISimulationRunRepos
     {
         context.SimulationRuns.Update(run);
         await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> TryClaimAsync(Guid runId, DateTimeOffset startedAt, CancellationToken cancellationToken = default)
+    {
+        var rowsAffected = await context.SimulationRuns
+            .Where(r => r.Id == runId && r.Status == RunStatus.Pending)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.Status, RunStatus.Running)
+                .SetProperty(r => r.StartedAt, startedAt)
+                .SetProperty(r => r.LastAttemptAt, startedAt),
+                cancellationToken);
+
+        // ExecuteUpdateAsync bypasses EF Core's change tracker, so we need to detach
+        // any tracked entity to ensure subsequent reads get fresh data from the database
+        var trackedEntity = context.ChangeTracker.Entries<SimulationRun>()
+            .FirstOrDefault(e => e.Entity.Id == runId);
+        if (trackedEntity is not null)
+            trackedEntity.State = EntityState.Detached;
+
+        return rowsAffected > 0;
     }
 }

@@ -8,16 +8,16 @@ using Microsoft.Extensions.Logging;
 namespace BingoSim.Application.Services;
 
 /// <summary>
-/// Executes one simulation run: load run + snapshot, run simulation, persist TeamRunResult, update run status; on batch complete, compute and persist BatchTeamAggregate.
-/// Retries up to 5 attempts per run; re-enqueues run when non-terminal failure.
+/// Executes one simulation run: load run + snapshot, run simulation, persist TeamRunResult, update run status.
+/// Uses atomic claim (TryClaimAsync) to prevent double execution. Retries up to 5 attempts per run via work publisher.
+/// Batch finalization delegated to IBatchFinalizationService (idempotent).
 /// </summary>
 public class SimulationRunExecutor(
     ISimulationRunRepository runRepo,
     IEventSnapshotRepository snapshotRepo,
     ITeamRunResultRepository resultRepo,
-    IBatchTeamAggregateRepository aggregateRepo,
-    ISimulationBatchRepository batchRepo,
-    ISimulationRunQueue runQueue,
+    ISimulationRunWorkPublisher workPublisher,
+    IBatchFinalizationService finalizationService,
     SimulationRunner runner,
     ILogger<SimulationRunExecutor> logger,
     ISimulationMetrics? metrics = null) : ISimulationRunExecutor
@@ -39,6 +39,15 @@ public class SimulationRunExecutor(
             return;
         }
 
+        var startedAt = DateTimeOffset.UtcNow;
+        if (!await runRepo.TryClaimAsync(runId, startedAt, cancellationToken))
+        {
+            logger.LogDebug("Run {RunId} already claimed by another worker", runId);
+            return;
+        }
+
+        run.MarkRunning(startedAt);
+
         var snapshot = await snapshotRepo.GetByBatchIdAsync(run.SimulationBatchId, cancellationToken);
         if (snapshot is null)
         {
@@ -46,10 +55,8 @@ public class SimulationRunExecutor(
             return;
         }
 
-        run.MarkRunning(DateTimeOffset.UtcNow);
-        await runRepo.UpdateAsync(run, cancellationToken);
-
-        logger.LogInformation("Executing run {RunId} for batch {BatchId}", run.Id, run.SimulationBatchId);
+        logger.LogInformation("Executing run {RunId} for batch {BatchId} (attempt {Attempt})",
+            run.Id, run.SimulationBatchId, run.AttemptCount + 1);
 
         try
         {
@@ -73,9 +80,9 @@ public class SimulationRunExecutor(
             run.MarkCompleted(DateTimeOffset.UtcNow);
             await runRepo.UpdateAsync(run, cancellationToken);
             metrics?.RecordRunCompleted(run.SimulationBatchId, run.Id);
-            logger.LogInformation("Run {RunId} completed", run.Id);
+            logger.LogInformation("Run {RunId} completed for batch {BatchId}", run.Id, run.SimulationBatchId);
 
-            await TryCompleteBatchAsync(run.SimulationBatchId, cancellationToken);
+            await finalizationService.TryFinalizeAsync(run.SimulationBatchId, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -86,10 +93,11 @@ public class SimulationRunExecutor(
                 metrics?.RecordRunFailed(run.SimulationBatchId, run.Id);
             else
                 metrics?.RecordRunRetried(run.SimulationBatchId, run.Id);
-            logger.LogError(ex, "Run {RunId} failed (attempt {Attempt}): {Message}", run.Id, run.AttemptCount, message);
+            logger.LogError(ex, "Run {RunId} failed for batch {BatchId} (attempt {Attempt}): {Message}",
+                run.Id, run.SimulationBatchId, run.AttemptCount, message);
             if (!run.IsTerminal)
-                await runQueue.EnqueueAsync(run.Id, cancellationToken);
-            await TryCompleteBatchAsync(run.SimulationBatchId, cancellationToken);
+                await workPublisher.PublishRunWorkAsync(run.Id, cancellationToken);
+            await finalizationService.TryFinalizeAsync(run.SimulationBatchId, cancellationToken);
         }
     }
 
@@ -102,69 +110,7 @@ public class SimulationRunExecutor(
         else
             metrics?.RecordRunRetried(run.SimulationBatchId, run.Id);
         if (!run.IsTerminal)
-            await runQueue.EnqueueAsync(run.Id, cancellationToken);
-        await TryCompleteBatchAsync(run.SimulationBatchId, cancellationToken);
-    }
-
-    private async Task TryCompleteBatchAsync(Guid batchId, CancellationToken cancellationToken)
-    {
-        var runs = await runRepo.GetByBatchIdAsync(batchId, cancellationToken);
-        if (runs.Any(r => !r.IsTerminal))
-            return;
-
-        var batch = await batchRepo.GetByIdAsync(batchId, cancellationToken);
-        if (batch is null)
-            return;
-
-        var failedCount = runs.Count(r => r.Status == RunStatus.Failed);
-        if (failedCount > 0)
-        {
-            batch.SetError($"One or more runs failed after 5 attempts ({failedCount} failed).", DateTimeOffset.UtcNow);
-            await batchRepo.UpdateAsync(batch, cancellationToken);
-            var duration = (batch.CompletedAt ?? DateTimeOffset.UtcNow) - batch.CreatedAt;
-            metrics?.RecordBatchCompleted(batch.Id, duration);
-            return;
-        }
-
-        var results = await resultRepo.GetByBatchIdAsync(batchId, cancellationToken);
-        var byTeam = results.GroupBy(r => r.TeamId).ToList();
-        var aggregates = new List<BatchTeamAggregate>();
-        foreach (var g in byTeam)
-        {
-            var list = g.ToList();
-            var teamId = g.Key;
-            var teamName = list[0].TeamName;
-            var strategyKey = list[0].StrategyKey;
-            var points = list.Select(r => r.TotalPoints).ToList();
-            var tiles = list.Select(r => r.TilesCompletedCount).ToList();
-            var rows = list.Select(r => r.RowReached).ToList();
-            var wins = list.Count(r => r.IsWinner);
-            var n = list.Count;
-            aggregates.Add(new BatchTeamAggregate(
-                batchId,
-                teamId,
-                teamName,
-                strategyKey,
-                points.Average(),
-                points.Min(),
-                points.Max(),
-                tiles.Average(),
-                tiles.Min(),
-                tiles.Max(),
-                rows.Average(),
-                rows.Min(),
-                rows.Max(),
-                n > 0 ? (double)wins / n : 0,
-                n));
-        }
-
-        await aggregateRepo.DeleteByBatchIdAsync(batchId, cancellationToken);
-        await aggregateRepo.AddRangeAsync(aggregates, cancellationToken);
-
-        batch.SetCompleted(DateTimeOffset.UtcNow);
-        await batchRepo.UpdateAsync(batch, cancellationToken);
-        var completedDuration = (batch.CompletedAt ?? DateTimeOffset.UtcNow) - batch.CreatedAt;
-        metrics?.RecordBatchCompleted(batchId, completedDuration);
-        logger.LogInformation("Batch {BatchId} completed", batchId);
+            await workPublisher.PublishRunWorkAsync(run.Id, cancellationToken);
+        await finalizationService.TryFinalizeAsync(run.SimulationBatchId, cancellationToken);
     }
 }

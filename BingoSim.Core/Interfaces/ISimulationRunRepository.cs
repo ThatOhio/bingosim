@@ -11,4 +11,9 @@ public interface ISimulationRunRepository
     Task<IReadOnlyList<SimulationRun>> GetByBatchIdAsync(Guid batchId, CancellationToken cancellationToken = default);
     Task AddRangeAsync(IEnumerable<SimulationRun> runs, CancellationToken cancellationToken = default);
     Task UpdateAsync(SimulationRun run, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Atomically transitions run from Pending to Running. Returns true if claimed; false if already claimed or terminal.
+    /// </summary>
+    Task<bool> TryClaimAsync(Guid runId, DateTimeOffset startedAt, CancellationToken cancellationToken = default);
 }

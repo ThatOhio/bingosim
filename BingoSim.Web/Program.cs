@@ -1,8 +1,11 @@
+using BingoSim.Application.Interfaces;
 using BingoSim.Application.Validators;
 using BingoSim.Infrastructure;
 using BingoSim.Infrastructure.Persistence;
+using BingoSim.Infrastructure.Simulation;
 using BingoSim.Web.Components;
 using FluentValidation;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 namespace BingoSim.Web;
@@ -19,6 +22,30 @@ public class Program
 
         // Add Infrastructure services (DbContext, Repositories, Application Services)
         builder.Services.AddInfrastructure(builder.Configuration);
+
+        // MassTransit for distributed mode
+        var rabbitHost = builder.Configuration["RabbitMQ:Host"] ?? builder.Configuration["RABBITMQ_HOST"] ?? "localhost";
+        var rabbitPort = int.TryParse(builder.Configuration["RabbitMQ:Port"] ?? builder.Configuration["RABBITMQ_PORT"], out var p) ? p : 5672;
+        var rabbitUser = builder.Configuration["RabbitMQ:Username"] ?? builder.Configuration["RABBITMQ_USER"] ?? "guest";
+        var rabbitPass = builder.Configuration["RabbitMQ:Password"] ?? builder.Configuration["RABBITMQ_PASS"] ?? "guest";
+        var rabbitUri = new Uri($"amqp://{rabbitUser}:{rabbitPass}@{rabbitHost}:{rabbitPort}/");
+
+        builder.Services.AddMassTransit(x =>
+        {
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.Host(rabbitUri);
+                cfg.ConfigureEndpoints(context, new DefaultEndpointNameFormatter("bingosim-", false));
+            });
+        });
+
+        builder.Services.AddScoped<MassTransitRunWorkPublisher>();
+        builder.Services.AddKeyedScoped<ISimulationRunWorkPublisher>("distributed", (sp, _) => sp.GetRequiredService<MassTransitRunWorkPublisher>());
+        builder.Services.AddScoped<ISimulationRunWorkPublisher>(sp => new RoutingSimulationRunWorkPublisher(
+            sp.GetRequiredService<BingoSim.Core.Interfaces.ISimulationRunRepository>(),
+            sp.GetRequiredService<BingoSim.Core.Interfaces.ISimulationBatchRepository>(),
+            sp.GetRequiredService<ISimulationRunQueue>(),
+            sp.GetRequiredService<MassTransitRunWorkPublisher>()));
 
         builder.Services.Configure<BingoSim.Web.Services.LocalSimulationOptions>(
             builder.Configuration.GetSection(BingoSim.Web.Services.LocalSimulationOptions.SectionName));
