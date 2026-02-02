@@ -31,6 +31,20 @@ dotnet run --project BingoSim.Seed
 dotnet run --project BingoSim.Seed -- --reset
 ```
 
+**Full database reset** (deletes **all** application data; useful for a clean slate). Requires confirmation:
+
+```bash
+dotnet run --project BingoSim.Seed -- --full-reset
+```
+
+You will be prompted to type `yes` to confirm. To skip the prompt (e.g. in scripts), add `--confirm`:
+
+```bash
+dotnet run --project BingoSim.Seed -- --full-reset --confirm
+```
+
+**Warning:** Full reset permanently deletes all rows in all application tables (Players, Activities, Events, Teams, Simulation batches/results, etc.). The database and schema (migrations) are left intact.
+
 Connection string is read from `BingoSim.Seed/appsettings.json` (default: `Host=localhost;Port=5432;Database=bingosim;Username=postgres;Password=postgres`). Override via environment variables, e.g.:
 
 ```bash
