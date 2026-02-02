@@ -44,6 +44,7 @@ else
                         <td>@evt.Rows.Count</td>
                         <td>@evt.CreatedAt.ToString("g")</td>
                         <td class="actions">
+                            <a href="/events/@evt.Id/teams" class="btn btn-sm btn-outline">Draft teams</a>
                             <a href="/events/@evt.Id/edit" class="btn btn-sm btn-secondary">Edit</a>
                             <button type="button" class="btn btn-sm btn-danger" @onclick="() => ShowDeleteConfirmation(evt)">
                                 Delete

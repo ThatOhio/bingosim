@@ -11,6 +11,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PlayerProfile> PlayerProfiles => Set<PlayerProfile>();
     public DbSet<ActivityDefinition> ActivityDefinitions => Set<ActivityDefinition>();
     public DbSet<Event> Events => Set<Event>();
+    public DbSet<Team> Teams => Set<Team>();
+    public DbSet<TeamPlayer> TeamPlayers => Set<TeamPlayer>();
+    public DbSet<StrategyConfig> StrategyConfigs => Set<StrategyConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

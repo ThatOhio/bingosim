@@ -1,0 +1,196 @@
+@page "/events/{EventId:guid}/teams/{TeamId:guid}/edit"
+@inject ITeamService TeamService
+@inject IPlayerProfileService PlayerProfileService
+@inject IValidator<UpdateTeamRequest> Validator
+@inject NavigationManager NavigationManager
+@inject ILogger<EventTeamEdit> Logger
+@rendermode InteractiveServer
+
+<PageTitle>Edit Team</PageTitle>
+
+<div class="page-header">
+    <h1>Edit Team</h1>
+</div>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_notFound)
+{
+    <div class="alert alert-warning">Team not found or does not belong to this event.</div>
+    <a href="/events/@EventId/teams" class="btn btn-secondary">Back to Teams</a>
+}
+else
+{
+    <div class="form-container">
+        <EditForm Model="_model" OnValidSubmit="HandleSubmit" FormName="EditTeamForm">
+            <div class="form-section">
+                <h2>Basic Information</h2>
+                <div class="form-group">
+                    <label for="name">Team name</label>
+                    <InputText id="name" @bind-Value="_model.Name" class="form-control" placeholder="e.g., Team Alpha" />
+                    @if (_errors.ContainsKey("Name"))
+                    {
+                        <span class="field-error">@_errors["Name"]</span>
+                    }
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Players</h2>
+                <p class="form-hint">Select one or more players from the library.</p>
+                @if (_players.Count == 0)
+                {
+                    <p class="empty-hint">No players in the library.</p>
+                }
+                else
+                {
+                    <div class="player-checklist">
+                        @foreach (var player in _players)
+                        {
+                            <label class="check-item">
+                                <input type="checkbox" checked="@_model.SelectedPlayerIds.Contains(player.Id)" @onchange="e => TogglePlayer(player.Id, (bool)e.Value!)" />
+                                @player.Name
+                            </label>
+                        }
+                    </div>
+                }
+                @if (_errors.ContainsKey("PlayerProfileIds"))
+                {
+                    <span class="field-error">@_errors["PlayerProfileIds"]</span>
+                }
+            </div>
+
+            <div class="form-section">
+                <h2>Strategy</h2>
+                <div class="form-group">
+                    <label for="strategy">Strategy</label>
+                    <InputSelect id="strategy" TValue="string" class="form-control" @bind-Value="_model.StrategyKey">
+                        @foreach (var key in StrategyCatalog.GetSupportedKeys())
+                        {
+                            <option value="@key">@key</option>
+                        }
+                    </InputSelect>
+                    @if (_errors.ContainsKey("StrategyKey"))
+                    {
+                        <span class="field-error">@_errors["StrategyKey"]</span>
+                    }
+                </div>
+                <div class="form-group">
+                    <label for="paramsJson">Params (optional JSON)</label>
+                    <InputTextArea id="paramsJson" @bind-Value="_model.ParamsJson" class="form-control" rows="3" placeholder='e.g., {"key": "value"}' />
+                </div>
+            </div>
+
+            @if (_errorMessage is not null)
+            {
+                <div class="alert alert-danger">@_errorMessage</div>
+            }
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">@(_saving ? "Saving…" : "Save")</button>
+                <a href="/events/@EventId/teams" class="btn btn-secondary">Cancel</a>
+            </div>
+        </EditForm>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid EventId { get; set; }
+
+    [Parameter]
+    public Guid TeamId { get; set; }
+
+    private TeamFormModel _model = new();
+    private List<PlayerProfileResponse> _players = [];
+    private Dictionary<string, string> _errors = [];
+    private string? _errorMessage;
+    private bool _loading = true;
+    private bool _notFound;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var team = await TeamService.GetByIdAsync(TeamId);
+            if (team is null || team.EventId != EventId)
+            {
+                _notFound = true;
+                return;
+            }
+            _model = TeamFormModel.FromResponse(team);
+
+            var list = await PlayerProfileService.GetAllAsync();
+            _players = list.ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load team {TeamId}", TeamId);
+            _notFound = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void TogglePlayer(Guid id, bool selected)
+    {
+        if (selected && !_model.SelectedPlayerIds.Contains(id))
+            _model.SelectedPlayerIds.Add(id);
+        else if (!selected)
+            _model.SelectedPlayerIds.Remove(id);
+    }
+
+    private async Task HandleSubmit()
+    {
+        _errors.Clear();
+        _errorMessage = null;
+        _saving = true;
+        try
+        {
+            var request = _model.ToUpdateRequest();
+            var validationResult = await Validator.ValidateAsync(request);
+            if (!validationResult.IsValid)
+            {
+                foreach (var error in validationResult.Errors)
+                    _errors[error.PropertyName] = error.ErrorMessage;
+                _errorMessage = "Please correct the errors above.";
+                return;
+            }
+            await TeamService.UpdateAsync(TeamId, request);
+            NavigationManager.NavigateTo($"/events/{EventId}/teams");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update team {TeamId}", TeamId);
+            _errorMessage = "An error occurred while saving the team. Please try again.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private class TeamFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public List<Guid> SelectedPlayerIds { get; set; } = [];
+        public string StrategyKey { get; set; } = StrategyCatalog.RowRush;
+        public string? ParamsJson { get; set; }
+
+        public UpdateTeamRequest ToUpdateRequest() =>
+            new(Name.Trim(), SelectedPlayerIds.ToList(), StrategyKey.Trim(), string.IsNullOrWhiteSpace(ParamsJson) ? null : ParamsJson.Trim());
+
+        public static TeamFormModel FromResponse(TeamResponse response) => new()
+        {
+            Name = response.Name,
+            SelectedPlayerIds = response.PlayerProfileIds.ToList(),
+            StrategyKey = response.StrategyKey,
+            ParamsJson = response.ParamsJson
+        };
+    }
+}

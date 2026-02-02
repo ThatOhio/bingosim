@@ -57,3 +57,14 @@
 .data-table .actions .btn:last-child {
     margin-right: 0;
 }
+
+.btn-outline {
+    color: #4a9eff;
+    background-color: transparent;
+    border-color: #4a9eff;
+}
+
+.btn-outline:hover {
+    background-color: rgba(74, 158, 255, 0.1);
+    border-color: #3a8eef;
+}

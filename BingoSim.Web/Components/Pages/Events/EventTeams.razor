@@ -1,0 +1,168 @@
+@page "/events/{EventId:guid}/teams"
+@inject IEventService EventService
+@inject ITeamService TeamService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Teams for @(_eventName ?? "Event")</PageTitle>
+
+<div class="page-header">
+    <h1>Teams for @(_eventName ?? "Event")</h1>
+    <div class="header-actions">
+        <a href="/events/@EventId/teams/create" class="btn btn-primary">Create Team</a>
+        @if (_teams.Count > 0)
+        {
+            <button type="button" class="btn btn-sm btn-danger" @onclick="ShowDeleteAllConfirmation">Delete all teams</button>
+        }
+    </div>
+</div>
+
+@if (_loading)
+{
+    <p>Loading...</p>
+}
+else if (_eventNotFound)
+{
+    <div class="alert alert-warning">Event not found.</div>
+    <a href="/events" class="btn btn-secondary">Back to Events</a>
+}
+else if (_teams.Count == 0)
+{
+    <div class="empty-state">
+        <p>No teams for this event yet. Create your first team to get started.</p>
+    </div>
+}
+else
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Players</th>
+                    <th>Strategy</th>
+                    <th>Params</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var team in _teams)
+                {
+                    <tr @key="team.Id">
+                        <td>@team.Name</td>
+                        <td>@team.PlayerProfileIds.Count</td>
+                        <td>@team.StrategyKey</td>
+                        <td>@TruncateParams(team.ParamsJson)</td>
+                        <td class="actions">
+                            <a href="/events/@EventId/teams/@team.Id/edit" class="btn btn-sm btn-secondary">Edit</a>
+                            <button type="button" class="btn btn-sm btn-danger" @onclick="() => ShowDeleteConfirmation(team)">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<p class="back-link"><a href="/events">← Back to Events</a></p>
+
+<DeleteConfirmationModal
+    IsVisible="_showDeleteModal"
+    Title="Delete Team"
+    Message="@($"Are you sure you want to delete '{_teamToDelete?.Name}'? This action cannot be undone.")"
+    OnConfirm="ConfirmDelete"
+    OnCancel="CancelDelete" />
+
+<DeleteConfirmationModal
+    IsVisible="_showDeleteAllModal"
+    Title="Delete All Teams"
+    Message="Are you sure you want to delete all teams for this event? This action cannot be undone."
+    OnConfirm="ConfirmDeleteAll"
+    OnCancel="CancelDeleteAll" />
+
+@code {
+    [Parameter]
+    public Guid EventId { get; set; }
+
+    private string? _eventName;
+    private List<TeamResponse> _teams = [];
+    private bool _loading = true;
+    private bool _eventNotFound;
+    private bool _showDeleteModal;
+    private bool _showDeleteAllModal;
+    private TeamResponse? _teamToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var evt = await EventService.GetByIdAsync(EventId);
+            if (evt is null)
+            {
+                _eventNotFound = true;
+                return;
+            }
+            _eventName = evt.Name;
+            var teams = await TeamService.GetByEventIdAsync(EventId);
+            _teams = teams.ToList();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string TruncateParams(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return "—";
+        return s.Length > 40 ? s[..40] + "…" : s;
+    }
+
+    private void ShowDeleteConfirmation(TeamResponse team)
+    {
+        _teamToDelete = team;
+        _showDeleteModal = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (_teamToDelete is not null)
+        {
+            await TeamService.DeleteAsync(_teamToDelete.Id);
+            await LoadAsync();
+        }
+        _showDeleteModal = false;
+        _teamToDelete = null;
+    }
+
+    private void CancelDelete()
+    {
+        _showDeleteModal = false;
+        _teamToDelete = null;
+    }
+
+    private void ShowDeleteAllConfirmation()
+    {
+        _showDeleteAllModal = true;
+    }
+
+    private async Task ConfirmDeleteAll()
+    {
+        await TeamService.DeleteAllByEventIdAsync(EventId);
+        await LoadAsync();
+        _showDeleteAllModal = false;
+    }
+
+    private void CancelDeleteAll()
+    {
+        _showDeleteAllModal = false;
+    }
+}

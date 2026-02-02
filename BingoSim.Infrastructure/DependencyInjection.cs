@@ -29,11 +29,13 @@ public static class DependencyInjection
         services.AddScoped<IPlayerProfileRepository, PlayerProfileRepository>();
         services.AddScoped<IActivityDefinitionRepository, ActivityDefinitionRepository>();
         services.AddScoped<IEventRepository, EventRepository>();
+        services.AddScoped<ITeamRepository, TeamRepository>();
 
         // Application Services
         services.AddScoped<IPlayerProfileService, PlayerProfileService>();
         services.AddScoped<IActivityDefinitionService, ActivityDefinitionService>();
         services.AddScoped<IEventService, EventService>();
+        services.AddScoped<ITeamService, TeamService>();
 
         return services;
     }

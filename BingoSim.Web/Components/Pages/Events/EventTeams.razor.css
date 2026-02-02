@@ -1,0 +1,19 @@
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.back-link {
+    margin-top: 1rem;
+}
+
+.back-link a {
+    color: var(--link-color, #0d6efd);
+}
