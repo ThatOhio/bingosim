@@ -84,13 +84,26 @@ public class SimulationBatchService(
 
     public async Task<BatchProgressResponse> GetProgressAsync(Guid batchId, CancellationToken cancellationToken = default)
     {
+        var batch = await batchRepo.GetByIdAsync(batchId, cancellationToken);
         var runs = await runRepo.GetByBatchIdAsync(batchId, cancellationToken);
+        var completed = runs.Count(r => r.Status == RunStatus.Completed);
+        var failed = runs.Count(r => r.Status == RunStatus.Failed);
+        var running = runs.Count(r => r.Status == RunStatus.Running);
+        var pending = runs.Count(r => r.Status == RunStatus.Pending);
+        var retryCount = runs.Sum(r => Math.Max(0, r.AttemptCount - 1));
+        var endTime = batch?.CompletedAt ?? DateTimeOffset.UtcNow;
+        var startTime = batch?.CreatedAt ?? DateTimeOffset.UtcNow;
+        var elapsedSeconds = (endTime - startTime).TotalSeconds;
+        var runsPerSecond = elapsedSeconds > 0 ? (completed + failed) / elapsedSeconds : 0.0;
         return new BatchProgressResponse
         {
-            Completed = runs.Count(r => r.Status == RunStatus.Completed),
-            Failed = runs.Count(r => r.Status == RunStatus.Failed),
-            Running = runs.Count(r => r.Status == RunStatus.Running),
-            Pending = runs.Count(r => r.Status == RunStatus.Pending)
+            Completed = completed,
+            Failed = failed,
+            Running = running,
+            Pending = pending,
+            RetryCount = retryCount,
+            ElapsedSeconds = Math.Round(elapsedSeconds, 1),
+            RunsPerSecond = Math.Round(runsPerSecond, 2)
         };
     }
 

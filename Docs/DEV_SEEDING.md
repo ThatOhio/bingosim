@@ -69,7 +69,7 @@ Seeding uses stable keys (names/keys) for find-or-create. No duplicates are crea
 
 ## Reset Behavior
 
-`--reset` deletes **only** entities that match the seed stable keys. Order respects foreign keys: **Teams (and their StrategyConfigs + TeamPlayers) → Events → Activities → Players**.
+`--reset` deletes **only** entities that match the seed stable keys. **Reset order** is enforced so that dependencies are removed first (no FK violations): **Teams (and their StrategyConfigs + TeamPlayers) for each seed event → that Event → Activities → Players**. Within each step, seed events are processed by name; then activities by key; then players by name.
 
 - **Teams**: All teams for seed events ("Winter Bingo 2025", "Spring League Bingo") are deleted (StrategyConfigs and TeamPlayers are removed with them).
 - **Events**: "Winter Bingo 2025", "Spring League Bingo"
@@ -80,10 +80,10 @@ The database is **not** dropped; only these seed-tagged records are removed befo
 
 ## Slice 4 (Teams/Strategy) — Included
 
-Seed data for Teams and StrategyConfig is **included**:
+Seed data for **Teams** and **StrategyConfig** is included so that Run Simulations can be used with seeded events without manual team drafting:
 
-- **SeedTeamsAsync**: For each seed event, creates or updates **Team Alpha** (RowRush, first 4 seed players) and **Team Beta** (GreedyPoints, next 4 seed players). StrategyConfig uses sample `ParamsJson` `"{}"`.
-- **Reset order**: Teams for seed events are deleted first (via `DeleteAllByEventIdAsync`), then Events, then Activities, then Players.
+- **SeedTeamsAsync**: For each seed event ("Winter Bingo 2025", "Spring League Bingo"), creates or updates **Team Alpha** (strategy RowRush, first 4 seed players) and **Team Beta** (strategy GreedyPoints, next 4 seed players). StrategyConfig uses sample `ParamsJson` `"{}"`.
+- **Reset order**: On `--reset`, teams for each seed event are deleted first (via `DeleteAllByEventIdAsync`), then that event, then all seed activities, then all seed players. This order is correct for foreign keys (teams reference events; events reference activities via tiles).
 
 ## Updating Seed Content
 

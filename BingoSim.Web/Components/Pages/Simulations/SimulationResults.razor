@@ -30,7 +30,11 @@ else
     </div>
 
     <div class="progress-section">
-        <p><strong>Progress:</strong> Completed: @_progress.Completed | Failed: @_progress.Failed | Running: @_progress.Running | Pending: @_progress.Pending</p>
+        <p><strong>Progress:</strong> Completed: @_progress.Completed | Failed: @_progress.Failed | Running: @_progress.Running | Pending: @_progress.Pending @(_progress.RetryCount > 0 ? $"| Retries: {_progress.RetryCount}" : "")</p>
+        @if (_progress.ElapsedSeconds > 0 || _progress.RunsPerSecond > 0)
+        {
+            <p><strong>Metrics:</strong> Elapsed: @_progress.ElapsedSeconds s @(_progress.RunsPerSecond > 0 ? $"| Runs/sec: {_progress.RunsPerSecond}" : "")</p>
+        }
         @if (_batch.Status == BingoSim.Core.Enums.BatchStatus.Running || _batch.Status == BingoSim.Core.Enums.BatchStatus.Pending)
         {
             <div class="progress-bar-container">
@@ -39,6 +43,17 @@ else
             <p class="text-muted">Refreshing every 3 seconds…</p>
         }
     </div>
+
+    @if (_batch.Status != BingoSim.Core.Enums.BatchStatus.Pending && _batch.Status != BingoSim.Core.Enums.BatchStatus.Running && !string.IsNullOrEmpty(_batch.Seed))
+    {
+        <div class="form-actions" style="margin-top: 1rem;">
+            <button type="button" class="btn btn-outline" @onclick="RerunWithSameSeedAsync">Rerun with same seed</button>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <p class="text-danger">@_errorMessage</p>
+    }
 
     @if (_aggregates.Count > 0)
     {
@@ -97,6 +112,7 @@ else
     private List<BingoSim.Application.DTOs.BatchTeamAggregateResponse> _aggregates = [];
     private List<BingoSim.Application.DTOs.TeamRunResultResponse> _sampleRunResults = [];
     private bool _loading = true;
+    private string? _errorMessage;
     private System.Threading.Timer? _refreshTimer;
 
     protected override async Task OnInitializedAsync()
@@ -155,5 +171,27 @@ else
         var total = _progress.Completed + _progress.Failed + _progress.Running + _progress.Pending;
         if (total == 0) return 0;
         return 100.0 * (_progress.Completed + _progress.Failed) / total;
+    }
+
+    private async Task RerunWithSameSeedAsync()
+    {
+        if (_batch is null) return;
+        _errorMessage = null;
+        try
+        {
+            var request = new BingoSim.Application.DTOs.StartSimulationBatchRequest
+            {
+                EventId = _batch.EventId,
+                RunCount = _batch.RunsRequested,
+                Seed = _batch.Seed,
+                ExecutionMode = _batch.ExecutionMode
+            };
+            var newBatch = await SimulationBatchService.StartBatchAsync(request);
+            NavigationManager.NavigateTo($"/simulations/results/{newBatch.Id}");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
     }
 }

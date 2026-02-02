@@ -28,7 +28,7 @@
 - [x] Progress applied only to eligible/unlocked tiles; multiple tiles in progress concurrently
 
 **Retries and terminal failure:**
-- [x] Retry failed runs up to 5 attempts; attempt count stored
+- [x] Retry failed runs up to 5 attempts; attempt count stored; failed run **re-enqueued** when AttemptCount &lt; 5 so it is retried
 - [x] After 5 failures: run marked Failed, batch marked Error; UI shows high-level error message
 
 ### ✅ Section 6: Reproducibility & Seeds
@@ -36,6 +36,7 @@
 - [x] Seed stored as string on SimulationBatch and SimulationRun for reproducibility and UI display
 - [x] RNG seed derived deterministically in Application from (BatchSeedString + RunIndex)
 - [x] Same seed + same config → identical run results (reproducibility test in Application.UnitTests)
+- [x] **Rerun a specific run by seed:** Results page **Rerun with same seed** button starts a new batch with same EventId, RunCount, Seed (identical results; stored as new batch)
 
 ### ✅ Section 7: Results & Aggregations
 
@@ -46,13 +47,14 @@
 ### ✅ Section 8: Observability & Performance Testability
 
 - [x] Structured logging includes BatchId and RunId
-- [x] Basic metrics interface (ISimulationMetrics) for runs completed/failed/retried, batch duration (implementation can plug in System.Diagnostics.Metrics later)
+- [x] **ISimulationMetrics implemented** (InMemorySimulationMetrics); executor and batch completion record runs completed/failed/retried and batch duration
+- [x] **Metrics exposed for throughput:** BatchProgressResponse includes RetryCount, ElapsedSeconds, RunsPerSecond; Results page shows RetryCount (when &gt; 0), Elapsed, Runs/sec
 - [x] LocalSimulationOptions: MaxConcurrentRuns, SimulationDelayMs for test-mode throttle
 
 ### ✅ Section 9: UI Expectations
 
 - [x] Run Simulations: select event, see teams/strategies, run count, seed (optional), execution mode (Local / Distributed), start batch → redirect to Results
-- [x] Simulation Results: view one batch; progress (completed/failed/running/pending); per-team aggregates when batch complete; sample run timelines; polling when running
+- [x] Simulation Results: view one batch; progress (completed/failed/running/pending) and metrics (RetryCount when &gt; 0, Elapsed, Runs/sec); per-team aggregates when batch complete; sample run timelines; **Rerun with same seed** when batch terminal; polling when running
 
 ---
 
@@ -61,16 +63,16 @@
 | Area | Implementation |
 |------|----------------|
 | **Core** | SimulationBatch, EventSnapshot, SimulationRun, TeamRunResult, BatchTeamAggregate; BatchStatus, RunStatus, ExecutionMode; repository interfaces |
-| **Application** | SeedDerivation (string seed + run index → RNG seed; run seed string); EventSnapshotDto + EventSnapshotBuilder; IProgressAllocator + RowRushAllocator, GreedyPointsAllocator; SimulationRunner; StartSimulationBatch, SimulationRunExecutor; ISimulationRunQueue, ISimulationBatchService |
-| **Infrastructure** | EF configs + migration AddSimulationBatchAndRuns; SimulationRunQueue (channel); repositories for batch, snapshot, run, team result, batch aggregate |
-| **Web** | Run Simulations page (`/simulations/run`); Simulation Results page (`/simulations/results/{BatchId}`); SimulationRunQueueHostedService; LocalSimulationOptions; nav link |
+| **Application** | SeedDerivation; EventSnapshotDto + EventSnapshotBuilder; IProgressAllocator + RowRush/GreedyPoints; SimulationRunner; SimulationBatchService (GetProgressAsync with RetryCount, ElapsedSeconds, RunsPerSecond); SimulationRunExecutor (retry re-enqueue via ISimulationRunQueue, ISimulationMetrics recording); BatchProgressResponse extended; ISimulationRunQueue, ISimulationBatchService |
+| **Infrastructure** | EF configs + migration; SimulationRunQueue (channel); **InMemorySimulationMetrics** (ISimulationMetrics); repositories for batch, snapshot, run, team result, batch aggregate; DependencyInjection registers ISimulationMetrics |
+| **Web** | Run Simulations page; Simulation Results page (progress, **metrics**, **Rerun with same seed**); SimulationRunQueueHostedService; LocalSimulationOptions; nav link |
 | **Seeding** | DevSeedService extended: SeedTeamsAsync (Team Alpha RowRush, Team Beta GreedyPoints per seed event); reset order: Teams → Events → Activities → Players; DEV_SEEDING.md updated |
 
 ---
 
 ## Test Coverage
 
-- **Unit (Application):** RowUnlockHelperTests, RowRushAllocatorTests, GreedyPointsAllocatorTests, SeedDerivationTests, SimulationRunnerReproducibilityTests (same seed → identical output)
+- **Unit (Application):** RowUnlockHelperTests, RowRushAllocatorTests, GreedyPointsAllocatorTests, SeedDerivationTests, SimulationRunnerReproducibilityTests (same seed → identical output); **SimulationBatchServiceTests** (GetProgressAsync returns RetryCount, ElapsedSeconds, RunsPerSecond)
 - **Integration (Infrastructure):** SimulationBatchIntegrationTests (Postgres Testcontainers): create batch + snapshot + runs + results + aggregates; verify persistence
 - **DevSeedServiceTests:** Updated for ITeamRepository dependency
 
@@ -79,4 +81,5 @@
 ## Post-Review Notes
 
 - **Distributed workers:** Not implemented; execution mode "Distributed" is stubbed (UI shows "Coming soon"). Local path is fully functional.
-- **Metrics:** ISimulationMetrics interface present; concrete implementation (e.g. System.Diagnostics.Metrics counters) can be added in Infrastructure without changing Application.
+- **Metrics:** ISimulationMetrics **implemented** as InMemorySimulationMetrics (Infrastructure); executor and batch completion record runs completed/failed/retried and batch duration. BatchProgressResponse exposes RetryCount, ElapsedSeconds, RunsPerSecond (from persistence) for throughput diagnosis; Results page shows these. Can be replaced with System.Diagnostics.Metrics later without changing Application contract.
+- **Rerun-by-seed:** Results page **Rerun with same seed** button starts a new batch with same EventId, RunCount, Seed, ExecutionMode; produces identical results (stored as new batch).

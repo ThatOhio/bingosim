@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddSingleton<IProgressAllocatorFactory, ProgressAllocatorFactory>();
         services.AddScoped<EventSnapshotBuilder>();
         services.AddScoped<SimulationRunner>();
+        services.AddSingleton<ISimulationMetrics, InMemorySimulationMetrics>();
         services.AddScoped<ISimulationRunExecutor, SimulationRunExecutor>();
         services.AddSingleton<ISimulationRunQueue, SimulationRunQueue>();
         services.AddScoped<ISimulationBatchService, SimulationBatchService>();

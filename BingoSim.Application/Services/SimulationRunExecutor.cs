@@ -9,6 +9,7 @@ namespace BingoSim.Application.Services;
 
 /// <summary>
 /// Executes one simulation run: load run + snapshot, run simulation, persist TeamRunResult, update run status; on batch complete, compute and persist BatchTeamAggregate.
+/// Retries up to 5 attempts per run; re-enqueues run when non-terminal failure.
 /// </summary>
 public class SimulationRunExecutor(
     ISimulationRunRepository runRepo,
@@ -16,8 +17,10 @@ public class SimulationRunExecutor(
     ITeamRunResultRepository resultRepo,
     IBatchTeamAggregateRepository aggregateRepo,
     ISimulationBatchRepository batchRepo,
+    ISimulationRunQueue runQueue,
     SimulationRunner runner,
-    ILogger<SimulationRunExecutor> logger) : ISimulationRunExecutor
+    ILogger<SimulationRunExecutor> logger,
+    ISimulationMetrics? metrics = null) : ISimulationRunExecutor
 {
     private const int MaxErrorLength = 500;
 
@@ -69,7 +72,7 @@ public class SimulationRunExecutor(
 
             run.MarkCompleted(DateTimeOffset.UtcNow);
             await runRepo.UpdateAsync(run, cancellationToken);
-
+            metrics?.RecordRunCompleted(run.SimulationBatchId, run.Id);
             logger.LogInformation("Run {RunId} completed", run.Id);
 
             await TryCompleteBatchAsync(run.SimulationBatchId, cancellationToken);
@@ -79,7 +82,13 @@ public class SimulationRunExecutor(
             var message = ex.Message.Length > MaxErrorLength ? ex.Message[..MaxErrorLength] + "..." : ex.Message;
             run.MarkFailed(message, DateTimeOffset.UtcNow);
             await runRepo.UpdateAsync(run, cancellationToken);
-            logger.LogError(ex, "Run {RunId} failed: {Message}", run.Id, message);
+            if (run.IsTerminal)
+                metrics?.RecordRunFailed(run.SimulationBatchId, run.Id);
+            else
+                metrics?.RecordRunRetried(run.SimulationBatchId, run.Id);
+            logger.LogError(ex, "Run {RunId} failed (attempt {Attempt}): {Message}", run.Id, run.AttemptCount, message);
+            if (!run.IsTerminal)
+                await runQueue.EnqueueAsync(run.Id, cancellationToken);
             await TryCompleteBatchAsync(run.SimulationBatchId, cancellationToken);
         }
     }
@@ -88,6 +97,12 @@ public class SimulationRunExecutor(
     {
         run.MarkFailed(message, DateTimeOffset.UtcNow);
         await runRepo.UpdateAsync(run, cancellationToken);
+        if (run.IsTerminal)
+            metrics?.RecordRunFailed(run.SimulationBatchId, run.Id);
+        else
+            metrics?.RecordRunRetried(run.SimulationBatchId, run.Id);
+        if (!run.IsTerminal)
+            await runQueue.EnqueueAsync(run.Id, cancellationToken);
         await TryCompleteBatchAsync(run.SimulationBatchId, cancellationToken);
     }
 
@@ -106,6 +121,8 @@ public class SimulationRunExecutor(
         {
             batch.SetError($"One or more runs failed after 5 attempts ({failedCount} failed).", DateTimeOffset.UtcNow);
             await batchRepo.UpdateAsync(batch, cancellationToken);
+            var duration = (batch.CompletedAt ?? DateTimeOffset.UtcNow) - batch.CreatedAt;
+            metrics?.RecordBatchCompleted(batch.Id, duration);
             return;
         }
 
@@ -146,7 +163,8 @@ public class SimulationRunExecutor(
 
         batch.SetCompleted(DateTimeOffset.UtcNow);
         await batchRepo.UpdateAsync(batch, cancellationToken);
-
+        var completedDuration = (batch.CompletedAt ?? DateTimeOffset.UtcNow) - batch.CreatedAt;
+        metrics?.RecordBatchCompleted(batchId, completedDuration);
         logger.LogInformation("Batch {BatchId} completed", batchId);
     }
 }

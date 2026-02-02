@@ -6,9 +6,9 @@
 - Local executor: BackgroundService + channel; runs executed in-process with configurable concurrency and optional delay; UI remains responsive.
 - Persistence: SimulationBatch (Seed string), EventSnapshot, SimulationRun (Seed string, RunIndex, retry), TeamRunResult (aggregates + timeline JSON), BatchTeamAggregate.
 - Simulation engine in Application: snapshot builder, seed derivation (batch seed string + run index → RNG seed; run seed string stored), row unlock helper, RowRush/GreedyPoints allocators, SimulationRunner.
-- Results page: batch summary, progress (completed/failed/running/pending), per-team aggregates, sample run timelines; polling when running.
-- Retry: up to 5 attempts per run; then run Failed, batch Error.
-- Observability: structured logging (BatchId, RunId); ISimulationMetrics; LocalSimulationOptions (MaxConcurrentRuns, SimulationDelayMs).
+- Results page: batch summary, progress (completed/failed/running/pending), per-team aggregates, sample run timelines; metrics (RetryCount, ElapsedSeconds, RunsPerSecond); **Rerun with same seed** button when batch is terminal; polling when running.
+- Retry: up to 5 attempts per run; failed run re-enqueued when AttemptCount &lt; 5; then run Failed, batch Error.
+- Observability: structured logging (BatchId, RunId); **ISimulationMetrics implemented** (InMemorySimulationMetrics); BatchProgressResponse includes RetryCount, ElapsedSeconds, RunsPerSecond for throughput diagnosis; LocalSimulationOptions (MaxConcurrentRuns, SimulationDelayMs).
 - Dev seeding: Slice 4 teams/strategy (Team Alpha RowRush, Team Beta GreedyPoints per seed event); reset order updated; DEV_SEEDING.md updated.
 
 ---
@@ -81,6 +81,7 @@
 - `BingoSim.Infrastructure/Persistence/Repositories/TeamRunResultRepository.cs`
 - `BingoSim.Infrastructure/Persistence/Repositories/BatchTeamAggregateRepository.cs`
 - `BingoSim.Infrastructure/Simulation/SimulationRunQueue.cs`
+- `BingoSim.Infrastructure/Simulation/InMemorySimulationMetrics.cs`
 - `BingoSim.Infrastructure/Persistence/Migrations/20260202020256_AddSimulationBatchAndRuns.cs`
 - `BingoSim.Infrastructure/Persistence/Migrations/20260202020256_AddSimulationBatchAndRuns.Designer.cs`
 
@@ -97,17 +98,22 @@
 - `Tests/BingoSim.Application.UnitTests/Simulation/GreedyPointsAllocatorTests.cs`
 - `Tests/BingoSim.Application.UnitTests/Simulation/SeedDerivationTests.cs`
 - `Tests/BingoSim.Application.UnitTests/Simulation/SimulationRunnerReproducibilityTests.cs`
+- `Tests/BingoSim.Application.UnitTests/Services/SimulationBatchServiceTests.cs`
 - `Tests/BingoSim.Infrastructure.IntegrationTests/Repositories/SimulationBatchIntegrationTests.cs`
 
 ### Modified
 
 - `BingoSim.Infrastructure/Persistence/AppDbContext.cs` — added DbSets for simulation entities
-- `BingoSim.Infrastructure/DependencyInjection.cs` — registered simulation repositories, queue, snapshot builder, runner, executor, batch service
+- `BingoSim.Infrastructure/DependencyInjection.cs` — registered simulation repositories, queue, snapshot builder, runner, executor, batch service, ISimulationMetrics (InMemorySimulationMetrics)
 - `BingoSim.Web/Program.cs` — LocalSimulationOptions, SimulationRunQueueHostedService
 - `BingoSim.Web/Components/Layout/MainLayout.razor` — nav link "Run Simulations"
 - `BingoSim.Web/appsettings.json` — LocalSimulation section
 - `BingoSim.Application/Services/DevSeedService.cs` — ITeamRepository, SeedTeamsAsync, reset order (teams before events)
-- `Docs/DEV_SEEDING.md` — Slices 1–4, teams/strategy seeding, reset order
+- `BingoSim.Application/Services/SimulationRunExecutor.cs` — retry re-enqueue (ISimulationRunQueue) when run non-terminal after failure; ISimulationMetrics recording (RecordRunCompleted, RecordRunFailed, RecordRunRetried, RecordBatchCompleted)
+- `BingoSim.Application/Services/SimulationBatchService.cs` — GetProgressAsync loads batch and runs; returns RetryCount, ElapsedSeconds, RunsPerSecond in BatchProgressResponse
+- `BingoSim.Application/DTOs/BatchProgressResponse.cs` — added RetryCount, ElapsedSeconds, RunsPerSecond
+- `BingoSim.Web/Components/Pages/Simulations/SimulationResults.razor` — progress section shows RetryCount and metrics (Elapsed, Runs/sec); **Rerun with same seed** button (starts new batch with same EventId, RunCount, Seed); error message for rerun failures
+- `Docs/DEV_SEEDING.md` — Slices 1–4, teams/strategy seeding, reset order (explicit dependency order)
 - `Tests/BingoSim.Application.UnitTests/Services/DevSeedServiceTests.cs` — added ITeamRepository to constructor
 
 ---
@@ -138,7 +144,7 @@ Reset order: Teams (and StrategyConfigs + TeamPlayers) for seed events → Event
 6. Select an event (e.g. "Winter Bingo 2025" or "Spring League Bingo"). Drafted teams (Team Alpha, Team Beta) and their strategies appear.
 7. Set run count (e.g. 10 or 100), optionally enter a seed, leave execution mode **Local**.
 8. Click **Start batch**. You are redirected to the Results page for that batch.
-9. Progress updates (completed/failed/running/pending); when the batch completes, per-team aggregates and sample run timelines are shown.
+9. Progress updates (completed/failed/running/pending) and metrics (RetryCount when &gt; 0, Elapsed, Runs/sec); when the batch completes, per-team aggregates and sample run timelines are shown. Use **Rerun with same seed** to start a new batch with the same config and seed (identical results).
 
 ---
 
