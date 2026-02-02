@@ -6,6 +6,7 @@ using BingoSim.Application.Simulation.Snapshot;
 using BingoSim.Core.Interfaces;
 using BingoSim.Infrastructure.Persistence;
 using BingoSim.Infrastructure.Persistence.Repositories;
+using BingoSim.Infrastructure.Queries;
 using BingoSim.Infrastructure.Simulation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -39,6 +40,9 @@ public static class DependencyInjection
         services.AddScoped<ISimulationRunRepository, SimulationRunRepository>();
         services.AddScoped<ITeamRunResultRepository, TeamRunResultRepository>();
         services.AddScoped<IBatchTeamAggregateRepository, BatchTeamAggregateRepository>();
+
+        // Queries (Application interface, Infrastructure implementation)
+        services.AddScoped<IListBatchesQuery, ListBatchesQuery>();
 
         // Simulation (Application)
         services.AddSingleton<IProgressAllocatorFactory, ProgressAllocatorFactory>();

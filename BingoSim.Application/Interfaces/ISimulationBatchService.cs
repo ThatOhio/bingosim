@@ -9,6 +9,7 @@ public interface ISimulationBatchService
 {
     Task<SimulationBatchResponse> StartBatchAsync(StartSimulationBatchRequest request, CancellationToken cancellationToken = default);
     Task<SimulationBatchResponse?> GetBatchByIdAsync(Guid batchId, CancellationToken cancellationToken = default);
+    Task<ListBatchesResult> GetBatchesAsync(ListBatchesRequest request, CancellationToken cancellationToken = default);
     Task<BatchProgressResponse> GetProgressAsync(Guid batchId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<BatchTeamAggregateResponse>> GetBatchAggregatesAsync(Guid batchId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TeamRunResultResponse>> GetRunResultsAsync(Guid runId, CancellationToken cancellationToken = default);

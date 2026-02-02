@@ -1,4 +1,6 @@
 using System.Reflection;
+using BingoSim.Application.DTOs;
+using BingoSim.Application.Interfaces;
 using BingoSim.Application.Services;
 using BingoSim.Application.Simulation.Snapshot;
 using BingoSim.Core.Entities;
@@ -42,12 +44,13 @@ public class SimulationBatchServiceTests
         var resultRepo = Substitute.For<ITeamRunResultRepository>();
         var aggregateRepo = Substitute.For<IBatchTeamAggregateRepository>();
         var snapshotBuilder = new EventSnapshotBuilder(eventRepo, teamRepo, activityRepo, playerRepo);
-        var runQueue = Substitute.For<BingoSim.Application.Interfaces.ISimulationRunQueue>();
+        var runQueue = Substitute.For<ISimulationRunQueue>();
+        var listBatchesQuery = Substitute.For<IListBatchesQuery>();
         var logger = Substitute.For<ILogger<SimulationBatchService>>();
 
         var service = new SimulationBatchService(
             eventRepo, teamRepo, batchRepo, snapshotRepo, runRepo, resultRepo, aggregateRepo,
-            snapshotBuilder, runQueue, logger);
+            snapshotBuilder, runQueue, listBatchesQuery, logger);
 
         var progress = await service.GetProgressAsync(batchId);
 
@@ -56,6 +59,60 @@ public class SimulationBatchServiceTests
         progress.RetryCount.Should().Be(8);
         progress.ElapsedSeconds.Should().BeGreaterThanOrEqualTo(10);
         progress.RunsPerSecond.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task GetBatchesAsync_DelegatesToQuery_ReturnsResult()
+    {
+        var request = new ListBatchesRequest { Top = 50, StatusFilter = BatchStatus.Completed };
+        var expectedItems = new List<BatchListRowDto>
+        {
+            new()
+            {
+                BatchId = Guid.NewGuid(),
+                CreatedAt = DateTimeOffset.UtcNow,
+                Status = BatchStatus.Completed,
+                EventName = "Winter Bingo",
+                RunCount = 100,
+                CompletedCount = 100,
+                FailedCount = 0,
+                Seed = "abc",
+                ExecutionMode = ExecutionMode.Local
+            }
+        };
+        var expectedResult = new ListBatchesResult { Items = expectedItems };
+
+        var listBatchesQuery = Substitute.For<IListBatchesQuery>();
+        listBatchesQuery.ExecuteAsync(Arg.Any<ListBatchesRequest>(), Arg.Any<CancellationToken>())
+            .Returns(expectedResult);
+
+        var batchRepo = Substitute.For<ISimulationBatchRepository>();
+        var runRepo = Substitute.For<ISimulationRunRepository>();
+        var eventRepo = Substitute.For<IEventRepository>();
+        var teamRepo = Substitute.For<ITeamRepository>();
+        var activityRepo = Substitute.For<IActivityDefinitionRepository>();
+        var playerRepo = Substitute.For<IPlayerProfileRepository>();
+        var snapshotRepo = Substitute.For<IEventSnapshotRepository>();
+        var resultRepo = Substitute.For<ITeamRunResultRepository>();
+        var aggregateRepo = Substitute.For<IBatchTeamAggregateRepository>();
+        var snapshotBuilder = new EventSnapshotBuilder(eventRepo, teamRepo, activityRepo, playerRepo);
+        var runQueue = Substitute.For<ISimulationRunQueue>();
+        var logger = Substitute.For<ILogger<SimulationBatchService>>();
+
+        var service = new SimulationBatchService(
+            eventRepo, teamRepo, batchRepo, snapshotRepo, runRepo, resultRepo, aggregateRepo,
+            snapshotBuilder, runQueue, listBatchesQuery, logger);
+
+        var result = await service.GetBatchesAsync(request);
+
+        result.Items.Should().HaveCount(1);
+        result.Items[0].BatchId.Should().Be(expectedItems[0].BatchId);
+        result.Items[0].EventName.Should().Be("Winter Bingo");
+        result.Items[0].CompletedCount.Should().Be(100);
+        result.Items[0].FailedCount.Should().Be(0);
+        result.Items[0].Status.Should().Be(BatchStatus.Completed);
+        await listBatchesQuery.Received(1).ExecuteAsync(Arg.Is<ListBatchesRequest>(r =>
+            r.Top == 50 && r.StatusFilter == BatchStatus.Completed), Arg.Any<CancellationToken>());
     }
 
     private static void SetCreatedAt(SimulationBatch batch, DateTimeOffset value)

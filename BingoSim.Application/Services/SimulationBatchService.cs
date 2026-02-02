@@ -23,6 +23,7 @@ public class SimulationBatchService(
     IBatchTeamAggregateRepository aggregateRepo,
     EventSnapshotBuilder snapshotBuilder,
     ISimulationRunQueue runQueue,
+    IListBatchesQuery listBatchesQuery,
     ILogger<SimulationBatchService> logger) : ISimulationBatchService
 {
     public async Task<SimulationBatchResponse> StartBatchAsync(StartSimulationBatchRequest request, CancellationToken cancellationToken = default)
@@ -81,6 +82,9 @@ public class SimulationBatchService(
         var batch = await batchRepo.GetByIdAsync(batchId, cancellationToken);
         return batch is null ? null : ToBatchResponse(batch);
     }
+
+    public Task<ListBatchesResult> GetBatchesAsync(ListBatchesRequest request, CancellationToken cancellationToken = default) =>
+        listBatchesQuery.ExecuteAsync(request, cancellationToken);
 
     public async Task<BatchProgressResponse> GetProgressAsync(Guid batchId, CancellationToken cancellationToken = default)
     {

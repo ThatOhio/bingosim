@@ -1,0 +1,19 @@
+.batches-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.batches-filters .form-select,
+.batches-filters .form-input {
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+.batches-filters .form-input {
+    min-width: 12rem;
+}

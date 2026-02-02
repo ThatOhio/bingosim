@@ -1,0 +1,114 @@
+@page "/simulations/results"
+@inject ISimulationBatchService SimulationBatchService
+@rendermode InteractiveServer
+
+<PageTitle>Simulation Results</PageTitle>
+
+<div class="page-header">
+    <h1>Simulation Results</h1>
+    <a href="/simulations/run" class="btn btn-primary">Run new batch</a>
+</div>
+
+<div class="batches-filters">
+    <select @bind="_statusFilter" class="form-select">
+        <option value="">All statuses</option>
+        <option value="Pending">Pending</option>
+        <option value="Running">Running</option>
+        <option value="Completed">Completed</option>
+        <option value="Error">Error</option>
+    </select>
+    <input type="text" @bind="_eventNameSearch" placeholder="Search by event name" class="form-input" />
+    <button type="button" class="btn btn-outline" @onclick="LoadBatchesAsync">Apply</button>
+</div>
+
+@if (_loading)
+{
+    <p>Loading…</p>
+}
+else if (_items.Count == 0)
+{
+    <div class="empty-state">
+        <p>No batches found. Run a simulation to see results here.</p>
+    </div>
+}
+else
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Batch</th>
+                    <th>Created</th>
+                    <th>Status</th>
+                    <th>Event</th>
+                    <th>Runs</th>
+                    <th>Completed</th>
+                    <th>Failed</th>
+                    <th>Seed</th>
+                    <th>Mode</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _items)
+                {
+                    <tr @key="row.BatchId">
+                        <td><a href="/simulations/results/@row.BatchId">@row.BatchId.ToString("N")[..8]…</a></td>
+                        <td>@row.CreatedAt.ToString("g")</td>
+                        <td>@row.Status</td>
+                        <td>@(string.IsNullOrEmpty(row.EventName) ? "—" : row.EventName)</td>
+                        <td>@row.RunCount</td>
+                        <td>@row.CompletedCount</td>
+                        <td>@row.FailedCount</td>
+                        <td>@(row.Seed.Length > 12 ? row.Seed[..12] + "…" : row.Seed)</td>
+                        <td>@(row.ExecutionMode?.ToString() ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted">Showing up to @_items.Count batch(es).</p>
+}
+
+@code {
+    private List<BatchListRowDto> _items = [];
+    private bool _loading = true;
+    private string _statusFilter = "";
+    private string _eventNameSearch = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBatchesAsync();
+    }
+
+    private async Task LoadBatchesAsync()
+    {
+        _loading = true;
+        try
+        {
+            var request = new ListBatchesRequest
+            {
+                Top = 50,
+                StatusFilter = ParseStatusFilter(_statusFilter),
+                EventNameSearch = string.IsNullOrWhiteSpace(_eventNameSearch) ? null : _eventNameSearch.Trim()
+            };
+            var result = await SimulationBatchService.GetBatchesAsync(request);
+            _items = result.Items.ToList();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static BingoSim.Core.Enums.BatchStatus? ParseStatusFilter(string value)
+    {
+        return value?.Trim() switch
+        {
+            "Pending" => BingoSim.Core.Enums.BatchStatus.Pending,
+            "Running" => BingoSim.Core.Enums.BatchStatus.Running,
+            "Completed" => BingoSim.Core.Enums.BatchStatus.Completed,
+            "Error" => BingoSim.Core.Enums.BatchStatus.Error,
+            _ => null
+        };
+    }
+}
