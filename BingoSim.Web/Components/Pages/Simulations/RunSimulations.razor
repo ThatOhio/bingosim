@@ -1,0 +1,151 @@
+@page "/simulations/run"
+@inject IEventService EventService
+@inject ITeamService TeamService
+@inject ISimulationBatchService SimulationBatchService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Run Simulations</PageTitle>
+
+<div class="page-header">
+    <h1>Run Simulations</h1>
+</div>
+
+@if (_events.Count == 0 && !_loadingEvents)
+{
+    <p>No events found. <a href="/events">Create an event</a> first, then draft teams.</p>
+}
+else
+{
+    <div class="form-section">
+        <div class="form-group">
+            <label for="event-select">Event</label>
+            <select id="event-select" @bind="_selectedEventId" @bind:after="OnEventSelectedAsync">
+                <option value="@Guid.Empty">-- Select event --</option>
+                @foreach (var evt in _events)
+                {
+                    <option value="@evt.Id">@evt.Name</option>
+                }
+            </select>
+        </div>
+
+        @if (_selectedEventId != Guid.Empty && _teams.Count >= 0)
+        {
+            <div class="form-group">
+                <label>Drafted teams</label>
+                @if (_teams.Count == 0)
+                {
+                    <p class="text-muted">No teams for this event. <a href="/events/@_selectedEventId/teams">Draft teams</a> first.</p>
+                }
+                else
+                {
+                    <ul class="team-list">
+                        @foreach (var team in _teams)
+                        {
+                            <li @key="team.Id">@team.Name — @team.StrategyKey @(string.IsNullOrWhiteSpace(team.ParamsJson) ? "" : $"({(team.ParamsJson.Length > 30 ? team.ParamsJson[..30] + "…" : team.ParamsJson)})")</li>
+                        }
+                    </ul>
+                }
+            </div>
+
+            @if (_teams.Count > 0)
+            {
+                <div class="form-group">
+                    <label for="run-count">Run count</label>
+                    <input id="run-count" type="number" min="1" max="100000" @bind="_runCount" />
+                </div>
+                <div class="form-group">
+                    <label for="seed">Seed (optional)</label>
+                    <input id="seed" type="text" placeholder="Leave empty for auto-generated" @bind="_seed" />
+                </div>
+                <div class="form-group">
+                    <label>Execution mode</label>
+                    <div>
+                        <label><input type="radio" name="mode" checked="@(_executionMode == "Local")" @onclick="SetModeLocal" /> Local (in-process)</label>
+                        <label><input type="radio" name="mode" checked="@(_executionMode == "Distributed")" @onclick="SetModeDistributed" /> Distributed (coming soon)</label>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-primary" @onclick="StartBatchAsync" disabled="@(_starting || _teams.Count == 0)">
+                        @(_starting ? "Starting…" : "Start batch")
+                    </button>
+                </div>
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <p class="text-danger">@_error</p>
+                }
+            }
+        }
+    </div>
+}
+
+@if (_loadingEvents)
+{
+    <p>Loading events…</p>
+}
+
+@code {
+    private List<BingoSim.Application.DTOs.EventResponse> _events = [];
+    private List<BingoSim.Application.DTOs.TeamResponse> _teams = [];
+    private bool _loadingEvents = true;
+    private Guid _selectedEventId = Guid.Empty;
+    private int _runCount = 100;
+    private string _seed = string.Empty;
+    private string _executionMode = "Local";
+    private bool _starting;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _events = (await EventService.GetAllAsync()).ToList();
+        _loadingEvents = false;
+        if (_events.Count > 0 && _selectedEventId == Guid.Empty)
+            _selectedEventId = _events[0].Id;
+        await OnEventSelectedAsync();
+    }
+
+    private async Task OnEventSelectedAsync()
+    {
+        _error = null;
+        if (_selectedEventId == Guid.Empty)
+        {
+            _teams = [];
+            return;
+        }
+        _teams = (await TeamService.GetByEventIdAsync(_selectedEventId)).ToList();
+    }
+
+    private async Task StartBatchAsync()
+    {
+        if (_selectedEventId == Guid.Empty || _teams.Count == 0)
+            return;
+        _error = null;
+        _starting = true;
+        try
+        {
+            var mode = _executionMode == "Distributed"
+                ? BingoSim.Core.Enums.ExecutionMode.Distributed
+                : BingoSim.Core.Enums.ExecutionMode.Local;
+            var request = new BingoSim.Application.DTOs.StartSimulationBatchRequest
+            {
+                EventId = _selectedEventId,
+                RunCount = _runCount,
+                Seed = string.IsNullOrWhiteSpace(_seed) ? null : _seed.Trim(),
+                ExecutionMode = mode
+            };
+            var batch = await SimulationBatchService.StartBatchAsync(request);
+            NavigationManager.NavigateTo($"/simulations/results/{batch.Id}");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _starting = false;
+        }
+    }
+
+    private void SetModeLocal() => _executionMode = "Local";
+    private void SetModeDistributed() => _executionMode = "Distributed";
+}

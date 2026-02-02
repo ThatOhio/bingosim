@@ -14,6 +14,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<TeamPlayer> TeamPlayers => Set<TeamPlayer>();
     public DbSet<StrategyConfig> StrategyConfigs => Set<StrategyConfig>();
+    public DbSet<SimulationBatch> SimulationBatches => Set<SimulationBatch>();
+    public DbSet<EventSnapshot> EventSnapshots => Set<EventSnapshot>();
+    public DbSet<SimulationRun> SimulationRuns => Set<SimulationRun>();
+    public DbSet<TeamRunResult> TeamRunResults => Set<TeamRunResult>();
+    public DbSet<BatchTeamAggregate> BatchTeamAggregates => Set<BatchTeamAggregate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

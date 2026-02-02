@@ -8,13 +8,13 @@ using Microsoft.Extensions.Logging;
 namespace BingoSim.Application.Services;
 
 /// <summary>
-/// Development seed data service for manual testing. Slices 1–3 only (Players, Activities, Events).
-/// TODO Slice 4: Extend for Teams/Strategy by adding SeedTeamsAsync, SeedStrategiesAsync, and stable keys for reset.
+/// Development seed data service for manual testing. Slices 1–4 (Players, Activities, Events, Teams + Strategy).
 /// </summary>
 public class DevSeedService(
     IPlayerProfileRepository playerRepo,
     IActivityDefinitionRepository activityRepo,
     IEventRepository eventRepo,
+    ITeamRepository teamRepo,
     ILogger<DevSeedService> logger) : IDevSeedService
 {
     /// <summary>
@@ -42,13 +42,22 @@ public class DevSeedService(
         "Winter Bingo 2025", "Spring League Bingo"
     ];
 
+    /// <summary>
+    /// Stable team names for seed events (event name + team name).
+    /// </summary>
+    private static readonly string[] SeedTeamNames =
+    [
+        "Team Alpha", "Team Beta"
+    ];
+
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
-        logger.LogInformation("Dev seed: starting idempotent seed for Slices 1–3");
+        logger.LogInformation("Dev seed: starting idempotent seed for Slices 1–4");
 
         await SeedPlayersAsync(cancellationToken);
         var activityIdsByKey = await SeedActivitiesAsync(cancellationToken);
         await SeedEventsAsync(activityIdsByKey, cancellationToken);
+        await SeedTeamsAsync(cancellationToken);
 
         logger.LogInformation("Dev seed: completed");
     }
@@ -57,12 +66,14 @@ public class DevSeedService(
     {
         logger.LogInformation("Dev seed: resetting seed-tagged data");
 
-        // Reverse dependency order: Events -> Activities -> Players
+        // Reverse dependency order: Teams (StrategyConfigs + TeamPlayers) -> Events -> Activities -> Players
         foreach (var name in SeedEventNames)
         {
             var evt = await eventRepo.GetByNameAsync(name, cancellationToken);
             if (evt is not null)
             {
+                await teamRepo.DeleteAllByEventIdAsync(evt.Id, cancellationToken);
+                logger.LogInformation("Dev seed: deleted teams for event '{EventName}'", name);
                 await eventRepo.DeleteAsync(evt.Id, cancellationToken);
                 logger.LogInformation("Dev seed: deleted event '{EventName}'", name);
             }
@@ -320,6 +331,70 @@ public class DevSeedService(
             new EventSeedDef("Winter Bingo 2025", TimeSpan.FromHours(24), rowsWinter),
             new EventSeedDef("Spring League Bingo", TimeSpan.FromHours(48), rowsSpring),
         ];
+    }
+
+    private async Task SeedTeamsAsync(CancellationToken cancellationToken)
+    {
+        var playerProfiles = new List<PlayerProfile>();
+        foreach (var name in SeedPlayerNames)
+        {
+            var p = await playerRepo.GetByNameAsync(name, cancellationToken);
+            if (p is not null)
+                playerProfiles.Add(p);
+        }
+        if (playerProfiles.Count < 4)
+        {
+            logger.LogWarning("Dev seed: need at least 4 players for teams; found {Count}", playerProfiles.Count);
+            return;
+        }
+
+        foreach (var eventName in SeedEventNames)
+        {
+            var evt = await eventRepo.GetByNameAsync(eventName, cancellationToken);
+            if (evt is null)
+                continue;
+
+            var existingTeams = await teamRepo.GetByEventIdAsync(evt.Id, cancellationToken);
+            var teamAlpha = existingTeams.FirstOrDefault(t => t.Name == "Team Alpha");
+            var teamBeta = existingTeams.FirstOrDefault(t => t.Name == "Team Beta");
+
+            var playerIdsAlpha = playerProfiles.Take(4).Select(p => p.Id).ToList();
+            var playerIdsBeta = playerProfiles.Skip(4).Take(4).Select(p => p.Id).ToList();
+
+            if (teamAlpha is not null)
+            {
+                var strategyConfig = teamAlpha.StrategyConfig ?? new StrategyConfig(teamAlpha.Id, BingoSim.Application.StrategyKeys.StrategyCatalog.RowRush, "{}");
+                strategyConfig.Update(BingoSim.Application.StrategyKeys.StrategyCatalog.RowRush, "{}");
+                var teamPlayers = playerIdsAlpha.Select(pid => new TeamPlayer(teamAlpha.Id, pid)).ToList();
+                await teamRepo.UpdateAsync(teamAlpha, strategyConfig, teamPlayers, cancellationToken);
+                logger.LogInformation("Dev seed: updated team 'Team Alpha' for event '{EventName}'", eventName);
+            }
+            else
+            {
+                var team = new Team(evt.Id, "Team Alpha");
+                var config = new StrategyConfig(team.Id, BingoSim.Application.StrategyKeys.StrategyCatalog.RowRush, "{}");
+                var teamPlayers = playerIdsAlpha.Select(pid => new TeamPlayer(team.Id, pid)).ToList();
+                await teamRepo.AddAsync(team, config, teamPlayers, cancellationToken);
+                logger.LogInformation("Dev seed: created team 'Team Alpha' for event '{EventName}'", eventName);
+            }
+
+            if (teamBeta is not null)
+            {
+                var strategyConfig = teamBeta.StrategyConfig ?? new StrategyConfig(teamBeta.Id, BingoSim.Application.StrategyKeys.StrategyCatalog.GreedyPoints, "{}");
+                strategyConfig.Update(BingoSim.Application.StrategyKeys.StrategyCatalog.GreedyPoints, "{}");
+                var teamPlayers = playerIdsBeta.Select(pid => new TeamPlayer(teamBeta.Id, pid)).ToList();
+                await teamRepo.UpdateAsync(teamBeta, strategyConfig, teamPlayers, cancellationToken);
+                logger.LogInformation("Dev seed: updated team 'Team Beta' for event '{EventName}'", eventName);
+            }
+            else
+            {
+                var team = new Team(evt.Id, "Team Beta");
+                var config = new StrategyConfig(team.Id, BingoSim.Application.StrategyKeys.StrategyCatalog.GreedyPoints, "{}");
+                var teamPlayers = playerIdsBeta.Select(pid => new TeamPlayer(team.Id, pid)).ToList();
+                await teamRepo.AddAsync(team, config, teamPlayers, cancellationToken);
+                logger.LogInformation("Dev seed: created team 'Team Beta' for event '{EventName}'", eventName);
+            }
+        }
     }
 
     private sealed record PlayerSeedDef(string Name, decimal SkillTimeMultiplier, List<Capability> Capabilities, WeeklySchedule WeeklySchedule);

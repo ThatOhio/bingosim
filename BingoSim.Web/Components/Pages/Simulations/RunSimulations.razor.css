@@ -1,0 +1,33 @@
+.form-section {
+    max-width: 600px;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.team-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.team-list li {
+    padding: 0.25rem 0;
+}
+
+.form-actions {
+    margin-top: 1.5rem;
+}
+
+.text-muted {
+    color: #6c757d;
+}
+
+.text-danger {
+    color: #dc3545;
+}

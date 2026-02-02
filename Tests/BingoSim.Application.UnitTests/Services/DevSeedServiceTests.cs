@@ -21,8 +21,10 @@ public class DevSeedServiceTests
         activityRepo.GetByKeyAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((ActivityDefinition?)null);
         eventRepo.GetByNameAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((Event?)null);
 
+        var teamRepo = Substitute.For<ITeamRepository>();
+        teamRepo.GetByEventIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns([]);
         var logger = Substitute.For<ILogger<DevSeedService>>();
-        var sut = new DevSeedService(playerRepo, activityRepo, eventRepo, logger);
+        var sut = new DevSeedService(playerRepo, activityRepo, eventRepo, teamRepo, logger);
 
         // Act
         var act = async () => await sut.SeedAsync();
@@ -42,8 +44,10 @@ public class DevSeedServiceTests
         activityRepo.GetByKeyAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((ActivityDefinition?)null);
         eventRepo.GetByNameAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((Event?)null);
 
+        var teamRepo = Substitute.For<ITeamRepository>();
+        teamRepo.GetByEventIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns([]);
         var logger = Substitute.For<ILogger<DevSeedService>>();
-        var sut = new DevSeedService(playerRepo, activityRepo, eventRepo, logger);
+        var sut = new DevSeedService(playerRepo, activityRepo, eventRepo, teamRepo, logger);
 
         // Act
         var act = async () => await sut.ResetAndSeedAsync();

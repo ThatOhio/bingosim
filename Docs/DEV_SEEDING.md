@@ -1,6 +1,6 @@
 # Development Seed Data
 
-The Dev Seed system populates the database with realistic test data for manual UI testing. It covers **Slices 1–3**: PlayerProfiles, ActivityDefinitions, and Events (Rows/Tiles/TileActivityRules).
+The Dev Seed system populates the database with realistic test data for manual UI testing. It covers **Slices 1–4**: PlayerProfiles, ActivityDefinitions, Events (Rows/Tiles/TileActivityRules), and **Teams + StrategyConfig** for seed events.
 
 ## How to Run Seeding Locally
 
@@ -57,6 +57,7 @@ To seed from inside the Docker network (e.g. in a custom init script), use `Host
 3. **Players**: 8 seed players (Alice, Bob, Carol, Dave, Eve, Frank, Grace, Henry) with varied skill multipliers, capabilities, and weekly schedules
 4. **Activities**: 6 activities (Zulrah, Vorkath, Runecraft, Mining, CoX, ToA) with multiple loot lines, PerPlayer/PerGroup roll scopes, and group scaling bands
 5. **Events**: 2 events (Winter Bingo 2025, Spring League Bingo) with 3+ rows, 4 tiles per row, and TileActivityRules referencing activities
+6. **Teams (Slice 4)**: For each seed event, 2 teams — **Team Alpha** (RowRush, first 4 players) and **Team Beta** (GreedyPoints, next 4 players). Visible under **Events → Draft teams** and on **Run Simulations** when an event is selected.
 
 ## Idempotency
 
@@ -68,31 +69,21 @@ Seeding uses stable keys (names/keys) for find-or-create. No duplicates are crea
 
 ## Reset Behavior
 
-`--reset` deletes **only** entities that match the seed stable keys:
+`--reset` deletes **only** entities that match the seed stable keys. Order respects foreign keys: **Teams (and their StrategyConfigs + TeamPlayers) → Events → Activities → Players**.
 
-- Events: "Winter Bingo 2025", "Spring League Bingo"
-- Activities: `boss.zulrah`, `boss.vorkath`, `skilling.runecraft`, `skilling.mining`, `raid.cox`, `raid.toa`
-- Players: Alice, Bob, Carol, Dave, Eve, Frank, Grace, Henry
+- **Teams**: All teams for seed events ("Winter Bingo 2025", "Spring League Bingo") are deleted (StrategyConfigs and TeamPlayers are removed with them).
+- **Events**: "Winter Bingo 2025", "Spring League Bingo"
+- **Activities**: `boss.zulrah`, `boss.vorkath`, `skilling.runecraft`, `skilling.mining`, `raid.cox`, `raid.toa`
+- **Players**: Alice, Bob, Carol, Dave, Eve, Frank, Grace, Henry
 
 The database is **not** dropped; only these seed-tagged records are removed before re-seeding.
 
-## Extending for Slice 4 (Teams/Strategy)
+## Slice 4 (Teams/Strategy) — Included
 
-To add seed data for Teams and Strategy later:
+Seed data for Teams and StrategyConfig is **included**:
 
-1. **Add stable keys** in `DevSeedService`:
-   - Define `SeedTeamKeys` (e.g. event name + team name) or similar
-   - Define `SeedStrategyKeys` if applicable
-
-2. **Add seed methods**:
-   - `SeedTeamsAsync(CancellationToken)` – create/update teams for seed events, referencing seed players
-   - `SeedStrategiesAsync(CancellationToken)` – create/update strategy configs for seed teams
-
-3. **Update `SeedAsync`** to call the new methods after events are seeded (Teams depend on Events and Players).
-
-4. **Update `ResetAndSeedAsync`** to delete seed teams and strategies **before** events (respecting foreign keys). Order: StrategyConfigs → Teams → Events → Activities → Players.
-
-5. Add a TODO in `DevSeedService` (already present) as a reminder.
+- **SeedTeamsAsync**: For each seed event, creates or updates **Team Alpha** (RowRush, first 4 seed players) and **Team Beta** (GreedyPoints, next 4 seed players). StrategyConfig uses sample `ParamsJson` `"{}"`.
+- **Reset order**: Teams for seed events are deleted first (via `DeleteAllByEventIdAsync`), then Events, then Activities, then Players.
 
 ## Updating Seed Content
 

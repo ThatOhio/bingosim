@@ -20,6 +20,10 @@ public class Program
         // Add Infrastructure services (DbContext, Repositories, Application Services)
         builder.Services.AddInfrastructure(builder.Configuration);
 
+        builder.Services.Configure<BingoSim.Web.Services.LocalSimulationOptions>(
+            builder.Configuration.GetSection(BingoSim.Web.Services.LocalSimulationOptions.SectionName));
+        builder.Services.AddHostedService<BingoSim.Web.Services.SimulationRunQueueHostedService>();
+
         // Add FluentValidation validators
         builder.Services.AddValidatorsFromAssemblyContaining<CreatePlayerProfileRequestValidator>();
 

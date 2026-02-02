@@ -1,0 +1,159 @@
+@page "/simulations/results/{BatchId:guid}"
+@implements IDisposable
+@inject ISimulationBatchService SimulationBatchService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+<PageTitle>Simulation Results</PageTitle>
+
+<div class="page-header">
+    <h1>Simulation Results</h1>
+    <a href="/simulations/run" class="btn btn-outline">Run new batch</a>
+</div>
+
+@if (_batch is null && !_loading)
+{
+    <p>Batch not found.</p>
+}
+else if (_batch is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <div class="batch-summary">
+        <p><strong>Batch:</strong> @_batch.Id.ToString("N")[..8]… | <strong>Runs requested:</strong> @_batch.RunsRequested | <strong>Seed:</strong> @_batch.Seed | <strong>Status:</strong> @_batch.Status</p>
+        @if (_batch.Status == BingoSim.Core.Enums.BatchStatus.Error && !string.IsNullOrEmpty(_batch.ErrorMessage))
+        {
+            <p class="text-danger">@_batch.ErrorMessage</p>
+        }
+    </div>
+
+    <div class="progress-section">
+        <p><strong>Progress:</strong> Completed: @_progress.Completed | Failed: @_progress.Failed | Running: @_progress.Running | Pending: @_progress.Pending</p>
+        @if (_batch.Status == BingoSim.Core.Enums.BatchStatus.Running || _batch.Status == BingoSim.Core.Enums.BatchStatus.Pending)
+        {
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: @(GetProgressPercent())%"></div>
+            </div>
+            <p class="text-muted">Refreshing every 3 seconds…</p>
+        }
+    </div>
+
+    @if (_aggregates.Count > 0)
+    {
+        <h2>Per-team aggregates</h2>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Team</th>
+                        <th>Strategy</th>
+                        <th>Winner rate</th>
+                        <th>Mean / Min / Max points</th>
+                        <th>Mean / Min / Max tiles</th>
+                        <th>Mean / Min / Max row</th>
+                        <th>Runs</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in _aggregates)
+                    {
+                        <tr @key="a.TeamId">
+                            <td>@a.TeamName</td>
+                            <td>@a.StrategyKey</td>
+                            <td>@(a.WinnerRate.ToString("P1"))</td>
+                            <td>@(a.MeanPoints.ToString("F1")) / @a.MinPoints / @a.MaxPoints</td>
+                            <td>@(a.MeanTilesCompleted.ToString("F1")) / @a.MinTilesCompleted / @a.MaxTilesCompleted</td>
+                            <td>@(a.MeanRowReached.ToString("F1")) / @a.MinRowReached / @a.MaxRowReached</td>
+                            <td>@a.RunCount</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (_sampleRunResults.Count > 0)
+    {
+        <h2>Sample run timelines (first run)</h2>
+        @foreach (var teamResult in _sampleRunResults)
+        {
+            <details>
+                <summary>@teamResult.TeamName — @teamResult.StrategyKey (points: @teamResult.TotalPoints, tiles: @teamResult.TilesCompletedCount, row: @teamResult.RowReached@(teamResult.IsWinner ? ", winner" : ""))</summary>
+                <pre class="timeline-json">Row unlock times: @teamResult.RowUnlockTimesJson</pre>
+                <pre class="timeline-json">Tile completion times: @teamResult.TileCompletionTimesJson</pre>
+            </details>
+        }
+    }
+}
+
+@code {
+    [Parameter]
+    public Guid BatchId { get; set; }
+
+    private BingoSim.Application.DTOs.SimulationBatchResponse? _batch;
+    private BingoSim.Application.DTOs.BatchProgressResponse _progress = new();
+    private List<BingoSim.Application.DTOs.BatchTeamAggregateResponse> _aggregates = [];
+    private List<BingoSim.Application.DTOs.TeamRunResultResponse> _sampleRunResults = [];
+    private bool _loading = true;
+    private System.Threading.Timer? _refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        _loading = true;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && (_batch?.Status == BingoSim.Core.Enums.BatchStatus.Running || _batch?.Status == BingoSim.Core.Enums.BatchStatus.Pending))
+        {
+            _refreshTimer = new System.Threading.Timer(_ => InvokeAsync(LoadAsync).GetAwaiter().GetResult(), null, 3000, 3000);
+        }
+    }
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+    }
+
+    private async Task LoadAsync()
+    {
+        _batch = await SimulationBatchService.GetBatchByIdAsync(BatchId);
+        if (_batch is null)
+        {
+            _loading = false;
+            return;
+        }
+        _progress = await SimulationBatchService.GetProgressAsync(BatchId);
+        _aggregates = (await SimulationBatchService.GetBatchAggregatesAsync(BatchId)).ToList();
+        if (_aggregates.Count > 0 && _aggregates[0].TeamId != default)
+        {
+            var sample = (await SimulationBatchService.GetBatchRunResultsForTeamAsync(BatchId, _aggregates[0].TeamId, 1)).ToList();
+            if (sample.Count > 0)
+            {
+                var runId = sample[0].SimulationRunId;
+                _sampleRunResults = (await SimulationBatchService.GetRunResultsAsync(runId)).ToList();
+            }
+        }
+        _loading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private double GetProgressPercent()
+    {
+        var total = _progress.Completed + _progress.Failed + _progress.Running + _progress.Pending;
+        if (total == 0) return 0;
+        return 100.0 * (_progress.Completed + _progress.Failed) / total;
+    }
+}
