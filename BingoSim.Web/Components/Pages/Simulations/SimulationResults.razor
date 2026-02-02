@@ -8,12 +8,13 @@
 
 <div class="page-header">
     <h1>Simulation Results</h1>
-    <a href="/simulations/run" class="btn btn-outline">Run new batch</a>
+    <a href="/simulations/results" class="btn btn-outline">Back to list</a>
+    <a href="/simulations/run" class="btn btn-primary">Run new batch</a>
 </div>
 
 @if (_batch is null && !_loading)
 {
-    <p>Batch not found.</p>
+    <p>Batch not found. <a href="/simulations/results">Back to list</a></p>
 }
 else if (_batch is null)
 {

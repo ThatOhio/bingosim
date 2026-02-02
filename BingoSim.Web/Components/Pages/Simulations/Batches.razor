@@ -55,7 +55,7 @@ else
                         <td><a href="/simulations/results/@row.BatchId">@row.BatchId.ToString("N")[..8]…</a></td>
                         <td>@row.CreatedAt.ToString("g")</td>
                         <td>@row.Status</td>
-                        <td>@(string.IsNullOrEmpty(row.EventName) ? "—" : row.EventName)</td>
+                        <td>@(string.IsNullOrEmpty(row.EventName) ? "(Unknown event)" : row.EventName)</td>
                         <td>@row.RunCount</td>
                         <td>@row.CompletedCount</td>
                         <td>@row.FailedCount</td>

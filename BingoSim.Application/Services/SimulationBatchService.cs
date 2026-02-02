@@ -43,12 +43,13 @@ public class SimulationBatchService(
             ? Guid.NewGuid().ToString("N")
             : request.Seed.Trim();
 
+        var batchName = !string.IsNullOrWhiteSpace(request.Name) ? request.Name.Trim() : evt.Name;
         var batch = new SimulationBatch(
             request.EventId,
             request.RunCount,
             seed,
             request.ExecutionMode,
-            request.Name);
+            batchName);
         await batchRepo.AddAsync(batch, cancellationToken);
 
         var snapshotJson = await snapshotBuilder.BuildSnapshotJsonAsync(request.EventId, cancellationToken);
