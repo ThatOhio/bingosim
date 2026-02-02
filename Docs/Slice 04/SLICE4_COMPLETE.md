@@ -35,8 +35,9 @@ Team Drafting & Strategy Assignment has been implemented per `Docs/Slice 04/SLIC
 
 - ✅ **/events/{EventId}/teams** — EventTeams.razor: list teams for event; Create Team; Edit; Delete; optional Delete all teams (with confirmation)
 - ✅ **/events/{EventId}/teams/create** — EventTeamCreate.razor: name, player multi-select, strategy dropdown, ParamsJson textarea
-- ✅ **/events/{EventId}/teams/{TeamId}/edit** — EventTeamEdit.razor: same form pre-filled
+- ✅ **/events/{EventId}/teams/{TeamId}/edit** — EventTeamEdit.razor: same form pre-filled; ParamsJson shown (null → "" for binding)
 - ✅ Events list: "Draft teams" link per event row
+- ✅ Duplicate players prevented: validator + form uses Distinct() in ToCreateRequest/ToUpdateRequest
 - ✅ Reuse **DeleteConfirmationModal** for delete team and delete all teams
 - ✅ Styling: EventTeams.razor.css, EventTeamCreate.razor.css, EventTeamEdit.razor.css
 
@@ -44,7 +45,7 @@ Team Drafting & Strategy Assignment has been implemented per `Docs/Slice 04/SLIC
 
 - ✅ **Core unit tests:** TeamTests, TeamPlayerTests, StrategyConfigTests (invariants)
 - ✅ **Application unit tests:** CreateTeamRequestValidatorTests (name required, event required, no duplicate players, strategy key); UpdateTeamRequestValidatorTests; TeamServiceTests (Create, GetByEventId, GetById, Update, Delete, validation)
-- ✅ **Integration tests:** TeamRepositoryTests (create round-trip with memberships and strategy; update roster and strategy; delete and verify memberships removed; GetByEventIdAsync). Postgres Testcontainers (Docker required).
+- ✅ **Integration tests:** TeamRepositoryTests (create round-trip with memberships and strategy; update roster and strategy; delete and verify memberships removed; GetByEventIdAsync; **two teams for same event persist and rehydrate in fresh context**). Postgres Testcontainers (Docker required).
 
 ---
 

@@ -34,7 +34,7 @@
 - ✅ CreateTeamRequestValidatorTests (name required, event required, no duplicate players, strategy key supported)
 - ✅ UpdateTeamRequestValidatorTests (same rules)
 - ✅ TeamServiceTests (Create, GetByEventId, GetById, Update, Delete; event/player validation)
-- ✅ TeamRepositoryTests (integration: create round-trip, update roster/strategy, delete cascade; Postgres Testcontainers)
+- ✅ TeamRepositoryTests (integration: create round-trip, update roster/strategy, delete cascade, **two teams per event + persistence in fresh context**; Postgres Testcontainers)
 
 ---
 
@@ -75,6 +75,14 @@
 
 ---
 
+## Post-Review Fixes (vs. 06_Acceptance_Tests.md Section 4)
+
+- **ParamsJson on edit:** Edit form now sets `ParamsJson = response.ParamsJson ?? ""` in FromResponse so the textarea always binds to a string; stored null is shown as blank and re-saved as null when empty.
+- **Duplicate players:** Form models use `SelectedPlayerIds.Distinct().ToList()` in ToCreateRequest/ToUpdateRequest so duplicate player assignments are never sent even if the list were corrupted; validator already rejects duplicate PlayerProfileIds.
+- **Two teams + persistence:** Integration test `AddAsync_TwoTeamsForSameEvent_PersistAndRehydrateInFreshContext` added to assert drafting two teams for the same event and that both persist and rehydrate in a fresh context (simulates persistence across restarts).
+
+---
+
 ## Identified Issues
 
 ### Critical: 0 ❌
@@ -97,7 +105,7 @@ None.
 
 ### Integration tests ✅
 
-- **TeamRepositoryTests:** AddAsync with memberships and strategy (round-trip); UpdateAsync (roster and strategy); DeleteAsync (team and memberships removed); GetByEventIdAsync (only teams for event). Requires Docker for Postgres Testcontainers.
+- **TeamRepositoryTests:** AddAsync with memberships and strategy (round-trip); UpdateAsync (roster and strategy); DeleteAsync (team and memberships removed); GetByEventIdAsync (only teams for event); **AddAsync_TwoTeamsForSameEvent_PersistAndRehydrateInFreshContext** (draft two teams, persistence across fresh context). Requires Docker for Postgres Testcontainers.
 
 ---
 

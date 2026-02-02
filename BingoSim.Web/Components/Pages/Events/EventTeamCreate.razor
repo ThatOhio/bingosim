@@ -147,6 +147,6 @@
         public string? ParamsJson { get; set; }
 
         public CreateTeamRequest ToCreateRequest(Guid eventId) =>
-            new(eventId, Name.Trim(), SelectedPlayerIds.ToList(), StrategyKey.Trim(), string.IsNullOrWhiteSpace(ParamsJson) ? null : ParamsJson.Trim());
+            new(eventId, Name.Trim(), SelectedPlayerIds.Distinct().ToList(), StrategyKey.Trim(), string.IsNullOrWhiteSpace(ParamsJson) ? null : ParamsJson.Trim());
     }
 }

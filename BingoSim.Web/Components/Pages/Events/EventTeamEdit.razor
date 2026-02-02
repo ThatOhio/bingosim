@@ -183,14 +183,14 @@ else
         public string? ParamsJson { get; set; }
 
         public UpdateTeamRequest ToUpdateRequest() =>
-            new(Name.Trim(), SelectedPlayerIds.ToList(), StrategyKey.Trim(), string.IsNullOrWhiteSpace(ParamsJson) ? null : ParamsJson.Trim());
+            new(Name.Trim(), SelectedPlayerIds.Distinct().ToList(), StrategyKey.Trim(), string.IsNullOrWhiteSpace(ParamsJson) ? null : ParamsJson.Trim());
 
         public static TeamFormModel FromResponse(TeamResponse response) => new()
         {
             Name = response.Name,
             SelectedPlayerIds = response.PlayerProfileIds.ToList(),
             StrategyKey = response.StrategyKey,
-            ParamsJson = response.ParamsJson
+            ParamsJson = response.ParamsJson ?? ""
         };
     }
 }

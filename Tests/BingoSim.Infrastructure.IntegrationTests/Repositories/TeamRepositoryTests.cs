@@ -145,6 +145,42 @@ public class TeamRepositoryTests : IAsyncLifetime
         teams[0].Name.Should().Be("Team One");
     }
 
+    /// <summary>
+    /// Acceptance: "I draft two teams, assign players" and persistence works across restarts (fresh context).
+    /// </summary>
+    [Fact]
+    public async Task AddAsync_TwoTeamsForSameEvent_PersistAndRehydrateInFreshContext()
+    {
+        var (eventId, player1Id, player2Id) = await SeedEventAndPlayersAsync();
+
+        var team1 = new Team(eventId, "Team Alpha");
+        var strategy1 = new StrategyConfig(team1.Id, "RowRush", "{\"baseline\":true}");
+        var team1Players = new List<TeamPlayer> { new(team1.Id, player1Id), new(team1.Id, player2Id) };
+        await _repository.AddAsync(team1, strategy1, team1Players);
+
+        var team2 = new Team(eventId, "Team Beta");
+        var strategy2 = new StrategyConfig(team2.Id, "GreedyPoints", "{\"alt\":1}");
+        var team2Players = new List<TeamPlayer> { new(team2.Id, player1Id) };
+        await _repository.AddAsync(team2, strategy2, team2Players);
+
+        var freshContext = CreateFreshContext();
+        var freshRepo = new TeamRepository(freshContext);
+        var teams = await freshRepo.GetByEventIdAsync(eventId);
+        await freshContext.DisposeAsync();
+
+        teams.Should().HaveCount(2);
+        var alpha = teams.FirstOrDefault(t => t.Name == "Team Alpha");
+        var beta = teams.FirstOrDefault(t => t.Name == "Team Beta");
+        alpha.Should().NotBeNull();
+        beta.Should().NotBeNull();
+        alpha!.StrategyConfig!.StrategyKey.Should().Be("RowRush");
+        alpha.StrategyConfig.ParamsJson.Should().Be("{\"baseline\":true}");
+        alpha.TeamPlayers.Should().HaveCount(2);
+        beta!.StrategyConfig!.StrategyKey.Should().Be("GreedyPoints");
+        beta.StrategyConfig.ParamsJson.Should().Be("{\"alt\":1}");
+        beta.TeamPlayers.Should().HaveCount(1);
+    }
+
     private async Task<(Guid EventId, Guid Player1Id, Guid Player2Id)> SeedEventAndPlayersAsync()
     {
         var evt = new Event("Test Event", TimeSpan.FromHours(24), 5);

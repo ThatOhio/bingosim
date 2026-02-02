@@ -9,7 +9,7 @@
 
 ✅ **APPROVED** - Implementation meets all acceptance criteria for Slice 4.
 
-Team Drafting & Strategy Assignment has been implemented per `Docs/Slice 04/SLICE4_PLAN.md` and reviewed against `Docs/06_Acceptance_Tests.md` Section 4 and Section 9 (UI: drafting/assigning). CRUD for Teams (per Event), TeamPlayer memberships, and StrategyConfig (StrategyKey + ParamsJson) is in place with structured logging and test coverage. Supported strategy keys live in `BingoSim.Application/StrategyKeys/StrategyCatalog.cs` (RowRush, GreedyPoints).
+Team Drafting & Strategy Assignment has been implemented per `Docs/Slice 04/SLICE4_PLAN.md` and reviewed against `Docs/06_Acceptance_Tests.md` Section 4 and Section 9 (UI: drafting/assigning). CRUD for Teams (per Event), TeamPlayer memberships, and StrategyConfig (StrategyKey + ParamsJson) is in place with structured logging and test coverage. Supported strategy keys live in `BingoSim.Application/StrategyKeys/StrategyCatalog.cs` (RowRush, GreedyPoints). Post-review fixes: ParamsJson on edit (null→"" for binding), defensive Distinct() for player IDs in form requests, integration test for two teams per event + persistence in fresh context.
 
 ---
 
@@ -34,7 +34,7 @@ Team Drafting & Strategy Assignment has been implemented per `Docs/Slice 04/SLIC
 
 ### Integration Tests ✅
 
-- **TeamRepositoryTests:** Create team + StrategyConfig + TeamPlayers round-trip; Update roster and strategy; Delete team (memberships and StrategyConfig removed); GetByEventIdAsync. Uses Postgres Testcontainers (Docker required).
+- **TeamRepositoryTests:** Create team + StrategyConfig + TeamPlayers round-trip; Update roster and strategy; Delete team (memberships and StrategyConfig removed); GetByEventIdAsync; two teams for same event persist and rehydrate in fresh context. Uses Postgres Testcontainers (Docker required).
 
 ### Coverage
 
