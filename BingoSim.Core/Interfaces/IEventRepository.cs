@@ -8,6 +8,7 @@ namespace BingoSim.Core.Interfaces;
 public interface IEventRepository
 {
     Task<Event?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Event?> GetByNameAsync(string name, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Event>> GetAllAsync(CancellationToken cancellationToken = default);
     Task AddAsync(Event entity, CancellationToken cancellationToken = default);
     Task UpdateAsync(Event entity, CancellationToken cancellationToken = default);

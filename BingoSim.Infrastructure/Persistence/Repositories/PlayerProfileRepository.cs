@@ -15,6 +15,12 @@ public class PlayerProfileRepository(AppDbContext context) : IPlayerProfileRepos
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
+    public async Task<PlayerProfile?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
+    {
+        return await context.PlayerProfiles
+            .FirstOrDefaultAsync(p => p.Name == name, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<PlayerProfile>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await context.PlayerProfiles

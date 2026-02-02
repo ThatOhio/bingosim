@@ -115,6 +115,28 @@ public class PlayerProfileRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetByNameAsync_ExistingName_ReturnsProfile()
+    {
+        // Arrange
+        var profile = new PlayerProfile("UniqueByName", 1.0m);
+        await _repository.AddAsync(profile);
+
+        // Act
+        var retrieved = await _repository.GetByNameAsync("UniqueByName");
+
+        // Assert
+        retrieved.Should().NotBeNull();
+        retrieved!.Id.Should().Be(profile.Id);
+    }
+
+    [Fact]
+    public async Task GetByNameAsync_NonExistingName_ReturnsNull()
+    {
+        var result = await _repository.GetByNameAsync("NonExistentName");
+        result.Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetByIdAsync_NonExistingId_ReturnsNull()
     {
         // Arrange

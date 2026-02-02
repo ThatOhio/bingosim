@@ -8,6 +8,7 @@ namespace BingoSim.Core.Interfaces;
 public interface IPlayerProfileRepository
 {
     Task<PlayerProfile?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<PlayerProfile?> GetByNameAsync(string name, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<PlayerProfile>> GetAllAsync(CancellationToken cancellationToken = default);
     Task AddAsync(PlayerProfile profile, CancellationToken cancellationToken = default);
     Task UpdateAsync(PlayerProfile profile, CancellationToken cancellationToken = default);

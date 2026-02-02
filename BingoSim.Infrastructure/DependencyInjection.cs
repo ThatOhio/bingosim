@@ -36,6 +36,7 @@ public static class DependencyInjection
         services.AddScoped<IActivityDefinitionService, ActivityDefinitionService>();
         services.AddScoped<IEventService, EventService>();
         services.AddScoped<ITeamService, TeamService>();
+        services.AddScoped<IDevSeedService, DevSeedService>();
 
         return services;
     }

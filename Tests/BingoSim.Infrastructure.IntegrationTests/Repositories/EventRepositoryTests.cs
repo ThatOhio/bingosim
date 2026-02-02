@@ -92,6 +92,25 @@ public class EventRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetByNameAsync_ExistingName_ReturnsEvent()
+    {
+        var evt = CreateMinimalEvent("UniqueEventName");
+        await _repository.AddAsync(evt);
+
+        var result = await _repository.GetByNameAsync("UniqueEventName");
+
+        result.Should().NotBeNull();
+        result!.Id.Should().Be(evt.Id);
+    }
+
+    [Fact]
+    public async Task GetByNameAsync_NonExistingName_ReturnsNull()
+    {
+        var result = await _repository.GetByNameAsync("NonExistentEvent");
+        result.Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetByIdAsync_NonExistingId_ReturnsNull()
     {
         var result = await _repository.GetByIdAsync(Guid.NewGuid());

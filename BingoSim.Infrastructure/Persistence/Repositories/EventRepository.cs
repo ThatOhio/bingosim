@@ -15,6 +15,12 @@ public class EventRepository(AppDbContext context) : IEventRepository
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
     }
 
+    public async Task<Event?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
+    {
+        return await context.Events
+            .FirstOrDefaultAsync(e => e.Name == name, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Event>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await context.Events
