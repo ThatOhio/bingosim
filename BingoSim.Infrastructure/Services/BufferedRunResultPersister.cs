@@ -141,6 +141,9 @@ public sealed class BufferedRunResultPersister(
 
         sw.Stop();
 
+        var perfRecorder = scope.ServiceProvider.GetService<IPerfRecorder>();
+        perfRecorder?.Record("persist", sw.ElapsedMilliseconds, items.Count);
+
         _stats.AddOrUpdate("default",
             _ => (1, rowsInserted, rowsUpdated, saveChangesCount, sw.ElapsedMilliseconds),
             (_, prev) => (

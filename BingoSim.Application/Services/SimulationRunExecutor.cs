@@ -133,7 +133,7 @@ public class SimulationRunExecutor(
                     isRetry: run.AttemptCount > 0,
                     results,
                     cancellationToken);
-                perfRecorder?.Record("persist", 0, 1);
+                // Persist time recorded by BufferedRunResultPersister on each flush
             }
             else
             {

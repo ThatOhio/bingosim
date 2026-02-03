@@ -89,7 +89,7 @@ Phase totals (ms total, count):
 
 - **snapshot_load:** Total ms spent loading snapshot from DB. With caching, count = 1 for the entire batch.
 - **sim:** Total ms in simulation execution. Count = runs completed.
-- **persist:** Total ms for DB writes (delete + add + update per run).
+- **persist:** Total ms for DB writes. With immediate persist (BatchSize=1): per-run delete + add + update. With buffered persist: recorded per flush by BufferedRunResultPersister; total = sum of all flush times, count = runs persisted. The "Buffered persist" line shows flushes, rows, SaveChanges for batched mode.
 
 ### Throughput
 
