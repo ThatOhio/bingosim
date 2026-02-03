@@ -10,6 +10,7 @@ namespace BingoSim.Application.UnitTests.Simulation;
 /// <summary>
 /// Engine-only perf tests. No DB, no DI repositories. Excluded from normal CI via Category filter.
 /// Run with: dotnet test --filter "Category=Perf"
+/// Set BINGOSIM_PERF_OUTPUT=1 to print elapsed/throughput summary for the 10K run.
 /// </summary>
 [Trait("Category", "Perf")]
 public class SimulationPerfScenarioTests
@@ -38,6 +39,28 @@ public class SimulationPerfScenarioTests
         var runsPerSec = sw.Elapsed.TotalSeconds > 0 ? completed / sw.Elapsed.TotalSeconds : 0;
         // Sanity: expect at least 50 runs/sec on typical hardware
         runsPerSec.Should().BeGreaterThan(50, "engine-only 10K runs should complete at reasonable throughput");
+
+        if (IsPerfOutputEnabled())
+        {
+            WritePerfSummary(completed, DefaultRunCount, sw.Elapsed.TotalSeconds, runsPerSec);
+        }
+    }
+
+    private static bool IsPerfOutputEnabled()
+    {
+        var value = Environment.GetEnvironmentVariable("BINGOSIM_PERF_OUTPUT");
+        return string.Equals(value, "1", StringComparison.Ordinal) ||
+               string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void WritePerfSummary(int completed, int total, double elapsedSeconds, double runsPerSec)
+    {
+        Console.WriteLine();
+        Console.WriteLine("=== Engine-only Perf Summary ===");
+        Console.WriteLine($"Runs completed: {completed} / {total}");
+        Console.WriteLine($"Elapsed: {elapsedSeconds:F1}s");
+        Console.WriteLine($"Throughput: {runsPerSec:F1} runs/sec");
+        Console.WriteLine();
     }
 
     [Fact]

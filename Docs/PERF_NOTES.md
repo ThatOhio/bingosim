@@ -36,6 +36,11 @@ Then in the UI: Run Simulations → select "Winter Bingo 2025" → Distributed �
 dotnet test --filter "Category=Perf"
 ```
 
+To print a summary (elapsed, throughput) for the 10K run, set `BINGOSIM_PERF_OUTPUT=1`:
+```bash
+BINGOSIM_PERF_OUTPUT=1 dotnet test --filter "Category=Perf"
+```
+
 ### Regression guard (lightweight, no DB)
 ```bash
 dotnet run --project BingoSim.Seed -- --perf-regression --runs 1000
@@ -105,8 +110,10 @@ When `--max-duration` is reached, output shows partial runs and `[TIMED OUT]`. U
 
 | Scenario | Runs | Elapsed (s) | Runs/sec | Phase Totals |
 |----------|------|-------------|----------|--------------|
-| E2E 10K | 10000 | _TBD_ | _TBD_ | snapshot_load: _ms (10000), sim: _ms (10000), persist: _ms (10000) |
-| Engine-only 10K | 10000 | _TBD_ | _TBD_ | N/A |
+| E2E 10K | 10000 | 768.8 | 13.0 | snapshot_load: 35ms (10000), sim: 104ms (10000), persist: 460020ms (10000) |
+| Engine-only 10K | 10000 | 1.3 | 7766.9 | N/A |
+
+**2025-02-03 run** (command: `dotnet run --project BingoSim.Seed -- --perf --runs 10000 --event "Winter Bingo 2025" --seed "perf-baseline-2025"`): persist dominates (~460s of 768s); sim is negligible (104ms).
 
 ### Post-Optimization (Step 2)
 
