@@ -52,11 +52,14 @@ public class SimulationRunExecutor(
         }
 
         var startedAt = DateTimeOffset.UtcNow;
+        var claimSw = System.Diagnostics.Stopwatch.StartNew();
         if (!await runRepo.TryClaimAsync(runId, startedAt, cancellationToken))
         {
             logger.LogDebug("Run {RunId} already claimed by another worker", runId);
             return;
         }
+        claimSw.Stop();
+        perfRecorder?.Record("claim", claimSw.ElapsedMilliseconds, 1);
 
         run.MarkRunning(startedAt);
 

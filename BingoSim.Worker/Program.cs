@@ -4,6 +4,7 @@ using BingoSim.Infrastructure.Hosting;
 using BingoSim.Infrastructure.Persistence;
 using BingoSim.Infrastructure.Simulation;
 using BingoSim.Worker.Consumers;
+using BingoSim.Worker.Services;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,7 +31,7 @@ class Program
 
         builder.Services.AddMassTransit(x =>
         {
-            x.AddConsumer<ExecuteSimulationRunConsumer>();
+            x.AddConsumer<ExecuteSimulationRunConsumer, ExecuteSimulationRunConsumerDefinition>();
             x.UsingRabbitMq((context, cfg) =>
             {
                 cfg.Host(rabbitUri);
@@ -45,6 +46,9 @@ class Program
         builder.Services.Configure<WorkerSimulationOptions>(
             builder.Configuration.GetSection(WorkerSimulationOptions.SectionName));
 
+        builder.Services.AddSingleton<IPerfRecorder, PerfRecorder>();
+        builder.Services.AddSingleton<IWorkerRunThroughputRecorder, WorkerRunThroughputRecorder>();
+        builder.Services.AddHostedService<WorkerThroughputHostedService>();
         builder.Services.AddHostedService<BatchFinalizerHostedService>();
 
         var host = builder.Build();

@@ -31,6 +31,36 @@ dotnet run --project BingoSim.Worker
 
 Then in the UI: Run Simulations → select "Winter Bingo 2025" → Distributed → 10000 runs → Start batch. Observe results.
 
+### Distributed Scaling Benchmark (1 vs 3 workers)
+
+Validates that adding workers yields measurable throughput increase. Run 10K distributed with 1 worker, then 3 workers; compare elapsed time and runs/sec.
+
+```bash
+# 1. Start stack (postgres, rabbitmq, web)
+docker compose up -d postgres rabbitmq bingosim.web
+
+# 2. Seed and reset
+dotnet run --project BingoSim.Seed -- --full-reset --confirm
+dotnet run --project BingoSim.Seed
+
+# 3. Run with 1 worker
+WORKER_REPLICAS=1 docker compose up -d bingosim.worker
+# In UI: Run Simulations → Distributed → 10000 runs → Start batch
+# Record: elapsed time, runs/sec from Results page
+
+# 4. Stop workers, run with 3 workers
+docker compose stop bingosim.worker
+WORKER_REPLICAS=3 docker compose up -d bingosim.worker
+# Reset batch or use new event; run 10K again
+# Record: elapsed time, runs/sec
+
+# 5. Compare: 3 workers should complete in ~1/3 the time of 1 worker (with MaxConcurrentRuns=4)
+```
+
+**Expected:** With `WORKER_MAX_CONCURRENT_RUNS=4` (default), 3 workers × 4 concurrent = 12 in-flight runs. CPU usage should rise accordingly.
+
+**Connection pool:** If you see repeated transient DB failures (e.g. "connection pool exhausted"), increase `Maximum Pool Size` in the connection string or reduce `MaxConcurrentRuns`. Do not blindly raise pool limits without evidence. See [Distributed Perf Plan](Distributed%20Perf/Distributed_Performance_Plan.md) Area 4.
+
 ### Engine-only (no DB)
 ```bash
 dotnet test --filter "Category=Perf"
@@ -96,7 +126,7 @@ Phase totals (ms total, count):
 - **runs/sec:** `runs completed / elapsed seconds`. Primary metric for comparison.
 - **Expected ranges (engine-only):** 50–500+ runs/sec on typical hardware. Regression guard uses 50 as minimum.
 - **Expected ranges (E2E local):** Lower than engine-only due to DB; varies with hardware.
-- **Distributed:** Aggregate throughput should scale with worker count (e.g. 2 workers ≈ 2× single worker).
+- **Distributed:** Aggregate throughput should scale with worker count × MaxConcurrentRuns (e.g. 3 workers × 4 concurrent = 12 in-flight runs). See [Distributed Scaling Benchmark](#distributed-scaling-benchmark-1-vs-3-workers).
 
 ### [TIMED OUT]
 

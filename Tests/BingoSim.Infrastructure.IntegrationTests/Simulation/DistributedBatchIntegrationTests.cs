@@ -12,6 +12,7 @@ using BingoSim.Infrastructure.Persistence;
 using BingoSim.Infrastructure.Simulation;
 using BingoSim.Shared.Messages;
 using BingoSim.Worker.Consumers;
+using BingoSim.Worker.Services;
 using FluentAssertions;
 using MassTransit;
 using MassTransit.Testing;
@@ -51,8 +52,11 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
         services.AddScoped<MassTransitRunWorkPublisher>();
         services.AddScoped<ISimulationRunWorkPublisher>(sp => sp.GetRequiredService<MassTransitRunWorkPublisher>());
         services.Configure<WorkerSimulationOptions>(o => o.SimulationDelayMs = 0);
+        services.AddSingleton<IPerfRecorder, PerfRecorder>();
+        services.AddSingleton<IWorkerRunThroughputRecorder, WorkerRunThroughputRecorder>();
 
-        services.AddMassTransitTestHarness(x => x.AddConsumer<ExecuteSimulationRunConsumer>());
+        services.AddMassTransitTestHarness(x =>
+            x.AddConsumer<ExecuteSimulationRunConsumer, ExecuteSimulationRunConsumerDefinition>());
 
         _provider = services.BuildServiceProvider();
         _harness = _provider.GetRequiredService<ITestHarness>();
