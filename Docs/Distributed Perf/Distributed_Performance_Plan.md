@@ -1,8 +1,8 @@
 # Distributed Simulation Performance Plan
 
 **Date:** February 3, 2025  
-**Status:** Phase 1 Implemented; Phase 2+ Updated per test results  
-**Context:** Running 10,000 simulations in distributed mode with 3 workers takes roughly the same time as with 1 worker. CPU and RAM are underutilized. Goal: achieve measurable speedup when scaling workers (e.g., 3 workers ≈ 2–3× faster than 1 worker).
+**Status:** Phase 1 Implemented; Phase 2 Implemented; Phase 3 Planned  
+**Context:** Running 10,000 simulations in distributed mode with 3 workers takes roughly the same time as with 1 worker. Phase 2 addresses snapshot cache and claim observability. CPU and RAM are underutilized. Goal: achieve measurable speedup when scaling workers (e.g., 3 workers ≈ 2–3× faster than 1 worker).
 
 ---
 
@@ -209,17 +209,21 @@ This plan identifies improvement areas. Phases 2+ are updated to address the dat
 
 ---
 
-### Phase 2: Shared Snapshot Cache + Claim Optimization (Areas 3 + 4)
+### Phase 2: Shared Snapshot Cache + Claim Optimization (Areas 3 + 4) — IMPLEMENTED
 
-| Step | Task | Files |
-|------|------|-------|
-| 1 | Add shared snapshot cache (e.g. `IMemoryCache` keyed by batch ID) | `BingoSim.Application/`, `BingoSim.Infrastructure/` |
-| 2 | Executor checks shared cache before loading from DB; evict on batch completion or TTL | `SimulationRunExecutor.cs` |
-| 3 | Verify indexes on `SimulationRuns` for `TryClaimAsync` (Id, Status) | Migration or index review |
-| 4 | Document connection pool considerations; add `Maximum Pool Size` if needed | `PERF_NOTES.md`, compose |
-| 5 | (Optional) Implement `ClaimBatchAsync` — worker claims N runs per round-trip | `ISimulationRunRepository`, `SimulationRunRepository` |
+| Step | Task | Status |
+|------|------|--------|
+| 1 | Add shared snapshot cache (e.g. `IMemoryCache` keyed by batch ID) | Done — `ISnapshotCache`, `SharedSnapshotCache` |
+| 2 | Executor checks shared cache before loading from DB; evict on batch completion or TTL | Done — TTL 15 min, bounded 32 entries |
+| 3 | Verify indexes on `SimulationRuns` for `TryClaimAsync` (Id, Status) | Done — PK on Id sufficient; no migration |
+| 4 | Document connection pool considerations; add `Maximum Pool Size` if needed | See `PERF_NOTES.md` |
+| 5 | (Optional) Implement `ClaimBatchAsync` — worker claims N runs per round-trip | Skipped — architectural churn |
 
 **Success criteria:** `snapshot_load` count drops to 1 per batch; claim phase time reduced or batch claims reduce round-trips. 3 workers should show measurable throughput increase vs. 1 worker.
+
+**Bottlenecks addressed:** (1) Redundant snapshot DB loads (~1 per run → ~1 per batch); (2) Claim observability (avg latency, DB error tagging). Claim index verified (PK sufficient); batch claiming deferred.
+
+**Results / Observations:** _(To be filled after Phase 2 benchmark run.)_
 
 ---
 

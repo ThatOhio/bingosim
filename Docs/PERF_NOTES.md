@@ -31,6 +31,15 @@ dotnet run --project BingoSim.Worker
 
 Then in the UI: Run Simulations → select "Winter Bingo 2025" → Distributed → 10000 runs → Start batch. Observe results.
 
+### Phase 2 Benchmark Expectations
+
+After Phase 2 (Shared Snapshot Cache + Claim Optimization):
+
+- **snapshot_load count** should drop from ~1000 per 10s to ~1 per batch (e.g. 1 per 10s for a 10K batch).
+- **snapshot_cache_hit** and **snapshot_cache_miss** confirm cache reuse: hit count >> miss count.
+- **claim_avg** appears in worker throughput logs; claim total/count unchanged but DB contention may decrease.
+- **Distributed throughput** with 3 workers should improve vs. Phase 1 baseline (~990 runs/10s); target: 2–3× with shared cache reducing DB load.
+
 ### Distributed Scaling Benchmark (1 vs 3 workers)
 
 Validates that adding workers yields measurable throughput increase. Run 10K distributed with 1 worker, then 3 workers; compare elapsed time and runs/sec.
@@ -117,9 +126,12 @@ Phase totals (ms total, count):
   snapshot_load: 120ms total, 1 invocations
 ```
 
-- **snapshot_load:** Total ms spent loading snapshot from DB. With caching, count = 1 for the entire batch.
+- **snapshot_load:** Total ms spent loading snapshot from DB. **Phase 2:** With shared cache, count ≈ 1 per batch (not per run). Represents DB work only; cache hits are excluded.
+- **snapshot_cache_hit:** (Phase 2) Count of runs that reused a cached snapshot. High = cache effective.
+- **snapshot_cache_miss:** (Phase 2) Count of runs that loaded from DB. Should ≈ 1 per batch.
 - **sim:** Total ms in simulation execution. Count = runs completed.
 - **persist:** Total ms for DB writes. With immediate persist (BatchSize=1): per-run delete + add + update. With buffered persist: recorded per flush by BufferedRunResultPersister; total = sum of all flush times, count = runs persisted. The "Buffered persist" line shows flushes, rows, SaveChanges for batched mode.
+- **claim:** Total ms and count for atomic run claiming (Pending → Running). **Phase 2:** `claim_avg` (ms) emitted per 10s window in worker throughput logs.
 
 ### Throughput
 

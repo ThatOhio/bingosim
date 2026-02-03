@@ -48,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped<IUnfinalizedBatchesQuery, UnfinalizedBatchesQuery>();
 
         // Simulation (Application)
+        services.AddSingleton<ISnapshotCache, SharedSnapshotCache>();
         services.AddSingleton<IProgressAllocatorFactory, ProgressAllocatorFactory>();
         services.AddScoped<EventSnapshotBuilder>();
         services.AddScoped<SimulationRunner>();

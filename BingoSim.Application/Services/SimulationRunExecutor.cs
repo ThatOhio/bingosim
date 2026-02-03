@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using BingoSim.Application.Interfaces;
 using BingoSim.Application.Simulation;
 using BingoSim.Application.Simulation.Snapshot;
@@ -14,11 +13,12 @@ namespace BingoSim.Application.Services;
 /// Executes one simulation run: load run + snapshot, run simulation, persist TeamRunResult, update run status.
 /// Uses atomic claim (TryClaimAsync) to prevent double execution. Retries up to 5 attempts per run via work publisher.
 /// Batch finalization delegated to IBatchFinalizationService (idempotent).
-/// Caches parsed snapshot per batch to avoid redundant JSON parse when processing multiple runs from same batch.
+/// Uses shared snapshot cache (ISnapshotCache) to eliminate redundant DB loads across runs from the same batch.
 /// </summary>
 public class SimulationRunExecutor(
     ISimulationRunRepository runRepo,
     IEventSnapshotRepository snapshotRepo,
+    ISnapshotCache snapshotCache,
     ITeamRunResultRepository resultRepo,
     ISimulationRunWorkPublisher workPublisher,
     IBatchFinalizationService finalizationService,
@@ -31,10 +31,7 @@ public class SimulationRunExecutor(
     IPerfScenarioOptions? perfOptions = null) : ISimulationRunExecutor
 {
     private const int MaxErrorLength = 500;
-    private const int MaxSnapshotCacheSize = 32;
     private const int VerboseLogEveryNIterations = 1000;
-    private readonly ConcurrentDictionary<Guid, EventSnapshotDto> _snapshotCache = new();
-    private readonly ConcurrentDictionary<Guid, bool> _snapshotDumpedForBatch = new();
 
     public async Task ExecuteAsync(Guid runId, CancellationToken cancellationToken = default)
     {
@@ -53,10 +50,18 @@ public class SimulationRunExecutor(
 
         var startedAt = DateTimeOffset.UtcNow;
         var claimSw = System.Diagnostics.Stopwatch.StartNew();
-        if (!await runRepo.TryClaimAsync(runId, startedAt, cancellationToken))
+        try
         {
-            logger.LogDebug("Run {RunId} already claimed by another worker", runId);
-            return;
+            if (!await runRepo.TryClaimAsync(runId, startedAt, cancellationToken))
+            {
+                logger.LogDebug("Run {RunId} already claimed by another worker", runId);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[ClaimDbError] TryClaimAsync failed for run {RunId}", runId);
+            throw;
         }
         claimSw.Stop();
         perfRecorder?.Record("claim", claimSw.ElapsedMilliseconds, 1);
@@ -64,12 +69,15 @@ public class SimulationRunExecutor(
         run.MarkRunning(startedAt);
 
         EventSnapshotDto snapshot;
-        if (_snapshotCache.TryGetValue(run.SimulationBatchId, out var cached))
+        var cached = snapshotCache.Get(run.SimulationBatchId);
+        if (cached is not null)
         {
+            perfRecorder?.Record("snapshot_cache_hit", 0, 1);
             snapshot = cached;
         }
         else
         {
+            perfRecorder?.Record("snapshot_cache_miss", 0, 1);
             var snapshotLoadSw = System.Diagnostics.Stopwatch.StartNew();
             var snapshotEntity = await snapshotRepo.GetByBatchIdAsync(run.SimulationBatchId, cancellationToken);
             snapshotLoadSw.Stop();
@@ -92,13 +100,10 @@ public class SimulationRunExecutor(
                 return;
             }
             SnapshotValidator.Validate(dto);
-            _snapshotCache[run.SimulationBatchId] = dto;
-            if (_snapshotCache.Count > MaxSnapshotCacheSize)
-                EvictOldestSnapshot();
+            snapshotCache.Set(run.SimulationBatchId, dto);
             snapshot = dto;
 
-            if (perfOptions?.DumpSnapshotPath is { } dumpPath &&
-                _snapshotDumpedForBatch.TryAdd(run.SimulationBatchId, true))
+            if (perfOptions?.DumpSnapshotPath is { } dumpPath)
             {
                 var path = dumpPath.Contains("{0}") ? string.Format(dumpPath, run.SimulationBatchId) : dumpPath;
                 await System.IO.File.WriteAllTextAsync(path, snapshotJson, cancellationToken);
@@ -212,14 +217,5 @@ public class SimulationRunExecutor(
         if (!run.IsTerminal)
             await workPublisher.PublishRunWorkAsync(run.Id, cancellationToken);
         await finalizationService.TryFinalizeAsync(run.SimulationBatchId, cancellationToken);
-    }
-
-    private void EvictOldestSnapshot()
-    {
-        foreach (var batchId in _snapshotCache.Keys)
-        {
-            if (_snapshotCache.TryRemove(batchId, out _))
-                break;
-        }
     }
 }

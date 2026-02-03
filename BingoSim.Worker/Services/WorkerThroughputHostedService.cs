@@ -55,6 +55,16 @@ public class WorkerThroughputHostedService(
     {
         if (totals.Count == 0)
             return "none";
-        return string.Join("; ", totals.Select(kv => $"{kv.Key}={kv.Value.TotalMs}ms({kv.Value.Count})"));
+
+        var parts = new List<string>();
+        foreach (var kv in totals)
+        {
+            var (totalMs, count) = kv.Value;
+            var s = $"{kv.Key}={totalMs}ms({count})";
+            if (kv.Key == "claim" && count > 0)
+                s += $", claim_avg={totalMs / count}ms";
+            parts.Add(s);
+        }
+        return string.Join("; ", parts);
     }
 }
