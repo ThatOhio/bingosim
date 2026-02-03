@@ -11,4 +11,6 @@ public sealed class EventSnapshotDto
     public required List<RowSnapshotDto> Rows { get; init; }
     public required Dictionary<Guid, ActivitySnapshotDto> ActivitiesById { get; init; }
     public required List<TeamSnapshotDto> Teams { get; init; }
+    /// <summary>Event start time in ET (ISO8601). Null = no schedule enforcement, all players always online.</summary>
+    public string? EventStartTimeEt { get; init; }
 }

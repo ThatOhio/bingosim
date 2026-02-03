@@ -54,7 +54,7 @@ public class SimulationBatchService(
             batchName);
         await batchRepo.AddAsync(batch, cancellationToken);
 
-        var snapshotJson = await snapshotBuilder.BuildSnapshotJsonAsync(request.EventId, cancellationToken);
+        var snapshotJson = await snapshotBuilder.BuildSnapshotJsonAsync(request.EventId, batch.CreatedAt, cancellationToken);
         var snapshot = new EventSnapshot(batch.Id, snapshotJson);
         await snapshotRepo.AddAsync(snapshot, cancellationToken);
 

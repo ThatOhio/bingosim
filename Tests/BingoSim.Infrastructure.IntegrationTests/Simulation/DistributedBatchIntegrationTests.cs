@@ -3,6 +3,7 @@ using System.Text.Json;
 using BingoSim.Application.Interfaces;
 using BingoSim.Application.Simulation;
 using BingoSim.Application.Simulation.Runner;
+using BingoSim.Application.Simulation.Schedule;
 using BingoSim.Application.Simulation.Snapshot;
 using BingoSim.Core.Entities;
 using BingoSim.Core.Enums;
@@ -488,6 +489,133 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
                         new PlayerSnapshotDto { PlayerId = p1, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] },
                         new PlayerSnapshotDto { PlayerId = p2, Name = "P2", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] }
                     ]
+                }
+            ]
+        };
+
+        return JsonSerializer.Serialize(dto);
+    }
+
+    [Fact]
+    public async Task DistributedBatch_WithScheduleSnapshot_CompletesSuccessfully()
+    {
+        using var scope = _provider.CreateScope();
+        var snapshotJson = BuildSnapshotWithSchedule();
+        var batch = new SimulationBatch(Guid.NewGuid(), 3, "schedule-dist-seed", ExecutionMode.Distributed);
+        var batchRepo = scope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.ISimulationBatchRepository>();
+        var runRepo = scope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.ISimulationRunRepository>();
+        var snapshotRepo = scope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.IEventSnapshotRepository>();
+
+        await batchRepo.AddAsync(batch);
+        var eventSnapshot = new EventSnapshot(batch.Id, snapshotJson);
+        await snapshotRepo.AddAsync(eventSnapshot);
+
+        var runs = new List<SimulationRun>();
+        for (var i = 0; i < 3; i++)
+        {
+            var seed = SeedDerivation.DeriveRunSeedString("schedule-dist-seed", i);
+            runs.Add(new SimulationRun(batch.Id, i, seed));
+        }
+        await runRepo.AddRangeAsync(runs);
+
+        foreach (var run in runs)
+        {
+            await _harness.Bus.Publish(new ExecuteSimulationRun { SimulationRunId = run.Id });
+        }
+
+        for (var i = 0; i < 60; i++)
+        {
+            using var pollScope = _provider.CreateScope();
+            var pollRunRepo = pollScope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.ISimulationRunRepository>();
+            var completed = await pollRunRepo.GetByBatchIdAsync(batch.Id);
+            if (completed.All(r => r.Status == RunStatus.Completed))
+                break;
+            await Task.Delay(500);
+        }
+
+        using var verifyScope = _provider.CreateScope();
+        var verifyRunRepo = verifyScope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.ISimulationRunRepository>();
+        var finalizationService = verifyScope.ServiceProvider.GetRequiredService<IBatchFinalizationService>();
+        await finalizationService.TryFinalizeAsync(batch.Id);
+
+        var completedRuns = await verifyRunRepo.GetByBatchIdAsync(batch.Id);
+        completedRuns.Should().HaveCount(3);
+        completedRuns.Should().OnlyContain(r => r.Status == RunStatus.Completed);
+
+        var aggregateRepo = verifyScope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.IBatchTeamAggregateRepository>();
+        var aggregates = await aggregateRepo.GetByBatchIdAsync(batch.Id);
+        aggregates.Should().NotBeEmpty();
+    }
+
+    private static string BuildSnapshotWithSchedule()
+    {
+        var actId = Guid.NewGuid();
+        var teamId = Guid.NewGuid();
+        var playerId = Guid.NewGuid();
+        var rule = new TileActivityRuleSnapshotDto
+        {
+            ActivityDefinitionId = actId,
+            ActivityKey = "act",
+            AcceptedDropKeys = ["drop"],
+            RequirementKeys = [],
+            Modifiers = []
+        };
+        var schedule = new WeeklyScheduleSnapshotDto
+        {
+            Sessions = [new ScheduledSessionSnapshotDto { DayOfWeek = 1, StartLocalTimeMinutes = 9 * 60, DurationMinutes = 120 }]
+        };
+        var eventStart = new DateTimeOffset(2025, 2, 3, 9, 0, 0, TimeSpan.FromHours(-5));
+
+        var dto = new EventSnapshotDto
+        {
+            EventName = "Schedule Dist Test",
+            DurationSeconds = 3600,
+            UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = eventStart.ToString("o"),
+            Rows =
+            [
+                new RowSnapshotDto
+                {
+                    Index = 0,
+                    Tiles =
+                    [
+                        new TileSnapshotDto { Key = "t1", Name = "T1", Points = 1, RequiredCount = 1, AllowedActivities = [rule] },
+                        new TileSnapshotDto { Key = "t2", Name = "T2", Points = 2, RequiredCount = 1, AllowedActivities = [rule] },
+                        new TileSnapshotDto { Key = "t3", Name = "T3", Points = 3, RequiredCount = 1, AllowedActivities = [rule] },
+                        new TileSnapshotDto { Key = "t4", Name = "T4", Points = 4, RequiredCount = 1, AllowedActivities = [rule] }
+                    ]
+                }
+            ],
+            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>
+            {
+                [actId] = new ActivitySnapshotDto
+                {
+                    Id = actId,
+                    Key = "act",
+                    Attempts =
+                    [
+                        new AttemptSnapshotDto
+                        {
+                            Key = "main",
+                            RollScope = 0,
+                            BaselineTimeSeconds = 60,
+                            VarianceSeconds = 5,
+                            Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }]
+                        }
+                    ],
+                    GroupScalingBands = [],
+                    ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false }
+                }
+            },
+            Teams =
+            [
+                new TeamSnapshotDto
+                {
+                    TeamId = teamId,
+                    TeamName = "Team",
+                    StrategyKey = "RowRush",
+                    ParamsJson = null,
+                    Players = [new PlayerSnapshotDto { PlayerId = playerId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = schedule }]
                 }
             ]
         };

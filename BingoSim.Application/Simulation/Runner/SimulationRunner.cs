@@ -1,7 +1,10 @@
 using System.Collections.Generic;
 using System.Text.Json;
 using BingoSim.Application.Simulation.Allocation;
+using BingoSim.Application.Simulation.Schedule;
 using BingoSim.Application.Simulation.Snapshot;
+using Microsoft.Extensions.Logging;
+
 namespace BingoSim.Application.Simulation.Runner;
 
 /// <summary>
@@ -9,7 +12,7 @@ namespace BingoSim.Application.Simulation.Runner;
 /// Uses deterministic RNG from run seed string for reproducibility.
 /// Supports group formation for group-capable activities, PerGroup/PerPlayer roll scopes, and GroupScalingBands.
 /// </summary>
-public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
+public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogger<SimulationRunner>? logger = null)
 {
     private const int PerPlayerRollScope = 0;
     private const int PerGroupRollScope = 1;
@@ -66,18 +69,47 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
         var grantsBuffer = new List<ProgressGrantSnapshotDto>();
         var simTime = 0;
 
+        DateTimeOffset? eventStartEt = null;
+        if (!string.IsNullOrEmpty(snapshot.EventStartTimeEt) && DateTimeOffset.TryParse(snapshot.EventStartTimeEt, out var parsed))
+            eventStartEt = parsed;
+
         // Initial schedule: form groups from all players per team
         for (var ti = 0; ti < snapshot.Teams.Count; ti++)
         {
             var team = snapshot.Teams[ti];
             var state = teamStates[ti];
             var allPlayerIndices = Enumerable.Range(0, team.Players.Count).ToList();
-            ScheduleEventsForPlayers(snapshot, team, ti, allPlayerIndices, state, playerCapabilitySets, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng);
+            ScheduleEventsForPlayers(snapshot, team, ti, allPlayerIndices, state, playerCapabilitySets, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
         }
 
-        while (eventQueue.Count > 0 && simTime <= durationSeconds)
+        while (simTime <= durationSeconds)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (eventQueue.Count == 0)
+            {
+                if (eventStartEt is { } startEt)
+                {
+                    var nextEt = ScheduleEvaluator.GetEarliestNextSessionStart(snapshot, ScheduleEvaluator.SimTimeToEt(startEt, simTime));
+                    if (nextEt is null)
+                        break;
+                    var prevSimTime = simTime;
+                    simTime = ScheduleEvaluator.EtToSimTime(startEt, nextEt.Value);
+                    logger?.LogDebug("Schedule fast-forward: simTime {Prev} -> {Next} (next session start)", prevSimTime, simTime);
+                    if (simTime > durationSeconds)
+                        break;
+                    for (var tIdx = 0; tIdx < snapshot.Teams.Count; tIdx++)
+                    {
+                        var t = snapshot.Teams[tIdx];
+                        var st = teamStates[tIdx];
+                        var allPlayerIndices = Enumerable.Range(0, t.Players.Count).ToList();
+                        ScheduleEventsForPlayers(snapshot, t, tIdx, allPlayerIndices, st, playerCapabilitySets, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
+                    }
+                    continue;
+                }
+                break;
+            }
+
             if (!eventQueue.TryDequeue(out var evt, out var _))
                 break;
             simTime = evt.SimTime;
@@ -119,7 +151,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
                 state.AddProgress(target, grant.Units, simTime, tileRequiredCount[target], tileRowIndex[target], tilePoints[target]);
             }
 
-            ScheduleEventsForPlayers(snapshot, team, ti, playerIndices, state, playerCapabilitySets, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng);
+            ScheduleEventsForPlayers(snapshot, team, ti, playerIndices, state, playerCapabilitySets, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
         }
 
         var maxPoints = teamStates.Max(s => s.TotalPoints);
@@ -213,12 +245,20 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
         PriorityQueue<SimEvent, (int EndTime, int TeamIndex, int FirstPlayerIndex)> eventQueue,
         int simTime,
         int durationSeconds,
-        Random rng)
+        Random rng,
+        DateTimeOffset? eventStartEt)
     {
         if (playerIndicesToSchedule.Count == 0)
             return;
 
-        var sortedPlayers = playerIndicesToSchedule
+        var scheduleFiltered = eventStartEt is { } startEt
+            ? playerIndicesToSchedule.Where(pi => ScheduleEvaluator.IsOnlineAt(team.Players[pi].Schedule, ScheduleEvaluator.SimTimeToEt(startEt, simTime))).ToList()
+            : playerIndicesToSchedule.ToList();
+
+        if (scheduleFiltered.Count == 0)
+            return;
+
+        var sortedPlayers = scheduleFiltered
             .OrderBy(pi => team.Players[pi].PlayerId)
             .ToList();
 
@@ -280,7 +320,29 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
                 used.Add(p);
 
             var duration = SampleAttemptDuration(snapshot, activityId, group, rule, playerCapabilitySets[teamIndex], teamIndex, rng);
-            var endTime = Math.Min(simTime + duration, durationSeconds + 1);
+            var attemptEndSimTime = simTime + duration;
+
+            if (eventStartEt is { } evtStart)
+            {
+                var simTimeEt = ScheduleEvaluator.SimTimeToEt(evtStart, simTime);
+                var attemptEndEt = ScheduleEvaluator.SimTimeToEt(evtStart, attemptEndSimTime);
+                var minSessionEnd = (DateTimeOffset?)null;
+                foreach (var p in group)
+                {
+                    var sessionEnd = ScheduleEvaluator.GetCurrentSessionEnd(team.Players[p].Schedule, simTimeEt);
+                    if (sessionEnd is null)
+                        continue;
+                    if (minSessionEnd is null || sessionEnd < minSessionEnd)
+                        minSessionEnd = sessionEnd;
+                }
+                if (minSessionEnd is { } end && attemptEndEt >= end)
+                {
+                    logger?.LogDebug("Schedule: attempt skipped (would end at/past session end)");
+                    continue;
+                }
+            }
+
+            var endTime = Math.Min(attemptEndSimTime, durationSeconds + 1);
             var priority = (endTime, teamIndex, group[0]);
             eventQueue.Enqueue(new SimEvent(endTime, teamIndex, group, activityId, rule), priority);
         }

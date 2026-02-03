@@ -1,4 +1,5 @@
 using System.Text.Json;
+using BingoSim.Application.Simulation.Schedule;
 using BingoSim.Core.Entities;
 using BingoSim.Core.Interfaces;
 using BingoSim.Core.ValueObjects;
@@ -13,13 +14,15 @@ public class EventSnapshotBuilder(
     IActivityDefinitionRepository activityRepo,
     IPlayerProfileRepository playerRepo)
 {
+    private static readonly TimeZoneInfo Eastern = TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = null,
         WriteIndented = false
     };
 
-    public async Task<string> BuildSnapshotJsonAsync(Guid eventId, CancellationToken cancellationToken = default)
+    /// <param name="eventStartTimeUtc">When provided, used as event start for schedule evaluation (converted to ET). Null = no schedule enforcement.</param>
+    public async Task<string> BuildSnapshotJsonAsync(Guid eventId, DateTimeOffset? eventStartTimeUtc = null, CancellationToken cancellationToken = default)
     {
         var evt = await eventRepo.GetByIdAsync(eventId, cancellationToken)
             ?? throw new InvalidOperationException($"Event {eventId} not found.");
@@ -120,12 +123,14 @@ public class EventSnapshotBuilder(
             {
                 if (players.TryGetValue(tp.PlayerProfileId, out var profile))
                 {
+                    var schedule = MapSchedule(profile.WeeklySchedule);
                     playerDtos.Add(new PlayerSnapshotDto
                     {
                         PlayerId = profile.Id,
                         Name = profile.Name,
                         SkillTimeMultiplier = profile.SkillTimeMultiplier,
-                        CapabilityKeys = profile.Capabilities.Select(c => c.Key).ToList()
+                        CapabilityKeys = profile.Capabilities.Select(c => c.Key).ToList(),
+                        Schedule = schedule
                     });
                 }
             }
@@ -140,6 +145,10 @@ public class EventSnapshotBuilder(
             });
         }
 
+        var eventStartTimeEt = eventStartTimeUtc.HasValue
+            ? TimeZoneInfo.ConvertTime(eventStartTimeUtc.Value, Eastern).ToString("o")
+            : null;
+
         var dto = new EventSnapshotDto
         {
             EventName = evt.Name,
@@ -147,7 +156,8 @@ public class EventSnapshotBuilder(
             UnlockPointsRequiredPerRow = evt.UnlockPointsRequiredPerRow,
             Rows = rows,
             ActivitiesById = activitiesById,
-            Teams = teamDtos
+            Teams = teamDtos,
+            EventStartTimeEt = eventStartTimeEt
         };
 
         return JsonSerializer.Serialize(dto, JsonOptions);
@@ -158,5 +168,18 @@ public class EventSnapshotBuilder(
         if (string.IsNullOrWhiteSpace(json))
             return null;
         return JsonSerializer.Deserialize<EventSnapshotDto>(json, JsonOptions);
+    }
+
+    private static WeeklyScheduleSnapshotDto? MapSchedule(WeeklySchedule schedule)
+    {
+        if (schedule.Sessions.Count == 0)
+            return null;
+        var sessions = schedule.Sessions.Select(s => new ScheduledSessionSnapshotDto
+        {
+            DayOfWeek = (int)s.DayOfWeek,
+            StartLocalTimeMinutes = s.StartLocalTime.Hour * 60 + s.StartLocalTime.Minute,
+            DurationMinutes = s.DurationMinutes
+        }).ToList();
+        return new WeeklyScheduleSnapshotDto { Sessions = sessions };
     }
 }
