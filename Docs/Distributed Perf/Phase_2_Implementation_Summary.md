@@ -70,8 +70,18 @@
 
 ---
 
+## Post-Implementation Results (Phase 2 Test Results)
+
+**Snapshot cache:** Working as designed. `snapshot_cache_hit` ≈ run count; `snapshot_load` effectively 1 per batch.
+
+**Throughput:** Unchanged vs Phase 1. 1 worker ~1000 runs/10s; 3 workers ~990 aggregate. Workers still splitting the same load.
+
+**Root cause:** Snapshot load was &lt;1% of total time (~44ms/10s). **Claim dominates** (~14,000 ms/10s). Eliminating snapshot_load had negligible effect. See [Phase 2 Test Results](Phase%202%20Test%20Results.md) and [Distributed_Performance_Plan.md](Distributed_Performance_Plan.md) Phase 3 for next steps (batch claiming, message enrichment).
+
+---
+
 ## Known Follow-ups / Open Questions
 
-- Batch claiming (optional Phase 3) could further reduce claim round-trips if claim remains a bottleneck.
+- **Batch claiming** (Phase 3) — Critical. Must reduce claim round-trips to enable scaling.
+- **Message enrichment** (BatchId + Seed) — Saves GetByIdAsync round-trip per run.
 - Monitor cache hit rate; if low, investigate batch distribution or TTL.
-- If 3 workers still do not scale, consider connection pool tuning or DB locality.

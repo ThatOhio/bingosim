@@ -223,19 +223,32 @@ This plan identifies improvement areas. Phases 2+ are updated to address the dat
 
 **Bottlenecks addressed:** (1) Redundant snapshot DB loads (~1 per run → ~1 per batch); (2) Claim observability (avg latency, DB error tagging). Claim index verified (PK sufficient); batch claiming deferred.
 
-**Results / Observations:** _(To be filled after Phase 2 benchmark run.)_
+**Results / Observations:** See [Phase 2 Test Results](Phase%202%20Test%20Results.md). Snapshot cache works (`snapshot_cache_hit` ≈ run count; no `snapshot_load` in steady state). Throughput unchanged: 1 worker ~1000 runs/10s, 3 workers ~990 aggregate. Workers still splitting the same load. **Root cause:** Snapshot load was negligible (~44ms/10s); **claim dominates** (~13–14 ms × 1000 runs ≈ 14,000 ms/10s). Eliminating snapshot_load did not move the needle. Claim remains the bottleneck.
 
 ---
 
-### Phase 3: Persistence Tuning + Chunking (Areas 5 + 7)
+### Phase 3: Claim Reduction + Persistence Tuning (Areas 4 + 5 + 6 + 7)
 
-| Step | Task | Files |
-|------|------|-------|
-| 1 | Add config for `SimulationPersistence.BatchSize` override in Worker (if different from default) | `BingoSim.Worker/appsettings.json` |
-| 2 | Add optional chunking to `PublishRunWorkBatchAsync` for 50K+ runs | `MassTransitRunWorkPublisher.cs` |
-| 3 | Document scaling benchmarks and Phase 2 results | `Docs/PERF_NOTES.md` |
+Phase 2 proved that **claim round-trips** are the primary bottleneck. Phase 3 must reduce claim-related DB load. Incorporate the following:
 
-**Success criteria:** No connection pool exhaustion; stable throughput. Chunking available for very large batches.
+| Step | Task | Priority | Notes |
+|------|------|----------|-------|
+| 1 | **Batch claiming** — `ClaimBatchAsync` claims N runs in one round-trip | **Critical** | Reduces claim round-trips by factor of N (e.g. 10 → 100 round-trips/10s instead of 1000). Requires worker to claim before processing; message flow may need adjustment (e.g. worker fetches N run IDs, claims batch, processes). |
+| 2 | **Enrich message with BatchId + Seed** — Add to `ExecuteSimulationRun` so executor can skip `GetByIdAsync` | High | Saves 1 DB round-trip per run. Executor needs run.Seed and run.SimulationBatchId; if in message, skip load. Requires message contract change; backward-compat or versioned contract. |
+| 3 | **Connection pool tuning** — Document `Maximum Pool Size`; consider increasing if workers contend | Medium | 3 workers × 4 concurrent = 12 scoped DbContexts; plus BatchFinalizer, BufferedPersister. Default 100 may be fine; monitor for exhaustion. |
+| 4 | **Persistence BatchSize** — Add Worker override; consider 100 for distributed | Medium | Fewer flushes = fewer DB round-trips for persist. |
+| 5 | **PostgreSQL tuning** (if DB-hosted) — `synchronous_commit=off` for perf, `shared_buffers` | Low | Only if DB is confirmed bottleneck; measure before/after. |
+| 6 | **Optional chunking** for 50K+ publish | Low | `PublishRunWorkBatchAsync`; defer until scaling beyond 10K. |
+
+**Batch claiming design options:**
+
+- **Option A (minimal):** Worker consumer receives one message, but before processing checks a "claim buffer." If buffer has capacity, add runId to buffer and return (no ack yet). A background loop claims buffer contents in batch, then processes and acks. Complex; acks become decoupled from processing.
+- **Option B (batch message):** New message type `ExecuteSimulationRunBatch { RunIds[] }`. Web publishes batches of N run IDs. Worker consumes batch, calls `ClaimBatchAsync`, processes claimed runs, acks. Simpler; changes message model.
+- **Option C (worker-pull):** Worker pulls N run IDs from a "pending" table/queue, claims in batch, processes. Requires different queue semantics.
+
+**Recommendation:** Option B is cleanest — one batch message per N runs, one claim round-trip per batch. Preserves message-per-run semantics at the batch level.
+
+**Success criteria:** Claim round-trips drop (e.g. 1000 → 100 per 10s); 3 workers show 2–3× aggregate throughput vs 1 worker.
 
 ---
 
@@ -250,7 +263,20 @@ This plan identifies improvement areas. Phases 2+ are updated to address the dat
 
 ---
 
-## 7. References
+## 7. Phase 2 Investigation Summary
+
+**Why did Phase 2 not improve throughput?**
+
+| Phase | snapshot_load | claim | Throughput (1 worker) | Throughput (3 workers) |
+|-------|---------------|-------|------------------------|------------------------|
+| 1 | ~991 loads/10s, ~44ms total | ~14,000 ms/10s | ~990 runs/10s | ~990 aggregate |
+| 2 | ~1 load/batch (cache hit) | ~14,000 ms/10s | ~1000 runs/10s | ~990 aggregate |
+
+Snapshot load was **&lt;1%** of total time. Claim is **~90%**. Eliminating snapshot_load had negligible effect. All workers contend on the same PostgreSQL for claim; the DB processes ~1000 claims/10s regardless of worker count. To scale, we must reduce claim round-trips (batch claiming) or reduce other per-run round-trips (e.g. GetByIdAsync via message enrichment).
+
+---
+
+## 8. References
 
 - `BingoSim.Worker/Program.cs` — MassTransit and consumer registration
 - `BingoSim.Worker/Consumers/ExecuteSimulationRunConsumer.cs` — Single-message consumer
@@ -260,5 +286,6 @@ This plan identifies improvement areas. Phases 2+ are updated to address the dat
 - `Docs/09_Requirements_Review.md` — Worker concurrency note
 - `Docs/PERF_NOTES.md` — Baseline and benchmark procedure
 - `Docs/Distributed Perf/Phase 1 Test Results.md` — Phase 1 throughput metrics and bottleneck analysis
+- `Docs/Distributed Perf/Phase 2 Test Results.md` — Phase 2 results; snapshot cache working, claim still bottleneck
 - [MassTransit RabbitMQ Configuration](https://masstransit.io/documentation/configuration/transports/rabbitmq) — PrefetchCount, endpoint options
 - [MassTransit Discussion #2368](https://github.com/MassTransit/MassTransit/discussions/2368) — Increasing consumers and prefetch
