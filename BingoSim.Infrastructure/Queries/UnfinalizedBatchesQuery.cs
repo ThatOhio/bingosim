@@ -14,7 +14,10 @@ public class UnfinalizedBatchesQuery(AppDbContext context) : IUnfinalizedBatches
     {
         return await context.SimulationBatches
             .Where(b => b.Status == BatchStatus.Pending || b.Status == BatchStatus.Running)
-            .Where(b => !context.SimulationRuns.Any(r => r.SimulationBatchId == b.Id && !r.IsTerminal))
+            .Where(b => !context.SimulationRuns.Any(r =>
+                r.SimulationBatchId == b.Id
+                && r.Status != RunStatus.Completed
+                && r.Status != RunStatus.Failed))
             .Select(b => b.Id)
             .ToListAsync(cancellationToken);
     }
