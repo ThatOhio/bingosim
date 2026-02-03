@@ -55,6 +55,7 @@ public static class ModifierApplicator
     /// Returns adjusted weights for outcomes. Outcomes whose grants include a DropKey in acceptedDropKeys
     /// get their weight multiplied by probabilityMultiplier. Clamps to [0, MaxAdjustedWeight].
     /// If total weight would be 0, returns original weights.
+    /// When no scaling needed, returns a zero-allocation view over outcomes.
     /// </summary>
     /// <param name="acceptedDropKeys">Drop keys relevant to the tile. Empty => no scaling.</param>
     public static IReadOnlyList<int> ApplyProbabilityMultiplier(
@@ -63,14 +64,22 @@ public static class ModifierApplicator
         decimal probabilityMultiplier)
     {
         if (probabilityMultiplier == 1.0m || acceptedDropKeys.Count == 0)
-            return outcomes.Select(o => o.WeightNumerator).ToList();
+            return new OutcomeWeightsView(outcomes);
 
         var adjusted = new int[outcomes.Count];
         var total = 0L;
         for (var i = 0; i < outcomes.Count; i++)
         {
             var o = outcomes[i];
-            var isRelevant = o.Grants.Any(g => acceptedDropKeys.Contains(g.DropKey));
+            var isRelevant = false;
+            foreach (var g in o.Grants)
+            {
+                if (acceptedDropKeys.Contains(g.DropKey))
+                {
+                    isRelevant = true;
+                    break;
+                }
+            }
             var raw = isRelevant
                 ? (long)Math.Round(o.WeightNumerator * probabilityMultiplier)
                 : o.WeightNumerator;
@@ -80,8 +89,20 @@ public static class ModifierApplicator
         }
 
         if (total <= 0)
-            return outcomes.Select(o => o.WeightNumerator).ToList();
+            return new OutcomeWeightsView(outcomes);
 
         return adjusted;
+    }
+
+    private readonly struct OutcomeWeightsView(IReadOnlyList<OutcomeSnapshotDto> outcomes) : IReadOnlyList<int>
+    {
+        public int Count => outcomes.Count;
+        public int this[int index] => outcomes[index].WeightNumerator;
+        public IEnumerator<int> GetEnumerator()
+        {
+            for (var i = 0; i < outcomes.Count; i++)
+                yield return outcomes[i].WeightNumerator;
+        }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

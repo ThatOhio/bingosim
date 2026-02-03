@@ -69,6 +69,14 @@ public static class ScheduleEvaluator
     public static bool IsOnlineAt(WeeklyScheduleSnapshotDto schedule, DateTimeOffset timestampEt)
     {
         var windows = DailyWindows.Build(schedule);
+        return IsOnlineAt(windows, timestampEt);
+    }
+
+    /// <summary>
+    /// Returns true if the player is online at the given ET timestamp. Uses precomputed DailyWindows.
+    /// </summary>
+    public static bool IsOnlineAt(DailyWindows windows, DateTimeOffset timestampEt)
+    {
         if (windows.IsAlwaysOnline)
             return true;
 
@@ -82,6 +90,14 @@ public static class ScheduleEvaluator
     public static DateTimeOffset? GetCurrentSessionEnd(WeeklyScheduleSnapshotDto schedule, DateTimeOffset timestampEt)
     {
         var windows = DailyWindows.Build(schedule);
+        return GetCurrentSessionEnd(windows, timestampEt);
+    }
+
+    /// <summary>
+    /// Returns the end time of the session containing the given timestamp, or null if offline. Uses precomputed DailyWindows.
+    /// </summary>
+    public static DateTimeOffset? GetCurrentSessionEnd(DailyWindows windows, DateTimeOffset timestampEt)
+    {
         if (windows.IsAlwaysOnline)
             return null;
 

@@ -26,7 +26,14 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         var snapshot = EventSnapshotBuilder.Deserialize(snapshotJson);
         if (snapshot is null)
             throw new InvalidOperationException("Invalid snapshot JSON.");
+        return Execute(snapshot, runSeedString, cancellationToken);
+    }
 
+    /// <summary>
+    /// Runs simulation from a pre-parsed snapshot. Use when snapshot is already deserialized (e.g. cached per batch).
+    /// </summary>
+    public IReadOnlyList<TeamRunResultDto> Execute(EventSnapshotDto snapshot, string runSeedString, CancellationToken cancellationToken = default)
+    {
         SnapshotValidator.Validate(snapshot);
 
         if (!DateTimeOffset.TryParse(snapshot.EventStartTimeEt, out var eventStartEt))
@@ -70,8 +77,10 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         }
 
         var playerCapabilitySets = BuildPlayerCapabilitySets(snapshot);
+        var scheduleWindows = BuildScheduleWindowsCache(snapshot);
         var eventQueue = new PriorityQueue<SimEvent, (int EndTime, int TeamIndex, int FirstPlayerIndex)>();
         var grantsBuffer = new List<ProgressGrantSnapshotDto>();
+        var groupCapsBuffer = new HashSet<string>(StringComparer.Ordinal);
         var simTime = 0;
 
         // Initial schedule: form groups from all players per team
@@ -80,7 +89,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
             var team = snapshot.Teams[ti];
             var state = teamStates[ti];
             var allPlayerIndices = Enumerable.Range(0, team.Players.Count).ToList();
-            ScheduleEventsForPlayers(snapshot, team, ti, allPlayerIndices, state, playerCapabilitySets, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
+            ScheduleEventsForPlayers(snapshot, team, ti, allPlayerIndices, state, playerCapabilitySets, scheduleWindows, groupCapsBuffer, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
         }
 
         while (simTime <= durationSeconds)
@@ -102,7 +111,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
                     var t = snapshot.Teams[tIdx];
                     var st = teamStates[tIdx];
                     var allPlayerIndices = Enumerable.Range(0, t.Players.Count).ToList();
-                    ScheduleEventsForPlayers(snapshot, t, tIdx, allPlayerIndices, st, playerCapabilitySets, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
+                    ScheduleEventsForPlayers(snapshot, t, tIdx, allPlayerIndices, st, playerCapabilitySets, scheduleWindows, groupCapsBuffer, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
                 }
                 continue;
             }
@@ -125,7 +134,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
             var groupSize = playerIndices.Count;
 
             grantsBuffer.Clear();
-            CollectGrantsFromAttempts(activity, rule, playerIndices, groupSize, ti, playerCapabilitySets, grantsBuffer, rng);
+            CollectGrantsFromAttempts(activity, rule, playerIndices, groupSize, ti, playerCapabilitySets, grantsBuffer, groupCapsBuffer, rng);
 
             var allocator = allocatorFactory.GetAllocator(team.StrategyKey);
             foreach (var grant in grantsBuffer)
@@ -148,7 +157,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
                 state.AddProgress(target, grant.Units, simTime, tileRequiredCount[target], tileRowIndex[target], tilePoints[target]);
             }
 
-            ScheduleEventsForPlayers(snapshot, team, ti, playerIndices, state, playerCapabilitySets, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
+            ScheduleEventsForPlayers(snapshot, team, ti, playerIndices, state, playerCapabilitySets, scheduleWindows, groupCapsBuffer, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
         }
 
         var maxPoints = teamStates.Max(s => s.TotalPoints);
@@ -186,6 +195,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         int teamIndex,
         List<List<HashSet<string>>> playerCapabilitySets,
         List<ProgressGrantSnapshotDto> grantsOut,
+        HashSet<string> groupCapsBuffer,
         Random rng)
     {
         foreach (var attempt in activity.Attempts)
@@ -204,9 +214,9 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
             }
             else
             {
-                var groupCaps = GetUnionCapabilityKeys(playerCapabilitySets[teamIndex], playerIndices);
+                GetUnionCapabilityKeys(playerCapabilitySets[teamIndex], playerIndices, groupCapsBuffer);
                 var (_, effectiveProb) = GroupScalingBandSelector.ComputeEffectiveMultipliers(
-                    activity.GroupScalingBands, groupSize, rule, groupCaps);
+                    activity.GroupScalingBands, groupSize, rule, groupCapsBuffer);
                 var outcome = RollOutcome(attempt, rule, effectiveProb, rng);
                 if (outcome is { } o && o.Grants.Count > 0)
                     grantsOut.AddRange(o.Grants);
@@ -214,18 +224,17 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         }
     }
 
-    private static HashSet<string> GetUnionCapabilityKeys(List<HashSet<string>> teamCaps, IReadOnlyList<int> playerIndices)
+    private static void GetUnionCapabilityKeys(List<HashSet<string>> teamCaps, IReadOnlyList<int> playerIndices, HashSet<string> buffer)
     {
-        var union = new HashSet<string>(StringComparer.Ordinal);
+        buffer.Clear();
         foreach (var pi in playerIndices)
         {
             if (pi < teamCaps.Count)
             {
                 foreach (var cap in teamCaps[pi])
-                    union.Add(cap);
+                    buffer.Add(cap);
             }
         }
-        return union;
     }
 
     private void ScheduleEventsForPlayers(
@@ -235,6 +244,8 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         IReadOnlyList<int> playerIndicesToSchedule,
         TeamRunState state,
         List<List<HashSet<string>>> playerCapabilitySets,
+        List<List<ScheduleEvaluator.DailyWindows>> scheduleWindows,
+        HashSet<string> groupCapsBuffer,
         IReadOnlyDictionary<string, int> tileRowIndex,
         IReadOnlyDictionary<string, int> tilePoints,
         IReadOnlyDictionary<string, int> tileRequiredCount,
@@ -248,8 +259,10 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         if (playerIndicesToSchedule.Count == 0)
             return;
 
+        var simTimeEt = ScheduleEvaluator.SimTimeToEt(eventStartEt, simTime);
+        var teamWindows = scheduleWindows[teamIndex];
         var scheduleFiltered = playerIndicesToSchedule
-            .Where(pi => ScheduleEvaluator.IsOnlineAt(team.Players[pi].Schedule, ScheduleEvaluator.SimTimeToEt(eventStartEt, simTime)))
+            .Where(pi => pi < teamWindows.Count && ScheduleEvaluator.IsOnlineAt(teamWindows[pi], simTimeEt))
             .ToList();
 
         if (scheduleFiltered.Count == 0)
@@ -316,16 +329,15 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
             foreach (var p in group)
                 used.Add(p);
 
-            var duration = SampleAttemptDuration(snapshot, activityId, group, rule, playerCapabilitySets[teamIndex], teamIndex, rng);
+            var duration = SampleAttemptDuration(snapshot, activityId, group, rule, playerCapabilitySets[teamIndex], teamIndex, groupCapsBuffer, rng);
             var attemptEndSimTime = simTime + duration;
 
             {
-                var simTimeEt = ScheduleEvaluator.SimTimeToEt(eventStartEt, simTime);
                 var attemptEndEt = ScheduleEvaluator.SimTimeToEt(eventStartEt, attemptEndSimTime);
                 var minSessionEnd = (DateTimeOffset?)null;
                 foreach (var p in group)
                 {
-                    var sessionEnd = ScheduleEvaluator.GetCurrentSessionEnd(team.Players[p].Schedule, simTimeEt);
+                    var sessionEnd = p < teamWindows.Count ? ScheduleEvaluator.GetCurrentSessionEnd(teamWindows[p], simTimeEt) : null;
                     if (sessionEnd is null)
                         continue;
                     if (minSessionEnd is null || sessionEnd < minSessionEnd)
@@ -353,6 +365,19 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
             foreach (var player in team.Players)
                 sets.Add(new HashSet<string>(player.CapabilityKeys, StringComparer.Ordinal));
             result.Add(sets);
+        }
+        return result;
+    }
+
+    private static List<List<ScheduleEvaluator.DailyWindows>> BuildScheduleWindowsCache(EventSnapshotDto snapshot)
+    {
+        var result = new List<List<ScheduleEvaluator.DailyWindows>>();
+        foreach (var team in snapshot.Teams)
+        {
+            var windows = new List<ScheduleEvaluator.DailyWindows>();
+            foreach (var player in team.Players)
+                windows.Add(ScheduleEvaluator.DailyWindows.Build(player.Schedule));
+            result.Add(windows);
         }
         return result;
     }
@@ -444,6 +469,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         TileActivityRuleSnapshotDto rule,
         List<HashSet<string>> teamCapabilitySets,
         int teamIndex,
+        HashSet<string> groupCapsBuffer,
         Random rng)
     {
         if (!snapshot.ActivitiesById.TryGetValue(activityId, out var activity))
@@ -462,9 +488,9 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
             ? playerIndices.Max(pi => pi < team.Players.Count ? team.Players[pi].SkillTimeMultiplier : 1.0m)
             : 1.0m;
 
-        var groupCaps = GetUnionCapabilityKeys(teamCapabilitySets, playerIndices);
+        GetUnionCapabilityKeys(teamCapabilitySets, playerIndices, groupCapsBuffer);
         var (effectiveTimeMult, _) = GroupScalingBandSelector.ComputeEffectiveMultipliers(
-            activity.GroupScalingBands, groupSize, rule, groupCaps);
+            activity.GroupScalingBands, groupSize, rule, groupCapsBuffer);
 
         var time = rawTime * (double)skillMultiplier * (double)effectiveTimeMult;
         return Math.Max(1, (int)Math.Floor(time));

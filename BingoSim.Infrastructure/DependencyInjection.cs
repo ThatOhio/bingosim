@@ -56,6 +56,7 @@ public static class DependencyInjection
         services.AddSingleton<SimulationRunQueue>();
         services.AddSingleton<ISimulationRunQueue>(sp => sp.GetRequiredService<SimulationRunQueue>());
         services.AddSingleton<ISimulationRunWorkPublisher>(sp => sp.GetRequiredService<SimulationRunQueue>());
+        services.AddKeyedSingleton<ISimulationRunWorkPublisher>("distributed", (sp, _) => sp.GetRequiredService<SimulationRunQueue>());
         services.AddScoped<ISimulationBatchService, SimulationBatchService>();
         services.AddScoped<IBatchFinalizationService, BatchFinalizationService>();
 
