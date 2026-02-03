@@ -71,8 +71,8 @@ services:
       - RabbitMQ__Username=${RABBITMQ_USER:-guest}
       - RabbitMQ__Password=${RABBITMQ_PASS:-guest}
       - WorkerSimulation__SimulationDelayMs=${WORKER_SIMULATION_DELAY_MS:-0}
-      - WorkerSimulation__MaxConcurrentRuns=${WORKER_MAX_CONCURRENT_RUNS:-}
-      - WorkerSimulation__PrefetchCount=${WORKER_PREFETCH_COUNT:-}
+      - WorkerSimulation__MaxConcurrentRuns=${WORKER_MAX_CONCURRENT_RUNS:-0}
+      - WorkerSimulation__PrefetchCount=${WORKER_PREFETCH_COUNT:-0}
 
 volumes:
   postgres_data:

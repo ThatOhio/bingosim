@@ -1,16 +1,21 @@
 # Distributed Simulation Performance Plan
 
 **Date:** February 3, 2025  
-**Status:** Phase 1 Implemented (per-worker concurrency, prefetch, metrics, benchmark)  
+**Status:** Phase 1 Implemented; Phase 2+ Updated per test results  
 **Context:** Running 10,000 simulations in distributed mode with 3 workers takes roughly the same time as with 1 worker. CPU and RAM are underutilized. Goal: achieve measurable speedup when scaling workers (e.g., 3 workers ≈ 2–3× faster than 1 worker).
 
 ---
 
 ## 1. Executive Summary
 
-The distributed simulation pipeline has several bottlenecks that prevent horizontal scaling from yielding expected throughput gains. The primary issue is **per-worker concurrency**: each worker processes exactly **one message at a time**, whereas local mode runs **4 concurrent simulations** per Web host. With 3 workers, distributed mode therefore runs only 3 simulations in parallel—less than local mode—and underutilizes available CPU and RAM.
+Phase 1 (per-worker concurrency, prefetch, metrics) is implemented. **Phase 1 test results** ([Phase 1 Test Results.md](Phase%201%20Test%20Results.md)) show that 3 workers still achieve the same aggregate throughput as 1 worker (~980–990 runs/10s). CPU and RAM remain under 20–25% utilization. The bottleneck has shifted from concurrency to **database I/O**.
 
-This plan identifies six improvement areas, ordered by expected impact. Implementing the first two (per-worker concurrency and RabbitMQ prefetch) should yield the most significant gains.
+Phase 1 metrics reveal:
+- **Claim phase dominates:** ~13–14 ms per run; claim time totals ~14,000 ms per 10s for ~1,000 runs.
+- **Snapshot cache is not shared:** `snapshot_load` count ≈ 991 per 10s (one worker) — each scoped executor loads the snapshot instead of reusing a shared cache.
+- **Workers are I/O bound:** Sim and snapshot_load are negligible; persist is secondary. The database is the limiting factor.
+
+This plan identifies improvement areas. Phases 2+ are updated to address the database bottleneck: shared snapshot cache, claim optimization, and batch claims.
 
 ---
 
@@ -20,8 +25,8 @@ This plan identifies six improvement areas, ordered by expected impact. Implemen
 
 1. **Web** (`SimulationBatchService.StartBatchAsync`): Creates batch, snapshot, and N `SimulationRun` rows. Background task calls `PublishRunWorkBatchAsync` to publish all run IDs to RabbitMQ via MassTransit.
 2. **RabbitMQ**: Holds `ExecuteSimulationRun` messages (one per run). MassTransit creates a queue bound to the `ExecuteSimulationRun` exchange.
-3. **Workers**: Each worker runs `ExecuteSimulationRunConsumer`, which consumes one message, calls `SimulationRunExecutor.ExecuteAsync`, and acks. No concurrency configuration.
-4. **Executor**: Loads run + snapshot (cached per batch), runs simulation, persists via `BufferedRunResultPersister`, updates run status, triggers batch finalization.
+3. **Workers**: Each worker runs `ExecuteSimulationRunConsumer`, which consumes messages with `ConcurrentMessageLimit` and `PrefetchCount` from `ExecuteSimulationRunConsumerDefinition`, calls `SimulationRunExecutor.ExecuteAsync`, and acks.
+4. **Executor**: Loads run + snapshot (cache is per-executor, so effectively per message in distributed mode — not shared), runs simulation, persists via `BufferedRunResultPersister`, updates run status, triggers batch finalization.
 5. **Batch finalization**: `BatchFinalizerHostedService` scans every 15 seconds; `BufferedRunResultPersister` also calls `TryFinalizeAsync` on each flush.
 
 ### 2.2 Key Configuration
@@ -29,45 +34,47 @@ This plan identifies six improvement areas, ordered by expected impact. Implemen
 | Component | Setting | Current Value | Notes |
 |-----------|---------|---------------|-------|
 | Local mode | `LocalSimulationOptions.MaxConcurrentRuns` | 4 | 4 runs in parallel per Web host |
-| Worker | MassTransit consumer concurrency | **1** (default) | One message at a time per worker |
-| Worker | `PrefetchCount` | Default (CPU-based) | Not explicitly set |
+| Worker | `WorkerSimulationOptions.MaxConcurrentRuns` | 4 (CPU-aware default) | Per-worker concurrency |
+| Worker | `PrefetchCount` | MaxConcurrentRuns × 2 | RabbitMQ prefetch |
 | Worker | `SimulationPersistence.BatchSize` | 50 | Buffered flush threshold |
 | Worker | `SimulationPersistence.FlushIntervalMs` | 500 | Time-based flush |
 | compose | `WORKER_REPLICAS` | 3 | Number of worker containers |
 
-### 2.3 Concurrency Comparison
+### 2.3 Concurrency Comparison (Post–Phase 1)
 
-| Mode | Parallelism | 10K runs (approx.) |
-|------|-------------|--------------------|
-| Local (1 Web) | 4 concurrent | ~2,500 runs per “wave” |
-| Distributed (1 worker) | 1 concurrent | 10,000 sequential |
-| Distributed (3 workers) | 3 concurrent | 3,333 runs per worker, sequential within each |
+| Mode | Parallelism | Observed throughput |
+|------|-------------|---------------------|
+| Distributed (1 worker) | 4 concurrent | ~980 runs/10s |
+| Distributed (3 workers) | 12 concurrent (4 × 3) | ~990 runs/10s aggregate |
 
-**Conclusion:** Distributed mode with 3 workers has **less** parallelism than local mode with 1 Web host. This explains why adding workers does not improve throughput.
+**Conclusion:** Phase 1 increased per-worker concurrency, but 3 workers do not improve aggregate throughput vs. 1 worker. The bottleneck is **database I/O**, not CPU.
 
 ---
 
 ## 3. Root Cause Analysis
 
-### 3.1 Primary: Per-Worker Concurrency = 1
+### 3.1 Primary: Database I/O Bottleneck (Phase 1 Test Results)
 
-- **Evidence:** `ExecuteSimulationRunConsumer` is a standard MassTransit consumer. No `ConcurrentMessageLimit` or `PrefetchCount` is configured on the receive endpoint.
-- **Impact:** Each worker processes one run, completes it, acks, then fetches the next. With 3 workers, only 3 runs execute at any moment.
-- **Architecture doc alignment:** `04_Architecture.md` states: “Each worker may run multiple simulations concurrently” and “Concurrency should be configurable: e.g., WorkerOptions.MaxConcurrentRuns.” This is **not implemented**.
+- **Evidence:** Phase 1 throughput logs show claim phase dominates: ~13–14 ms per run, ~14,000 ms total per 10s for ~1,000 runs. Sim and snapshot_load are negligible; persist is secondary.
+- **Impact:** Workers are I/O bound. CPU and RAM stay under 20–25% utilization. Adding workers does not increase aggregate throughput because all workers contend on the same PostgreSQL instance.
+- **Reference:** [Phase 1 Test Results](Phase%201%20Test%20Results.md)
 
-### 3.2 Secondary: RabbitMQ Prefetch
+### 3.2 Snapshot Cache Not Shared Across Messages
 
-- **Evidence:** MassTransit’s default `PrefetchCount` is CPU-based. If low, workers may wait for message delivery after each ack.
-- **Impact:** Idle time between runs while waiting for the next message.
-- **Mitigation:** Set `PrefetchCount` to a multiple of desired concurrency (e.g., 2×) so messages are ready when workers finish.
+- **Evidence:** `snapshot_load` count ≈ 991 per 10s (1 worker) — nearly one load per run. The cache lives in scoped `SimulationRunExecutor`; each message gets a new executor, so the cache is never reused.
+- **Impact:** Redundant DB round-trips for snapshot. Should be 1 load per batch, not per run.
 
-### 3.3 Tertiary: Database Contention
+### 3.3 TryClaimAsync Dominates
 
-- **Evidence:** All workers share the same PostgreSQL instance. `TryClaimAsync`, `BulkMarkCompletedAsync`, and `BufferedRunResultPersister` flushes all hit the DB.
-- **Impact:** Under high concurrency, connection pool exhaustion or lock contention could limit throughput. Current low concurrency may mask this.
-- **Note:** With increased worker concurrency, DB may become a bottleneck; tuning (connection pool, batch size) may be needed.
+- **Evidence:** Claim phase totals ~13,000–14,000 ms per 10s for ~1,000 runs (~14 ms per claim). Each run does one `ExecuteUpdateAsync` to transition Pending → Running.
+- **Impact:** Single round-trip per run; with 1,000 runs/10s, this is the primary DB load. Batch claims would reduce round-trips.
 
-### 3.4 Minor: Batch Publish and Finalization
+### 3.4 Database Connection Pool and Contention
+
+- **Evidence:** All workers share the same PostgreSQL. `TryClaimAsync`, `BulkMarkCompletedAsync`, and `BufferedRunResultPersister` flushes all hit the DB.
+- **Impact:** Connection pool exhaustion or lock contention may limit throughput. Monitor if scaling further.
+
+### 3.5 Batch Publish and Finalization (Minor)
 
 - **Batch publish:** Already implemented via `PublishRunWorkBatchAsync` and `PublishBatch`. No change needed for 10K runs.
 - **Batch finalization:** `TryFinalizeAsync` is called on every `BufferedRunResultPersister` flush and by `BatchFinalizerHostedService` every 15 seconds. Some redundancy but not a major bottleneck.
@@ -76,7 +83,7 @@ This plan identifies six improvement areas, ordered by expected impact. Implemen
 
 ## 4. Improvement Areas (Prioritized)
 
-### 4.1 Area 1: Per-Worker Concurrency (High Impact)
+### 4.1 Area 1: Per-Worker Concurrency (High Impact) — IMPLEMENTED
 
 **Goal:** Allow each worker to process multiple simulation runs concurrently, similar to local mode.
 
@@ -101,19 +108,44 @@ This plan identifies six improvement areas, ordered by expected impact. Implemen
 
 ---
 
-### 4.2 Area 2: RabbitMQ Prefetch Tuning (High Impact)
+### 4.2 Area 2: RabbitMQ Prefetch Tuning (High Impact) — IMPLEMENTED
 
 **Goal:** Ensure workers receive messages promptly so they are not idle between runs.
 
-**Current:** Default PrefetchCount (often low, e.g., 1–4).
-
-**Recommendation:** Set `PrefetchCount` explicitly to `MaxConcurrentRuns * 2` or similar. This keeps a pipeline of messages ready when workers finish runs.
-
-**Implementation:** Part of Area 1; configure in the same receive endpoint setup.
+**Implementation:** Part of Area 1; `PrefetchCount = MaxConcurrentRuns * 2`.
 
 ---
 
-### 4.3 Area 3: Buffered Persistence Tuning (Medium Impact)
+### 4.3 Area 3: Shared Snapshot Cache (High Impact — Phase 1 Test Results)
+
+**Goal:** Eliminate redundant snapshot loads. Current: ~991 loads per 10s (1 worker) instead of 1 per batch.
+
+**Current:** Cache lives in scoped `SimulationRunExecutor`; each message gets a new executor, so the cache is never reused across messages.
+
+**Recommendation:** Use a shared cache (e.g. `IMemoryCache` or singleton) keyed by batch ID. Snapshot is loaded once per batch and reused by all runs from that batch.
+
+**Implementation sketch:** Add `IEventSnapshotCache` (or use `IMemoryCache` with batch ID key). Executor checks shared cache before loading from DB. Evict on batch completion or TTL.
+
+**Expected impact:** Reduce snapshot_load from ~1,000 DB round-trips per 10s to 1 per batch.
+
+---
+
+### 4.4 Area 4: TryClaimAsync Optimization (High Impact — Phase 1 Test Results)
+
+**Goal:** Reduce claim phase time (~14 ms per run, dominates throughput).
+
+**Current:** One `ExecuteUpdateAsync` per run to transition Pending → Running. Each run = one DB round-trip.
+
+**Recommendations:**
+1. **Indexes:** Ensure index supports `WHERE Id = @runId AND Status = @pending`. Verify query plan.
+2. **Batch claims:** Add `ClaimBatchAsync` — worker claims N runs in one round-trip, processes them, then claims next batch. Reduces round-trips by factor of N.
+3. **Database locality:** If PostgreSQL runs in Docker, measure latency. Consider same-host or optimized networking.
+
+**Expected impact:** Batch claims (e.g. N=10) could reduce claim round-trips from 1,000 to 100 per 10s.
+
+---
+
+### 4.5 Area 5: Buffered Persistence Tuning (Medium Impact)
 
 **Goal:** Reduce DB round-trips and contention when multiple workers flush concurrently.
 
@@ -128,7 +160,7 @@ This plan identifies six improvement areas, ordered by expected impact. Implemen
 
 ---
 
-### 4.4 Area 4: Database Connection Pool (Medium Impact)
+### 4.6 Area 6: Database Connection Pool (Medium Impact)
 
 **Goal:** Avoid connection pool exhaustion when workers run many concurrent simulations.
 
@@ -140,7 +172,7 @@ This plan identifies six improvement areas, ordered by expected impact. Implemen
 
 ---
 
-### 4.5 Area 5: Batch Publish Chunking (Low Impact for 10K)
+### 4.7 Area 7: Batch Publish Chunking (Low Impact for 10K)
 
 **Goal:** Avoid memory/network pressure when publishing very large batches (e.g., 50K+ runs).
 
@@ -150,7 +182,7 @@ This plan identifies six improvement areas, ordered by expected impact. Implemen
 
 ---
 
-### 4.6 Area 6: Observability and Validation (Supporting)
+### 4.8 Area 8: Observability and Validation (Supporting) — IMPLEMENTED
 
 **Goal:** Validate that scaling workers yields measurable speedup and identify remaining bottlenecks.
 
@@ -163,38 +195,43 @@ This plan identifies six improvement areas, ordered by expected impact. Implemen
 
 ## 5. Implementation Phases
 
-### Phase 1: Per-Worker Concurrency (Areas 1 + 2)
+### Phase 1: Per-Worker Concurrency (Areas 1 + 2) — IMPLEMENTED
 
-| Step | Task | Files |
-|------|------|-------|
-| 1 | Add `WorkerSimulationOptions.MaxConcurrentRuns` and document in appsettings | `BingoSim.Worker/`, `WorkerSimulationOptions` |
-| 2 | Configure MassTransit receive endpoint for `ExecuteSimulationRunConsumer` with `PrefetchCount` and `ConcurrentMessageLimit` | `BingoSim.Worker/Program.cs` |
-| 3 | Expose via environment variable in compose | `compose.yaml`, `.env.example` |
-| 4 | Add unit/integration test that verifies multiple messages can be processed concurrently | `Tests/BingoSim.Worker.UnitTests/` or integration tests |
-| 5 | Update `PERF_NOTES.md` with benchmark procedure and expected scaling | `Docs/PERF_NOTES.md` |
+| Step | Task | Status |
+|------|------|--------|
+| 1 | Add `WorkerSimulationOptions.MaxConcurrentRuns` and document in appsettings | Done |
+| 2 | Configure MassTransit via `ConsumerDefinition` with `PrefetchCount` and `ConcurrentMessageLimit` | Done |
+| 3 | Expose via environment variable in compose | Done |
+| 4 | Add integration test for concurrent message processing | Done |
+| 5 | Add worker throughput logging (phase totals, runs/10s) | Done |
 
-**Success criteria:** 3 workers with `MaxConcurrentRuns=4` should complete 10K runs in roughly 1/3 to 1/4 of the time of 1 worker with `MaxConcurrentRuns=1`, with measurable CPU utilization increase.
+**Phase 1 result:** Concurrency and prefetch implemented. Test results show DB is the bottleneck; 3 workers = same throughput as 1 worker. See [Phase 1 Test Results](Phase%201%20Test%20Results.md).
 
 ---
 
-### Phase 2: Persistence and DB Tuning (Areas 3 + 4)
+### Phase 2: Shared Snapshot Cache + Claim Optimization (Areas 3 + 4)
+
+| Step | Task | Files |
+|------|------|-------|
+| 1 | Add shared snapshot cache (e.g. `IMemoryCache` keyed by batch ID) | `BingoSim.Application/`, `BingoSim.Infrastructure/` |
+| 2 | Executor checks shared cache before loading from DB; evict on batch completion or TTL | `SimulationRunExecutor.cs` |
+| 3 | Verify indexes on `SimulationRuns` for `TryClaimAsync` (Id, Status) | Migration or index review |
+| 4 | Document connection pool considerations; add `Maximum Pool Size` if needed | `PERF_NOTES.md`, compose |
+| 5 | (Optional) Implement `ClaimBatchAsync` — worker claims N runs per round-trip | `ISimulationRunRepository`, `SimulationRunRepository` |
+
+**Success criteria:** `snapshot_load` count drops to 1 per batch; claim phase time reduced or batch claims reduce round-trips. 3 workers should show measurable throughput increase vs. 1 worker.
+
+---
+
+### Phase 3: Persistence Tuning + Chunking (Areas 5 + 7)
 
 | Step | Task | Files |
 |------|------|-------|
 | 1 | Add config for `SimulationPersistence.BatchSize` override in Worker (if different from default) | `BingoSim.Worker/appsettings.json` |
-| 2 | Document connection pool considerations | `Docs/Distributed Perf/` or `PERF_NOTES.md` |
-| 3 | If connection errors occur, add `Maximum Pool Size` to connection string and document | `compose.yaml`, appsettings |
+| 2 | Add optional chunking to `PublishRunWorkBatchAsync` for 50K+ runs | `MassTransitRunWorkPublisher.cs` |
+| 3 | Document scaling benchmarks and Phase 2 results | `Docs/PERF_NOTES.md` |
 
-**Success criteria:** No connection pool exhaustion; stable throughput under Phase 1 concurrency.
-
----
-
-### Phase 3: Observability and Chunking (Areas 5 + 6)
-
-| Step | Task | Files |
-|------|------|-------|
-| 1 | Add optional chunking to `PublishRunWorkBatchAsync` for 50K+ runs | `MassTransitRunWorkPublisher.cs` |
-| 2 | Document scaling benchmarks | `Docs/PERF_NOTES.md` |
+**Success criteria:** No connection pool exhaustion; stable throughput. Chunking available for very large batches.
 
 ---
 
@@ -204,7 +241,7 @@ This plan identifies six improvement areas, ordered by expected impact. Implemen
 |------|------------|
 | DB connection exhaustion | Monitor connections; tune pool size; consider reducing `MaxConcurrentRuns` if needed |
 | Increased DB lock contention | `TryClaimAsync` uses `ExecuteUpdateAsync` (no long-held locks); `BulkMarkCompletedAsync` is batch. Monitor for deadlocks. |
-| Memory pressure per worker | `MaxConcurrentRuns` caps concurrency; snapshot cache is bounded (32 entries). Monitor RSS. |
+| Memory pressure per worker | `MaxConcurrentRuns` caps concurrency; snapshot cache is bounded (32 entries). Shared cache (Phase 2) will add batch-keyed entries. Monitor RSS. |
 | Retry/error handling with concurrency | Each message is independent; retries re-publish single run. No change to retry logic. |
 
 ---
@@ -218,5 +255,6 @@ This plan identifies six improvement areas, ordered by expected impact. Implemen
 - `Docs/08_Feature_Audit_2025.md` — Worker MaxConcurrentRuns gap
 - `Docs/09_Requirements_Review.md` — Worker concurrency note
 - `Docs/PERF_NOTES.md` — Baseline and benchmark procedure
+- `Docs/Distributed Perf/Phase 1 Test Results.md` — Phase 1 throughput metrics and bottleneck analysis
 - [MassTransit RabbitMQ Configuration](https://masstransit.io/documentation/configuration/transports/rabbitmq) — PrefetchCount, endpoint options
 - [MassTransit Discussion #2368](https://github.com/MassTransit/MassTransit/discussions/2368) — Increasing consumers and prefetch
