@@ -57,6 +57,8 @@ services:
     build:
       context: .
       dockerfile: BingoSim.Worker/Dockerfile
+    deploy:
+      replicas: ${WORKER_REPLICAS:-3}
     depends_on:
       postgres:
         condition: service_healthy
