@@ -61,6 +61,8 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
             teamStates.Add(state);
         }
 
+        var playerCapabilitySets = BuildPlayerCapabilitySets(snapshot);
+
         var eventQueue = new PriorityQueue<SimEvent, int>();
         var simTime = 0;
         for (var ti = 0; ti < snapshot.Teams.Count; ti++)
@@ -69,12 +71,12 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
             var state = teamStates[ti];
             for (var pi = 0; pi < team.Players.Count; pi++)
             {
-                var (activityId, attemptKey) = GetFirstEligibleActivity(snapshot, team, pi, state.UnlockedRowIndices, state.CompletedTiles);
+                var (activityId, attemptKey, rule) = GetFirstEligibleActivity(snapshot, team, pi, state.UnlockedRowIndices, state.CompletedTiles, playerCapabilitySets[ti][pi]);
                 if (activityId is null)
                     continue;
-                var duration = SampleAttemptDuration(snapshot, activityId.Value, attemptKey!, team.Players[pi].SkillTimeMultiplier, rng);
+                var duration = SampleAttemptDuration(snapshot, activityId.Value, attemptKey!, team.Players[pi].SkillTimeMultiplier, rule, playerCapabilitySets[ti][pi], rng);
                 var endTime = Math.Min(simTime + duration, durationSeconds + 1);
-                eventQueue.Enqueue(new SimEvent(endTime, ti, pi, activityId.Value, attemptKey!), endTime);
+                eventQueue.Enqueue(new SimEvent(endTime, ti, pi, activityId.Value, attemptKey!, rule!), endTime);
             }
         }
 
@@ -102,7 +104,8 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
             if (attempt is null)
                 attempt = activity.Attempts[0];
 
-            var outcome = RollOutcome(attempt, rng);
+            var rule = evt.Rule;
+            var outcome = RollOutcome(attempt, rule, playerCapabilitySets[ti][pi], rng);
             if (outcome is null)
                 continue;
 
@@ -127,12 +130,12 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
                 state.AddProgress(target, grant.Units, simTime, tileRequiredCount[target], tileRowIndex[target], tilePoints[target]);
             }
 
-            var (nextActivityId, nextAttemptKey) = GetFirstEligibleActivity(snapshot, team, pi, state.UnlockedRowIndices, state.CompletedTiles);
-            if (nextActivityId is not null && nextAttemptKey is not null)
+            var (nextActivityId, nextAttemptKey, nextRule) = GetFirstEligibleActivity(snapshot, team, pi, state.UnlockedRowIndices, state.CompletedTiles, playerCapabilitySets[ti][pi]);
+            if (nextActivityId is not null && nextAttemptKey is not null && nextRule is not null)
             {
-                var nextDuration = SampleAttemptDuration(snapshot, nextActivityId.Value, nextAttemptKey, player.SkillTimeMultiplier, rng);
+                var nextDuration = SampleAttemptDuration(snapshot, nextActivityId.Value, nextAttemptKey, player.SkillTimeMultiplier, nextRule, playerCapabilitySets[ti][pi], rng);
                 var nextEnd = Math.Min(simTime + nextDuration, durationSeconds + 1);
-                eventQueue.Enqueue(new SimEvent(nextEnd, ti, pi, nextActivityId.Value, nextAttemptKey), nextEnd);
+                eventQueue.Enqueue(new SimEvent(nextEnd, ti, pi, nextActivityId.Value, nextAttemptKey, nextRule), nextEnd);
             }
         }
 
@@ -163,15 +166,27 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
         return results;
     }
 
-    private static (Guid? activityId, string? attemptKey) GetFirstEligibleActivity(
+    private static List<List<HashSet<string>>> BuildPlayerCapabilitySets(EventSnapshotDto snapshot)
+    {
+        var result = new List<List<HashSet<string>>>();
+        foreach (var team in snapshot.Teams)
+        {
+            var sets = new List<HashSet<string>>();
+            foreach (var player in team.Players)
+                sets.Add(new HashSet<string>(player.CapabilityKeys, StringComparer.Ordinal));
+            result.Add(sets);
+        }
+        return result;
+    }
+
+    private static (Guid? activityId, string? attemptKey, TileActivityRuleSnapshotDto? rule) GetFirstEligibleActivity(
         EventSnapshotDto snapshot,
         TeamSnapshotDto team,
         int playerIndex,
         IReadOnlySet<int> unlockedRows,
-        IReadOnlySet<string> completedTiles)
+        IReadOnlySet<string> completedTiles,
+        HashSet<string> playerCaps)
     {
-        var player = team.Players[playerIndex];
-        var playerCaps = new HashSet<string>(player.CapabilityKeys, StringComparer.Ordinal);
         foreach (var row in snapshot.Rows.OrderBy(r => r.Index))
         {
             if (!unlockedRows.Contains(row.Index))
@@ -187,11 +202,11 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
                     var activity = snapshot.ActivitiesById.GetValueOrDefault(rule.ActivityDefinitionId);
                     if (activity is null || activity.Attempts.Count == 0)
                         continue;
-                    return (rule.ActivityDefinitionId, activity.Attempts[0].Key);
+                    return (rule.ActivityDefinitionId, activity.Attempts[0].Key, rule);
                 }
             }
         }
-        return (null, null);
+        return (null, null, null);
     }
 
     private static List<string> GetEligibleTileKeys(
@@ -204,9 +219,8 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
         IReadOnlyDictionary<string, List<TileActivityRuleSnapshotDto>> tileToRules)
     {
         var list = new List<string>();
-        foreach (var kv in state.TileProgress)
+        foreach (var tileKey in tileToRules.Keys)
         {
-            var tileKey = kv.Key;
             if (state.CompletedTiles.Contains(tileKey))
                 continue;
             if (!state.UnlockedRowIndices.Contains(tileRowIndex[tileKey]))
@@ -219,25 +233,40 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
         return list;
     }
 
-    private static OutcomeSnapshotDto? RollOutcome(AttemptSnapshotDto attempt, Random rng)
+    private static OutcomeSnapshotDto? RollOutcome(
+        AttemptSnapshotDto attempt,
+        TileActivityRuleSnapshotDto? rule,
+        IReadOnlySet<string> playerCapabilityKeys,
+        Random rng)
     {
         if (attempt.Outcomes.Count == 0)
             return null;
-        var totalWeight = attempt.Outcomes.Sum(o => o.WeightNumerator);
+
+        var probMultiplier = ModifierApplicator.ComputeCombinedProbabilityMultiplier(rule, playerCapabilityKeys);
+        var weights = ModifierApplicator.ApplyProbabilityMultiplier(attempt.Outcomes, rule?.AcceptedDropKeys, probMultiplier);
+
+        var totalWeight = weights.Sum();
         if (totalWeight <= 0)
             return attempt.Outcomes[0];
         var roll = rng.Next(0, totalWeight);
         var sum = 0;
-        foreach (var o in attempt.Outcomes)
+        for (var i = 0; i < attempt.Outcomes.Count; i++)
         {
-            sum += o.WeightNumerator;
+            sum += weights[i];
             if (roll < sum)
-                return o;
+                return attempt.Outcomes[i];
         }
         return attempt.Outcomes[^1];
     }
 
-    private static int SampleAttemptDuration(EventSnapshotDto snapshot, Guid activityId, string attemptKey, decimal skillMultiplier, Random rng)
+    private static int SampleAttemptDuration(
+        EventSnapshotDto snapshot,
+        Guid activityId,
+        string attemptKey,
+        decimal skillMultiplier,
+        TileActivityRuleSnapshotDto? rule,
+        IReadOnlySet<string> playerCapabilityKeys,
+        Random rng)
     {
         var activity = snapshot.ActivitiesById.GetValueOrDefault(activityId);
         if (activity is null)
@@ -245,9 +274,10 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
         var attempt = activity.Attempts.FirstOrDefault(a => a.Key == attemptKey) ?? activity.Attempts[0];
         var baseline = attempt.BaselineTimeSeconds;
         var variance = attempt.VarianceSeconds ?? 0;
-        var time = baseline + (variance > 0 ? rng.Next(-variance, variance + 1) : 0);
-        time = Math.Max(1, (int)(time * (double)skillMultiplier));
-        return time;
+        var rawTime = baseline + (variance > 0 ? rng.Next(-variance, variance + 1) : 0);
+        var timeMultiplier = ModifierApplicator.ComputeCombinedTimeMultiplier(rule, playerCapabilityKeys);
+        var time = rawTime * (double)skillMultiplier * (double)timeMultiplier;
+        return Math.Max(1, (int)Math.Floor(time));
     }
 
     private sealed class SimEvent
@@ -257,14 +287,16 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
         public int PlayerIndex { get; }
         public Guid ActivityId { get; }
         public string AttemptKey { get; }
+        public TileActivityRuleSnapshotDto Rule { get; }
 
-        public SimEvent(int simTime, int teamIndex, int playerIndex, Guid activityId, string attemptKey)
+        public SimEvent(int simTime, int teamIndex, int playerIndex, Guid activityId, string attemptKey, TileActivityRuleSnapshotDto rule)
         {
             SimTime = simTime;
             TeamIndex = teamIndex;
             PlayerIndex = playerIndex;
             ActivityId = activityId;
             AttemptKey = attemptKey;
+            Rule = rule;
         }
     }
 }

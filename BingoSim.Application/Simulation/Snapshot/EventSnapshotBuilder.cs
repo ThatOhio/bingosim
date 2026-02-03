@@ -63,7 +63,13 @@ public class EventSnapshotBuilder(
                     ActivityDefinitionId = rule.ActivityDefinitionId,
                     ActivityKey = rule.ActivityKey,
                     AcceptedDropKeys = rule.AcceptedDropKeys.ToList(),
-                    RequirementKeys = rule.Requirements.Select(req => req.Key).ToList()
+                    RequirementKeys = rule.Requirements.Select(req => req.Key).ToList(),
+                    Modifiers = rule.Modifiers.Select(m => new ActivityModifierRuleSnapshotDto
+                    {
+                        CapabilityKey = m.Capability.Key,
+                        TimeMultiplier = m.TimeMultiplier,
+                        ProbabilityMultiplier = m.ProbabilityMultiplier
+                    }).ToList()
                 }).ToList()
             }).ToList()
         }).ToList();

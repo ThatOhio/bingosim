@@ -6,4 +6,6 @@ public sealed class TileActivityRuleSnapshotDto
     public required string ActivityKey { get; init; }
     public required List<string> AcceptedDropKeys { get; init; }
     public required List<string> RequirementKeys { get; init; }
+    /// <summary>Capability-based modifiers. Empty for backward compatibility with older snapshots.</summary>
+    public List<ActivityModifierRuleSnapshotDto> Modifiers { get; init; } = [];
 }
