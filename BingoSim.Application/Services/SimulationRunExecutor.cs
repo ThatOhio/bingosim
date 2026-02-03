@@ -60,8 +60,13 @@ public class SimulationRunExecutor(
 
         try
         {
+            var simSw = System.Diagnostics.Stopwatch.StartNew();
             var results = runner.Execute(snapshot.EventConfigJson, run.Seed, cancellationToken);
+            simSw.Stop();
+            logger.LogInformation("Run {RunId} simulation completed in {ElapsedMs}ms ({TeamCount} teams)",
+                run.Id, simSw.ElapsedMilliseconds, results.Count);
 
+            var dbSw = System.Diagnostics.Stopwatch.StartNew();
             await resultRepo.DeleteByRunIdAsync(run.Id, cancellationToken);
             var entities = results.Select(r => new TeamRunResult(
                 run.Id,
@@ -79,6 +84,8 @@ public class SimulationRunExecutor(
 
             run.MarkCompleted(DateTimeOffset.UtcNow);
             await runRepo.UpdateAsync(run, cancellationToken);
+            dbSw.Stop();
+            logger.LogInformation("Run {RunId} DB ops completed in {ElapsedMs}ms", run.Id, dbSw.ElapsedMilliseconds);
             metrics?.RecordRunCompleted(run.SimulationBatchId, run.Id);
             logger.LogInformation("Run {RunId} completed for batch {BatchId}", run.Id, run.SimulationBatchId);
 

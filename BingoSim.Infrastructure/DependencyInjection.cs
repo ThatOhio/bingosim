@@ -29,7 +29,8 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString, npgsql =>
+                npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null)));
 
         // Repositories
         services.AddScoped<IPlayerProfileRepository, PlayerProfileRepository>();

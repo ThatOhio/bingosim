@@ -46,7 +46,7 @@ services:
     ports: 
       - "8080:8080"
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres;Timeout=30
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Port=5672
       - RabbitMQ__Username=${RABBITMQ_USER:-guest}
@@ -63,7 +63,7 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres;Timeout=30
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Port=5672
       - RabbitMQ__Username=${RABBITMQ_USER:-guest}
