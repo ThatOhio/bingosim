@@ -173,6 +173,51 @@ public class ModifierApplicationTests
         weights[0].Should().Be(10);
     }
 
+    [Fact]
+    public void ApplyProbabilityMultiplier_ZeroMultiplier_ReturnsOriginalWeights_SelectionRemainsValid()
+    {
+        var outcomes = new List<OutcomeSnapshotDto>
+        {
+            new() { WeightNumerator = 50, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] },
+            new() { WeightNumerator = 50, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }
+        };
+        var acceptedDropKeys = new List<string> { "drop" };
+
+        var weights = ModifierApplicator.ApplyProbabilityMultiplier(outcomes, acceptedDropKeys, 0m);
+
+        weights.Should().HaveCount(2);
+        weights[0].Should().Be(50);
+        weights[1].Should().Be(50);
+        weights.Sum().Should().Be(100);
+    }
+
+    [Fact]
+    public void ComputeCombinedMultipliers_NegativeTimeMultiplier_ReturnsPredictably()
+    {
+        var rule = CreateRule([("cap", -0.5m, null)]);
+        var caps = new HashSet<string>(StringComparer.Ordinal) { "cap" };
+
+        var (time, prob) = ModifierApplicator.ComputeCombinedMultipliers(rule, caps);
+
+        time.Should().Be(-0.5m);
+        prob.Should().Be(1.0m);
+    }
+
+    [Fact]
+    public void ApplyProbabilityMultiplier_NegativeMultiplier_ClampsToZero_FallsBackToOriginalWeights()
+    {
+        var outcomes = new List<OutcomeSnapshotDto>
+        {
+            new() { WeightNumerator = 10, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }
+        };
+        var acceptedDropKeys = new List<string> { "drop" };
+
+        var weights = ModifierApplicator.ApplyProbabilityMultiplier(outcomes, acceptedDropKeys, -1.0m);
+
+        weights.Should().HaveCount(1);
+        weights[0].Should().Be(10);
+    }
+
     private static TileActivityRuleSnapshotDto CreateRule(
         (string CapKey, decimal? TimeMult, decimal? ProbMult)[] modifiers)
     {
