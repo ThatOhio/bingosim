@@ -131,3 +131,13 @@ docker compose up -d --scale bingosim.worker=2
 # Run new batch of 20, note T2
 # Expect T2 < T1
 ```
+
+---
+
+## Performance Benchmarking
+
+See [PERF_NOTES.md](../../PERF_NOTES.md) for full details.
+
+- **Local E2E:** `dotnet run --project BingoSim.Seed -- --perf --runs 10000`
+- **Regression guard:** `dotnet run --project BingoSim.Seed -- --perf-regression`
+- **Engine-only tests:** `dotnet test --filter "Category=Perf"`

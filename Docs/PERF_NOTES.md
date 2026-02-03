@@ -2,38 +2,107 @@
 
 Record baseline and post-optimization numbers when running the perf scenario.
 
+---
+
 ## How to Run
 
+### Local E2E (DB + execution + persistence)
 ```bash
-# E2E (DB + execution + persistence)
 docker compose up -d postgres
 dotnet run --project BingoSim.Seed -- --full-reset --confirm
 dotnet run --project BingoSim.Seed
 dotnet run --project BingoSim.Seed -- --perf --runs 10000
+```
 
-# Engine-only (no DB)
+### Distributed E2E (2 workers)
+```bash
+# Start full stack with 2 workers
+docker compose up -d postgres rabbitmq
+dotnet run --project BingoSim.Seed -- --full-reset --confirm
+dotnet run --project BingoSim.Seed
+
+# Terminal 1: Web
+dotnet run --project BingoSim.Web
+
+# Terminal 2 & 3: 2 workers (or: docker compose up -d --scale bingosim.worker=2)
+dotnet run --project BingoSim.Worker
+# (second terminal) dotnet run --project BingoSim.Worker
+```
+
+Then in the UI: Run Simulations → select "Winter Bingo 2025" → Distributed → 10000 runs → Start batch. Observe results.
+
+### Engine-only (no DB)
+```bash
 dotnet test --filter "Category=Perf"
 ```
 
-## Baseline (Pre-Optimization)
+### Regression guard (lightweight, no DB)
+```bash
+dotnet run --project BingoSim.Seed -- --perf-regression --runs 1000
+# Optional: --min-runs-per-sec 50 (default)
+# Exits 1 if throughput below threshold
+```
 
-_Run before any optimizations and record here._
+---
+
+## Command Knobs
+
+| Command | Option | Default | Description |
+|---------|--------|---------|-------------|
+| `--perf` | `--runs` | 10000 | Number of runs |
+| `--perf` | `--event` | "Winter Bingo 2025" | Event name |
+| `--perf` | `--seed` | "perf-baseline-2025" | Batch seed |
+| `--perf` | `--max-duration` | 0 (no limit) | Stop after N seconds, report partial results |
+| `--perf-regression` | `--runs` | 1000 | Number of runs |
+| `--perf-regression` | `--min-runs-per-sec` | 50 | Fail if below this threshold |
+
+---
+
+## Interpreting Metrics
+
+### Phase totals (E2E)
+
+```
+Phase totals (ms total, count):
+  persist: 4523ms total, 10000 invocations
+  sim: 38200ms total, 10000 invocations
+  snapshot_load: 120ms total, 1 invocations
+```
+
+- **snapshot_load:** Total ms spent loading snapshot from DB. With caching, count = 1 for the entire batch.
+- **sim:** Total ms in simulation execution. Count = runs completed.
+- **persist:** Total ms for DB writes (delete + add + update per run).
+
+### Throughput
+
+- **runs/sec:** `runs completed / elapsed seconds`. Primary metric for comparison.
+- **Expected ranges (engine-only):** 50–500+ runs/sec on typical hardware. Regression guard uses 50 as minimum.
+- **Expected ranges (E2E local):** Lower than engine-only due to DB; varies with hardware.
+- **Distributed:** Aggregate throughput should scale with worker count (e.g. 2 workers ≈ 2× single worker).
+
+### [TIMED OUT]
+
+When `--max-duration` is reached, output shows partial runs and `[TIMED OUT]`. Use runs/sec from partial data for diagnosis.
+
+---
+
+## Baseline and Results
+
+### Pre-Optimization
 
 | Scenario | Runs | Elapsed (s) | Runs/sec | Phase Totals |
 |----------|------|-------------|----------|--------------|
 | E2E 10K | 10000 | _TBD_ | _TBD_ | snapshot_load: _ms (10000), sim: _ms (10000), persist: _ms (10000) |
 | Engine-only 10K | 10000 | _TBD_ | _TBD_ | N/A |
 
-## Post-Optimization (Step 2)
-
-_Run after implementing Proposals 3, 2, 1, 4._
+### Post-Optimization (Step 2)
 
 | Scenario | Runs | Elapsed (s) | Runs/sec | Phase Totals |
 |----------|------|-------------|----------|--------------|
 | E2E 10K | 10000 | _TBD_ | _TBD_ | snapshot_load: _ms (1), sim: _ms (10000), persist: _ms (10000) |
 | Engine-only 10K | 10000 | _TBD_ | _TBD_ | N/A |
 
-## Example Output (E2E)
+### Example Output (E2E)
 
 ```
 Perf scenario: 10000 runs, event 'Winter Bingo 2025', seed 'perf-baseline-2025'

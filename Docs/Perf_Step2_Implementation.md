@@ -1,4 +1,4 @@
-# Performance Refactor — Step 2: Implementation Summary
+# Performance Refactor — Step 2 & 3: Implementation + HARDEN
 
 **Status:** Complete  
 **Date:** February 3, 2025  
@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document summarizes the performance optimizations implemented in Step 2, the files changed, how to run the perf scenario, and baseline/result expectations.
+This document summarizes the performance optimizations (Step 2) and the validation/regression guardrails (Step 3 HARDEN).
 
 ---
 
@@ -59,6 +59,12 @@ This document summarizes the performance optimizations implemented in Step 2, th
   ```
 - **Output:** Runs completed, elapsed seconds, runs/sec, phase totals (snapshot_load, sim, persist) in ms total and invocation count.
 
+### Regression Guard (--perf-regression)
+- **Usage:** `dotnet run --project BingoSim.Seed -- --perf-regression [--runs 1000] [--min-runs-per-sec 50]`
+- **Behavior:** Engine-only, no DB. Runs N simulations, reports runs/sec. Exits 1 if below threshold. Run manually or in a perf pipeline; not in normal CI.
+- **Purpose:** Alerts if perf drops drastically.
+- **Output:** `Perf regression guard: N runs in Xs = Y runs/sec (min: Z)` then PASS or FAIL.
+
 ### xUnit Perf Test (Engine-Only)
 - **Location:** `Tests/BingoSim.Application.UnitTests/Simulation/SimulationPerfScenarioTests.cs`
 - **Trait:** `[Trait("Category", "Perf")]` — excluded from normal CI.
@@ -70,7 +76,7 @@ This document summarizes the performance optimizations implemented in Step 2, th
   # Run all tests except perf (normal CI)
   dotnet test --filter "Category!=Perf"
   ```
-- **Tests:** `EngineOnly_10000Runs_CompletesWithinReasonableTime`, `EngineOnly_SameSeed_Deterministic`.
+- **Tests:** `EngineOnly_10000Runs_CompletesWithinReasonableTime`, `EngineOnly_SameSeed_Deterministic`, `Execute_JsonVsDtoPath_SameSeed_ProducesIdenticalResults` (regression guard for snapshot caching).
 
 ### Phase Instrumentation
 - **IPerfRecorder** and **PerfRecorder** record phase totals (ms total, count) for `snapshot_load`, `sim`, `persist`.
@@ -79,11 +85,31 @@ This document summarizes the performance optimizations implemented in Step 2, th
 
 ---
 
+## Step 3 HARDEN (Validation + Regression Guardrails)
+
+### Determinism
+- **SimulationRunnerReproducibilityTests:** Same seed, same results (existing).
+- **EngineOnly_SameSeed_Deterministic:** Perf scenario, same seed twice (existing).
+- **Execute_JsonVsDtoPath_SameSeed_ProducesIdenticalResults:** NEW — verifies `Execute(string)` and `Execute(EventSnapshotDto)` produce identical results. Regression guard for Proposal 1 (snapshot caching).
+
+### Local vs Distributed Consistency
+- **Local:** `--perf` runs in local mode (in-process).
+- **Distributed:** Use full stack (Web + 2 Workers): `docker compose up -d --scale bingosim.worker=2`, then start batch via UI with Distributed mode. See [PERF_NOTES.md](PERF_NOTES.md) for steps.
+- **Results:** Both modes produce identical results for the same seed. Throughput should scale with workers.
+
+### Regression Guard
+- **Command:** `dotnet run --project BingoSim.Seed -- --perf-regression [--runs 1000] [--min-runs-per-sec 50]`
+- **Behavior:** Engine-only, no DB. Exits 1 if runs/sec below threshold.
+- **Expected range:** 50–500+ runs/sec on typical hardware. Threshold 50 catches drastic regressions.
+
+---
+
 ## Files Changed
 
 | File | Change |
 |------|--------|
 | `BingoSim.Application/Interfaces/IPerfRecorder.cs` | New |
+| `BingoSim.Application/Simulation/PerfScenarioSnapshot.cs` | New — shared perf snapshot for regression guard |
 | `BingoSim.Application/Services/SimulationRunExecutor.cs` | PerfRecorder, snapshot cache, phase timing |
 | `BingoSim.Application/Simulation/ModifierApplicator.cs` | OutcomeWeightsView, foreach instead of Any |
 | `BingoSim.Application/Simulation/Runner/SimulationRunner.cs` | Execute(EventSnapshotDto), schedule cache, groupCapsBuffer, BuildScheduleWindowsCache |
@@ -91,7 +117,7 @@ This document summarizes the performance optimizations implemented in Step 2, th
 | `BingoSim.Application/Simulation/Schedule/ScheduleEvaluator.cs` | IsOnlineAt/GetCurrentSessionEnd overloads for DailyWindows |
 | `BingoSim.Infrastructure/DependencyInjection.cs` | Keyed "distributed" publisher for Seed |
 | `BingoSim.Infrastructure/Simulation/PerfRecorder.cs` | New |
-| `BingoSim.Seed/Program.cs` | --perf command, RunPerfScenarioAsync, GetArg helpers |
+| `BingoSim.Seed/Program.cs` | --perf command, --perf-regression guard, RunPerfScenarioAsync, GetArg helpers |
 | `Tests/BingoSim.Application.UnitTests/Simulation/SimulationPerfScenarioTests.cs` | New engine-only perf tests |
 
 ---
@@ -160,7 +186,8 @@ Record baseline and post-optimization numbers in [PERF_NOTES.md](PERF_NOTES.md) 
 
 ## Verification
 
-- [x] Determinism preserved: `SimulationRunnerReproducibilityTests` and `EngineOnly_SameSeed_Deterministic` pass.
+- [x] Determinism preserved: `SimulationRunnerReproducibilityTests`, `EngineOnly_SameSeed_Deterministic`, `Execute_JsonVsDtoPath_SameSeed_ProducesIdenticalResults` pass.
 - [x] No semantic changes to simulation logic.
 - [x] Local and distributed execution intact (keyed "distributed" added for Seed; Web overrides with MassTransit).
-- [x] Config knobs default to current behavior; `--perf` is opt-in.
+- [x] Config knobs default to current behavior; `--perf` and `--perf-regression` are opt-in.
+- [x] Regression guard: `--perf-regression` exits 1 if throughput below threshold; no strict timing assert in CI.

@@ -1,4 +1,7 @@
 using BingoSim.Application.Interfaces;
+using BingoSim.Application.Simulation;
+using BingoSim.Application.Simulation.Allocation;
+using BingoSim.Application.Simulation.Runner;
 using BingoSim.Core.Enums;
 using BingoSim.Infrastructure;
 using BingoSim.Infrastructure.Persistence;
@@ -20,6 +23,12 @@ public static class Program
         var fullReset = args.Contains("--full-reset", StringComparer.OrdinalIgnoreCase);
         var confirm = args.Contains("--confirm", StringComparer.OrdinalIgnoreCase);
         var perf = args.Contains("--perf", StringComparer.OrdinalIgnoreCase);
+        var perfRegression = args.Contains("--perf-regression", StringComparer.OrdinalIgnoreCase);
+
+        if (perfRegression)
+        {
+            return RunPerfRegressionGuard(GetArgInt(args, "--runs", 1_000), GetArgInt(args, "--min-runs-per-sec", 50));
+        }
 
         var perfRuns = GetArgInt(args, "--runs", 10_000);
         var perfEvent = GetArg(args, "--event") ?? "Winter Bingo 2025";
@@ -211,5 +220,38 @@ public static class Program
     {
         var s = GetArg(args, name);
         return int.TryParse(s, out var v) ? v : defaultValue;
+    }
+
+    /// <summary>
+    /// Lightweight engine-only regression guard. No DB. Exits 1 if runs/sec below threshold.
+    /// Run manually or in a perf pipeline; not in normal CI.
+    /// </summary>
+    private static int RunPerfRegressionGuard(int runCount, int minRunsPerSec)
+    {
+        var snapshotJson = PerfScenarioSnapshot.BuildJson();
+        var allocatorFactory = new ProgressAllocatorFactory();
+        var runner = new SimulationRunner(allocatorFactory);
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        for (var i = 0; i < runCount; i++)
+        {
+            var runSeed = SeedDerivation.DeriveRunSeedString("perf-regression-guard", i);
+            _ = runner.Execute(snapshotJson, runSeed, CancellationToken.None);
+        }
+        sw.Stop();
+
+        var elapsedSec = sw.Elapsed.TotalSeconds;
+        var runsPerSec = elapsedSec > 0 ? runCount / elapsedSec : 0;
+
+        Console.WriteLine($"Perf regression guard: {runCount} runs in {elapsedSec:F1}s = {runsPerSec:F1} runs/sec (min: {minRunsPerSec})");
+
+        if (runsPerSec < minRunsPerSec)
+        {
+            Console.WriteLine($"FAIL: Throughput {runsPerSec:F1} runs/sec is below threshold {minRunsPerSec}. Investigate performance regression.");
+            return 1;
+        }
+
+        Console.WriteLine("PASS");
+        return 0;
     }
 }
