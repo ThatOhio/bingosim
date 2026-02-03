@@ -133,6 +133,18 @@ When `--max-duration` is reached, output shows partial runs and `[TIMED OUT]`. U
 
 **Improvement:** ~3× throughput (39 → 114 runs/sec); ~57× fewer SaveChanges (10000 → 175).
 
+### Post-Optimization (Round 2 — Snapshot Cache, Finalization Check, AsNoTracking, Local Perf Path)
+
+| Scenario | Runs | Elapsed (s) | Runs/sec | SaveChanges | Buffered Persist |
+|----------|------|-------------|---------|-------------|-------------------|
+| E2E 10K (batched) | 10000 | 3.9 | 2540.5 | 101 | 101 flushes, 20K rows, 2787ms |
+
+**Command:** `dotnet run --project BingoSim.Seed -- --perf --runs 10000 --perf-snapshot synthetic --max-duration 120`
+
+**Phase totals:** persist: 2787ms (10000), sim: 112ms (10000). No snapshot_load phase (pre-loaded in perf loop).
+
+**Improvement:** ~22× throughput vs DB Optimize 01 (114 → 2540 runs/sec); ~195× vs pre-optimization (13 → 2540 runs/sec).
+
 ### Example Output (E2E)
 
 ```
