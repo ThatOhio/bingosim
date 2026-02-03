@@ -275,62 +275,171 @@ public class DevSeedService(
         }
     }
 
+    private const int SeedEventRowCount = 20;
+
     private static List<EventSeedDef> GetEventSeedDefinitions(Dictionary<string, Guid> activityIdsByKey)
     {
         var questDs2 = new Capability("quest.ds2", "Dragon Slayer II");
         var itemDhl = new Capability("item.dragon_hunter_lance", "Dragon Hunter Lance");
         var questSote = new Capability("quest.sote", "Song of the Elves");
 
-        var zulrahId = activityIdsByKey["boss.zulrah"];
-        var vorkathId = activityIdsByKey["boss.vorkath"];
-        var rcId = activityIdsByKey["skilling.runecraft"];
-        var miningId = activityIdsByKey["skilling.mining"];
-        var coxId = activityIdsByKey["raid.cox"];
-        var toaId = activityIdsByKey["raid.toa"];
-
-        var rowsWinter = new List<Row>
+        var activityIds = new[]
         {
-            new(0, [
-                new Tile("t1-r0", "Zulrah Kill", 1, 1, [new TileActivityRule(zulrahId, "boss.zulrah", ["kill.zulrah", "unique.tanzanite_fang"], [], [new ActivityModifierRule(itemDhl, 0.9m, null), new ActivityModifierRule(questDs2, null, 1.1m)])]),
-                new Tile("t2-r0", "Vorkath Kill", 2, 1, [new TileActivityRule(vorkathId, "boss.vorkath", ["kill.vorkath"], [questDs2], [new ActivityModifierRule(itemDhl, 0.85m, 1.05m)])]),
-                new Tile("t3-r0", "Runecraft", 3, 1, [new TileActivityRule(rcId, "skilling.runecraft", ["essence.crafted"], [], [new ActivityModifierRule(questSote, 0.9m, null)])]),
-                new Tile("t4-r0", "Cox Loot", 4, 1, [new TileActivityRule(coxId, "raid.cox", ["loot.cox", "unique.cox_prayer_scroll"], [questSote], [new ActivityModifierRule(questSote, 0.95m, 1.1m)])]),
-            ]),
-            new(1, [
-                new Tile("t1-r1", "Mining Ore", 1, 1, [new TileActivityRule(miningId, "skilling.mining", ["ore.mined"], [], [new ActivityModifierRule(questSote, null, 1.15m)])]),
-                new Tile("t2-r1", "Toa Loot", 2, 1, [new TileActivityRule(toaId, "raid.toa", ["loot.toa", "unique.toa_ring"], [questSote], [new ActivityModifierRule(questSote, 0.92m, 1.08m)])]),
-                new Tile("t3-r1", "Zulrah Unique", 3, 1, [new TileActivityRule(zulrahId, "boss.zulrah", ["unique.tanzanite_fang"], [questDs2], [new ActivityModifierRule(itemDhl, 0.88m, 1.05m)])]),
-                new Tile("t4-r1", "Vorkath Unique", 4, 1, [new TileActivityRule(vorkathId, "boss.vorkath", ["unique.dragonbone_necklace"], [questDs2], [new ActivityModifierRule(itemDhl, 0.9m, null)])]),
-            ]),
-            new(2, [
-                new Tile("t1-r2", "Raid Cox", 1, 1, [new TileActivityRule(coxId, "raid.cox", ["loot.cox"], [], [new ActivityModifierRule(questSote, 0.9m, 1.1m)])]),
-                new Tile("t2-r2", "Raid Toa", 2, 1, [new TileActivityRule(toaId, "raid.toa", ["loot.toa"], [], [new ActivityModifierRule(questSote, 0.95m, null)])]),
-                new Tile("t3-r2", "Skilling Combo", 3, 1, [new TileActivityRule(rcId, "skilling.runecraft", ["essence.crafted"], [], []), new TileActivityRule(miningId, "skilling.mining", ["ore.mined"], [], [])]),
-                new Tile("t4-r2", "Boss Combo", 4, 1, [new TileActivityRule(zulrahId, "boss.zulrah", ["kill.zulrah"], [], []), new TileActivityRule(vorkathId, "boss.vorkath", ["kill.vorkath"], [questDs2], [])]),
-            ]),
+            activityIdsByKey["boss.zulrah"],
+            activityIdsByKey["boss.vorkath"],
+            activityIdsByKey["skilling.runecraft"],
+            activityIdsByKey["skilling.mining"],
+            activityIdsByKey["raid.cox"],
+            activityIdsByKey["raid.toa"],
         };
 
-        var rowsSpring = new List<Row>
-        {
-            new(0, [
-                new Tile("s1-r0", "Zulrah Standard", 1, 1, [new TileActivityRule(zulrahId, "boss.zulrah", ["kill.zulrah"], [], [new ActivityModifierRule(questDs2, 0.9m, 1.1m)])]),
-                new Tile("s2-r0", "Mining", 2, 1, [new TileActivityRule(miningId, "skilling.mining", ["ore.mined"], [], [new ActivityModifierRule(questSote, null, 1.2m)])]),
-                new Tile("s3-r0", "Cox", 3, 1, [new TileActivityRule(coxId, "raid.cox", ["loot.cox", "unique.cox_prayer_scroll"], [questSote], [new ActivityModifierRule(questSote, 0.88m, 1.12m)])]),
-                new Tile("s4-r0", "Toa", 4, 1, [new TileActivityRule(toaId, "raid.toa", ["loot.toa"], [questSote], [new ActivityModifierRule(questSote, 0.9m, null)])]),
-            ]),
-            new(1, [
-                new Tile("s1-r1", "Runecraft", 1, 1, [new TileActivityRule(rcId, "skilling.runecraft", ["essence.crafted"], [], [new ActivityModifierRule(questSote, 0.85m, null)])]),
-                new Tile("s2-r1", "Vorkath", 2, 1, [new TileActivityRule(vorkathId, "boss.vorkath", ["kill.vorkath", "unique.dragonbone_necklace"], [questDs2], [new ActivityModifierRule(itemDhl, 0.9m, 1.05m)])]),
-                new Tile("s3-r1", "Zulrah Rare", 3, 1, [new TileActivityRule(zulrahId, "boss.zulrah", ["unique.tanzanite_fang"], [], [new ActivityModifierRule(itemDhl, 0.92m, 1.08m)])]),
-                new Tile("s4-r1", "Multi Activity", 4, 1, [new TileActivityRule(miningId, "skilling.mining", ["ore.mined"], [], []), new TileActivityRule(rcId, "skilling.runecraft", ["essence.crafted"], [], [])]),
-            ]),
-        };
+        var activityKeys = new[] { "boss.zulrah", "boss.vorkath", "skilling.runecraft", "skilling.mining", "raid.cox", "raid.toa" };
+
+        var rowsWinter = BuildEventRows("t", activityIds, activityKeys, questDs2, itemDhl, questSote);
+        var rowsSpring = BuildEventRows("s", activityIds, activityKeys, questDs2, itemDhl, questSote);
 
         return
         [
             new EventSeedDef("Winter Bingo 2025", TimeSpan.FromHours(24), rowsWinter),
             new EventSeedDef("Spring League Bingo", TimeSpan.FromHours(48), rowsSpring),
         ];
+    }
+
+    /// <summary>
+    /// Builds 20 rows of tiles with activity reuse: same activities appear close together (consecutive rows)
+    /// and distributed (e.g., row 0 and row 16). Includes variety: RequiredCount 1-3, modifiers,
+    /// requirements, and combo tiles.
+    /// </summary>
+    private static List<Row> BuildEventRows(
+        string keyPrefix,
+        Guid[] activityIds,
+        string[] activityKeys,
+        Capability questDs2,
+        Capability itemDhl,
+        Capability questSote)
+    {
+        var dropKeysByActivity = new Dictionary<string, (string[] common, string[] rare)>(StringComparer.Ordinal)
+        {
+            ["boss.zulrah"] = (["kill.zulrah", "unique.tanzanite_fang"], ["unique.tanzanite_fang"]),
+            ["boss.vorkath"] = (["kill.vorkath", "unique.dragonbone_necklace"], ["unique.dragonbone_necklace"]),
+            ["skilling.runecraft"] = (["essence.crafted"], ["essence.crafted"]),
+            ["skilling.mining"] = (["ore.mined"], ["ore.mined"]),
+            ["raid.cox"] = (["loot.cox", "unique.cox_prayer_scroll"], ["loot.cox"]),
+            ["raid.toa"] = (["loot.toa", "unique.toa_ring"], ["loot.toa"]),
+        };
+
+        var rows = new List<Row>(SeedEventRowCount);
+
+        for (var rowIdx = 0; rowIdx < SeedEventRowCount; rowIdx++)
+        {
+            var tiles = new List<Tile>(4);
+
+            for (var tilePos = 0; tilePos < 4; tilePos++)
+            {
+                var points = tilePos + 1;
+                var key = $"{keyPrefix}{points}-r{rowIdx}";
+
+                var activityIdx = (rowIdx + tilePos) % 6;
+                var actId = activityIds[activityIdx];
+                var actKey = activityKeys[activityIdx];
+                var (commonDrops, rareDrops) = dropKeysByActivity[actKey];
+
+                var requiredCount = GetRequiredCountForTile(rowIdx, tilePos);
+                var useCombo = rowIdx % 7 == 2 && tilePos == 2;
+                var useRareOnly = rowIdx % 5 == 1 && tilePos == 3;
+
+                List<TileActivityRule> rules;
+                string name;
+
+                if (useCombo)
+                {
+                    var nextIdx = (activityIdx + 1) % 6;
+                    var nextId = activityIds[nextIdx];
+                    var nextKey = activityKeys[nextIdx];
+                    var (nextCommon, _) = dropKeysByActivity[nextKey];
+                    rules =
+                    [
+                        new TileActivityRule(actId, actKey, commonDrops, actKey == "boss.vorkath" ? [questDs2] : [], []),
+                        new TileActivityRule(nextId, nextKey, nextCommon, nextKey == "boss.vorkath" ? [questDs2] : [], []),
+                    ];
+                    name = GetComboTileName(actKey, nextKey, requiredCount);
+                }
+                else
+                {
+                    var dropKeys = useRareOnly ? rareDrops : commonDrops;
+                    var reqs = GetRequirementsForTile(actKey, rowIdx, tilePos, questDs2, questSote);
+                    var mods = GetModifiersForTile(actKey, rowIdx, tilePos, questDs2, itemDhl, questSote);
+                    rules = [new TileActivityRule(actId, actKey, dropKeys, reqs, mods)];
+                    name = GetTileName(actKey, rowIdx, tilePos, requiredCount);
+                }
+
+                tiles.Add(new Tile(key, name, points, requiredCount, rules));
+            }
+
+            rows.Add(new Row(rowIdx, tiles));
+        }
+
+        return rows;
+    }
+
+    private static int GetRequiredCountForTile(int rowIdx, int tilePos)
+    {
+        if (rowIdx == 5 && tilePos == 1) return 2;
+        if (rowIdx == 12 && tilePos == 3) return 2;
+        if (rowIdx == 18 && tilePos == 0) return 3;
+        return 1;
+    }
+
+    private static string GetShortActivityName(string actKey) => actKey switch
+    {
+        "boss.zulrah" => "Zulrah",
+        "boss.vorkath" => "Vorkath",
+        "skilling.runecraft" => "Runecraft",
+        "skilling.mining" => "Mining",
+        "raid.cox" => "Cox",
+        "raid.toa" => "Toa",
+        _ => "Task",
+    };
+
+    private static string GetTileName(string actKey, int rowIdx, int tilePos, int requiredCount)
+    {
+        var shortName = GetShortActivityName(actKey);
+        var suffix = requiredCount > 1 ? $" x{requiredCount}" : "";
+        return $"{shortName} R{rowIdx}{suffix}".Trim();
+    }
+
+    private static string GetComboTileName(string actKey1, string actKey2, int requiredCount)
+    {
+        var n1 = GetShortActivityName(actKey1);
+        var n2 = GetShortActivityName(actKey2);
+        var suffix = requiredCount > 1 ? $" x{requiredCount}" : "";
+        return $"Combo {n1}+{n2}{suffix}".Trim();
+    }
+
+    private static List<Capability> GetRequirementsForTile(string actKey, int rowIdx, int tilePos, Capability questDs2, Capability questSote)
+    {
+        if (actKey is "boss.vorkath" or "boss.zulrah")
+            return rowIdx % 3 == 0 ? [questDs2] : [];
+        if (actKey is "raid.cox" or "raid.toa")
+            return rowIdx % 4 != 2 ? [questSote] : [];
+        return [];
+    }
+
+    private static List<ActivityModifierRule> GetModifiersForTile(string actKey, int rowIdx, int tilePos, Capability questDs2, Capability itemDhl, Capability questSote)
+    {
+        if (rowIdx % 6 == 0 && tilePos == 0)
+            return [new ActivityModifierRule(itemDhl, 0.9m, null), new ActivityModifierRule(questDs2, null, 1.1m)];
+        if (rowIdx % 6 == 1 && tilePos == 1)
+            return [new ActivityModifierRule(itemDhl, 0.85m, 1.05m)];
+        if (actKey is "skilling.runecraft" or "skilling.mining" && rowIdx % 4 == 2)
+            return [new ActivityModifierRule(questSote, 0.9m, null)];
+        if (actKey is "skilling.mining" && rowIdx % 5 == 3)
+            return [new ActivityModifierRule(questSote, null, 1.15m)];
+        if (actKey is "raid.cox" or "raid.toa" && rowIdx % 3 == 1)
+            return [new ActivityModifierRule(questSote, 0.92m, 1.08m)];
+        if (actKey is "boss.zulrah" && tilePos == 2)
+            return [new ActivityModifierRule(itemDhl, 0.88m, 1.05m)];
+        return [];
     }
 
     private async Task SeedTeamsAsync(CancellationToken cancellationToken)
