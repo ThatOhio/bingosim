@@ -345,10 +345,8 @@ public static class Program
         Console.WriteLine($"Reset {reset} runs from Running to Pending");
 
         var publisher = scope.ServiceProvider.GetRequiredService<BingoSim.Infrastructure.Simulation.MassTransitRunWorkPublisher>();
-        foreach (var run in stuck)
-        {
-            await publisher.PublishRunWorkAsync(run.Id);
-        }
+        var runIds = stuck.Select(r => r.Id).ToList();
+        await publisher.PublishRunWorkBatchAsync(runIds);
         Console.WriteLine($"Re-published {stuck.Count} run IDs to RabbitMQ. Worker will pick them up.");
         return 0;
     }

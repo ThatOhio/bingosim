@@ -29,4 +29,20 @@ public sealed class RoutingSimulationRunWorkPublisher(
         else
             await distributedPublisher.PublishRunWorkAsync(runId, cancellationToken);
     }
+
+    public async ValueTask PublishRunWorkBatchAsync(IReadOnlyList<Guid> runIds, CancellationToken cancellationToken = default)
+    {
+        if (runIds.Count == 0)
+            return;
+        var run = await runRepo.GetByIdAsync(runIds[0], cancellationToken);
+        if (run is null)
+            return;
+        var batch = await batchRepo.GetByIdAsync(run.SimulationBatchId, cancellationToken);
+        if (batch is null)
+            return;
+        if (batch.ExecutionMode == ExecutionMode.Local)
+            await runQueue.EnqueueBatchAsync(runIds, cancellationToken);
+        else
+            await distributedPublisher.PublishRunWorkBatchAsync(runIds, cancellationToken);
+    }
 }

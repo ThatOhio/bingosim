@@ -17,8 +17,18 @@ public sealed class SimulationRunQueue : ISimulationRunQueue, ISimulationRunWork
     public ValueTask EnqueueAsync(Guid runId, CancellationToken cancellationToken = default) =>
         _channel.Writer.WriteAsync(runId, cancellationToken);
 
+    public async ValueTask EnqueueBatchAsync(IReadOnlyList<Guid> runIds, CancellationToken cancellationToken = default)
+    {
+        if (runIds.Count == 0)
+            return;
+        await Task.WhenAll(runIds.Select(id => EnqueueAsync(id, cancellationToken).AsTask()));
+    }
+
     public ValueTask PublishRunWorkAsync(Guid runId, CancellationToken cancellationToken = default) =>
         EnqueueAsync(runId, cancellationToken);
+
+    public ValueTask PublishRunWorkBatchAsync(IReadOnlyList<Guid> runIds, CancellationToken cancellationToken = default) =>
+        EnqueueBatchAsync(runIds, cancellationToken);
 
     public async ValueTask<Guid?> DequeueAsync(CancellationToken cancellationToken = default)
     {

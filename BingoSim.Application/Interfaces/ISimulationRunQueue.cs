@@ -6,5 +6,11 @@ namespace BingoSim.Application.Interfaces;
 public interface ISimulationRunQueue
 {
     ValueTask EnqueueAsync(Guid runId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Enqueues multiple run ids in a batch. More efficient than calling EnqueueAsync in a loop.
+    /// </summary>
+    ValueTask EnqueueBatchAsync(IReadOnlyList<Guid> runIds, CancellationToken cancellationToken = default);
+
     ValueTask<Guid?> DequeueAsync(CancellationToken cancellationToken = default);
 }

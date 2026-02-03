@@ -13,4 +13,12 @@ public sealed class MassTransitRunWorkPublisher(IPublishEndpoint publishEndpoint
     {
         await publishEndpoint.Publish(new ExecuteSimulationRun { SimulationRunId = runId }, cancellationToken);
     }
+
+    public async ValueTask PublishRunWorkBatchAsync(IReadOnlyList<Guid> runIds, CancellationToken cancellationToken = default)
+    {
+        if (runIds.Count == 0)
+            return;
+        var messages = runIds.Select(id => new ExecuteSimulationRun { SimulationRunId = id });
+        await publishEndpoint.PublishBatch(messages, cancellationToken);
+    }
 }

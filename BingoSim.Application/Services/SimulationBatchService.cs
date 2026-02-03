@@ -114,15 +114,13 @@ public class SimulationBatchService(
             {
                 if (mode == ExecutionMode.Local)
                 {
-                    foreach (var runId in runIds)
-                        await runQueue.EnqueueAsync(runId);
+                    await runQueue.EnqueueBatchAsync(runIds);
                 }
                 else
                 {
                     await using var scope = scopeFactory.CreateAsyncScope();
                     var publisher = scope.ServiceProvider.GetRequiredKeyedService<ISimulationRunWorkPublisher>("distributed");
-                    foreach (var runId in runIds)
-                        await publisher.PublishRunWorkAsync(runId);
+                    await publisher.PublishRunWorkBatchAsync(runIds);
                 }
                 logger.LogInformation("Simulation batch {BatchId} enqueued: {RunCount} runs, seed {Seed}, mode {Mode}",
                     batchId, runCount, seed, mode);

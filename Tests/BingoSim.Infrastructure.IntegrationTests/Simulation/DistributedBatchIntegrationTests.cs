@@ -124,6 +124,52 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task DistributedBatch_PublishRunWorkBatchAsync_CompletesWithAggregates()
+    {
+        using var scope = _provider.CreateScope();
+        var snapshotJson = BuildMinimalSnapshotJson();
+        var batch = new SimulationBatch(Guid.NewGuid(), 3, "batch-publish-seed", ExecutionMode.Distributed);
+        var batchRepo = scope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.ISimulationBatchRepository>();
+        var runRepo = scope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.ISimulationRunRepository>();
+        var snapshotRepo = scope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.IEventSnapshotRepository>();
+        var publisher = scope.ServiceProvider.GetRequiredService<MassTransitRunWorkPublisher>();
+
+        await batchRepo.AddAsync(batch);
+        var eventSnapshot = new EventSnapshot(batch.Id, snapshotJson);
+        await snapshotRepo.AddAsync(eventSnapshot);
+
+        var runs = new List<SimulationRun>();
+        for (var i = 0; i < 3; i++)
+        {
+            var seed = SeedDerivation.DeriveRunSeedString("batch-publish-seed", i);
+            runs.Add(new SimulationRun(batch.Id, i, seed));
+        }
+        await runRepo.AddRangeAsync(runs);
+
+        var runIds = runs.Select(r => r.Id).ToList();
+        await publisher.PublishRunWorkBatchAsync(runIds);
+
+        for (var i = 0; i < 60; i++)
+        {
+            using var pollScope = _provider.CreateScope();
+            var pollRunRepo = pollScope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.ISimulationRunRepository>();
+            var completed = await pollRunRepo.GetByBatchIdAsync(batch.Id);
+            if (completed.All(r => r.Status == RunStatus.Completed))
+                break;
+            await Task.Delay(500);
+        }
+
+        using var verifyScope = _provider.CreateScope();
+        var verifyRunRepo = verifyScope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.ISimulationRunRepository>();
+        var finalizationService = verifyScope.ServiceProvider.GetRequiredService<IBatchFinalizationService>();
+        await finalizationService.TryFinalizeAsync(batch.Id);
+
+        var completedRuns = await verifyRunRepo.GetByBatchIdAsync(batch.Id);
+        completedRuns.Should().HaveCount(3);
+        completedRuns.Should().OnlyContain(r => r.Status == RunStatus.Completed);
+    }
+
+    [Fact]
     public async Task DistributedBatch_SnapshotWithModifiers_CompletesSuccessfully()
     {
         using var scope = _provider.CreateScope();
