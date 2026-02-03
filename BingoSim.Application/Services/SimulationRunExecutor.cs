@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using BingoSim.Application.Interfaces;
+using BingoSim.Application.Simulation;
 using BingoSim.Application.Simulation.Snapshot;
 using BingoSim.Application.Simulation.Runner;
 using BingoSim.Core.Entities;
@@ -24,11 +25,14 @@ public class SimulationRunExecutor(
     SimulationRunner runner,
     ILogger<SimulationRunExecutor> logger,
     ISimulationMetrics? metrics = null,
-    IPerfRecorder? perfRecorder = null) : ISimulationRunExecutor
+    IPerfRecorder? perfRecorder = null,
+    IPerfScenarioOptions? perfOptions = null) : ISimulationRunExecutor
 {
     private const int MaxErrorLength = 500;
     private const int MaxSnapshotCacheSize = 32;
+    private const int VerboseLogEveryNIterations = 1000;
     private readonly ConcurrentDictionary<Guid, EventSnapshotDto> _snapshotCache = new();
+    private readonly ConcurrentDictionary<Guid, bool> _snapshotDumpedForBatch = new();
 
     public async Task ExecuteAsync(Guid runId, CancellationToken cancellationToken = default)
     {
@@ -72,7 +76,11 @@ public class SimulationRunExecutor(
         }
         else
         {
-            var dto = EventSnapshotBuilder.Deserialize(snapshotEntity.EventConfigJson);
+            var snapshotJson = perfOptions is { UseSyntheticSnapshot: true }
+                ? PerfScenarioSnapshot.BuildJson()
+                : snapshotEntity.EventConfigJson;
+
+            var dto = EventSnapshotBuilder.Deserialize(snapshotJson);
             if (dto is null)
             {
                 await FailRunAsync(run, "Snapshot JSON invalid", cancellationToken);
@@ -83,6 +91,14 @@ public class SimulationRunExecutor(
             if (_snapshotCache.Count > MaxSnapshotCacheSize)
                 EvictOldestSnapshot();
             snapshot = dto;
+
+            if (perfOptions?.DumpSnapshotPath is { } dumpPath &&
+                _snapshotDumpedForBatch.TryAdd(run.SimulationBatchId, true))
+            {
+                var path = dumpPath.Contains("{0}") ? string.Format(dumpPath, run.SimulationBatchId) : dumpPath;
+                await System.IO.File.WriteAllTextAsync(path, snapshotJson, cancellationToken);
+                logger.LogInformation("Dumped snapshot to {Path}", path);
+            }
         }
 
         logger.LogInformation("Executing run {RunId} for batch {BatchId} (attempt {Attempt})",
@@ -90,9 +106,14 @@ public class SimulationRunExecutor(
 
         try
         {
+            logger.LogWarning("Run {RunId}: about to call SimulationRunner.Execute", run.Id);
             var simSw = System.Diagnostics.Stopwatch.StartNew();
-            var results = runner.Execute(snapshot, run.Seed, cancellationToken);
+            var progressReporter = perfOptions is { Verbose: true }
+                ? new VerboseProgressReporter(VerboseLogEveryNIterations)
+                : null;
+            var results = runner.Execute(snapshot, run.Seed, cancellationToken, progressReporter);
             simSw.Stop();
+            logger.LogWarning("Run {RunId}: SimulationRunner.Execute returned", run.Id);
             perfRecorder?.Record("sim", simSw.ElapsedMilliseconds, 1);
             logger.LogInformation("Run {RunId} simulation completed in {ElapsedMs}ms ({TeamCount} teams)",
                 run.Id, simSw.ElapsedMilliseconds, results.Count);

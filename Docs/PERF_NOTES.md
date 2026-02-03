@@ -53,8 +53,21 @@ dotnet run --project BingoSim.Seed -- --perf-regression --runs 1000
 | `--perf` | `--event` | "Winter Bingo 2025" | Event name |
 | `--perf` | `--seed` | "perf-baseline-2025" | Batch seed |
 | `--perf` | `--max-duration` | 0 (no limit) | Stop after N seconds, report partial results |
+| `--perf` | `--perf-snapshot` | devseed | `devseed` = use event snapshot from DB; `synthetic` = use PerfScenarioSnapshot (unblocks E2E when dev seed hangs) |
+| `--perf` | `--perf-verbose` | off | Log progress every 1000 iterations (simTime, queue count, online players) |
+| `--perf` | `--perf-dump-snapshot` | - | Write loaded snapshot JSON to file. Use `--perf-dump-snapshot` for default `perf-snapshot.json`, or `--perf-dump-snapshot path.json` for custom path. Use `{0}` in path for batchId (e.g. `snapshot-{0}.json`). |
 | `--perf-regression` | `--runs` | 1000 | Number of runs |
 | `--perf-regression` | `--min-runs-per-sec` | 50 | Fail if below this threshold |
+
+### Synthetic Snapshot Mode (Unblocker)
+
+When the dev-seed "Winter Bingo 2025" event causes the simulation to hang or run extremely slowly, use `--perf-snapshot synthetic` to run E2E with the same minimal snapshot as the engine-only regression guard:
+
+```bash
+dotnet run --project BingoSim.Seed -- --perf --runs 10000 --perf-snapshot synthetic --max-duration 120
+```
+
+This still creates a batch and runs through the full persist path; only the snapshot fed into execution is replaced with PerfScenarioSnapshot (always-online players, 1 activity, 4 tiles).
 
 ---
 

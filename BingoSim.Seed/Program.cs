@@ -34,8 +34,24 @@ public static class Program
         var perfEvent = GetArg(args, "--event") ?? "Winter Bingo 2025";
         var perfSeed = GetArg(args, "--seed") ?? "perf-baseline-2025";
         var maxDurationSeconds = GetArgInt(args, "--max-duration", 0);
+        var perfSnapshot = GetArg(args, "--perf-snapshot") ?? "devseed";
+        var perfVerbose = args.Contains("--perf-verbose", StringComparer.OrdinalIgnoreCase);
+        var perfDumpSnapshot = args.Contains("--perf-dump-snapshot", StringComparer.OrdinalIgnoreCase)
+            ? (GetArg(args, "--perf-dump-snapshot") ?? "perf-snapshot.json")
+            : null;
+
+        var useSyntheticSnapshot = string.Equals(perfSnapshot, "synthetic", StringComparison.OrdinalIgnoreCase);
 
         PerfRecorder? perfRecorder = perf ? new PerfRecorder() : null;
+        var perfOptions = perf
+            ? new BingoSim.Infrastructure.Simulation.PerfScenarioOptions
+            {
+                UseSyntheticSnapshot = useSyntheticSnapshot,
+                DumpSnapshotPath = perfDumpSnapshot,
+                Verbose = perfVerbose
+            }
+            : null;
+
         var host = Host.CreateDefaultBuilder(args)
             .UseContentRoot(AppContext.BaseDirectory)
             .ConfigureLogging(logging =>
@@ -48,6 +64,8 @@ public static class Program
                 services.AddInfrastructure(context.Configuration);
                 if (perfRecorder is not null)
                     services.AddSingleton<IPerfRecorder>(perfRecorder);
+                if (perfOptions is not null)
+                    services.AddSingleton<BingoSim.Application.Interfaces.IPerfScenarioOptions>(perfOptions);
             })
             .Build();
 
@@ -140,6 +158,13 @@ public static class Program
         Console.WriteLine($"Perf scenario: {runCount} runs, event '{eventName}', seed '{seed}'");
         if (maxDurationSeconds > 0)
             Console.WriteLine($"Max duration: {maxDurationSeconds}s (will stop and report partial results if exceeded)");
+        var perfOpts = scope.ServiceProvider.GetService<BingoSim.Application.Interfaces.IPerfScenarioOptions>();
+        if (perfOpts is { UseSyntheticSnapshot: true })
+            Console.WriteLine("Snapshot: synthetic (PerfScenarioSnapshot)");
+        if (perfOpts is { Verbose: true })
+            Console.WriteLine("Verbose progress: enabled");
+        if (perfOpts?.DumpSnapshotPath is { } dp)
+            Console.WriteLine($"Dump snapshot: {dp}");
 
         var batch = await batchService.StartBatchAsync(new BingoSim.Application.DTOs.StartSimulationBatchRequest
         {
@@ -180,6 +205,18 @@ public static class Program
             catch (OperationCanceledException)
             {
                 break;
+            }
+            catch (BingoSim.Application.Simulation.SimulationNoProgressException ex)
+            {
+                Console.WriteLine();
+                Console.WriteLine("=== Simulation No-Progress Guard Triggered ===");
+                Console.WriteLine(ex.Message);
+                Console.WriteLine($"  simTime={ex.SimTime}, nextSimTime={ex.NextSimTime}");
+                Console.WriteLine($"  simTimeEt={ex.SimTimeEt}, nextSimTimeEt={ex.NextSimTimeEt}");
+                Console.WriteLine($"  onlinePlayers={ex.OnlinePlayersCount}");
+                if (!string.IsNullOrEmpty(ex.Diagnostics))
+                    Console.WriteLine($"  diagnostics: {ex.Diagnostics}");
+                return 1;
             }
         }
         totalSw.Stop();

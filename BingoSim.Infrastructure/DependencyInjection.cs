@@ -52,6 +52,7 @@ public static class DependencyInjection
         services.AddScoped<EventSnapshotBuilder>();
         services.AddScoped<SimulationRunner>();
         services.AddSingleton<ISimulationMetrics, InMemorySimulationMetrics>();
+        services.AddSingleton<IPerfScenarioOptions>(new PerfScenarioOptions { UseSyntheticSnapshot = false, DumpSnapshotPath = null, Verbose = false });
         services.AddScoped<ISimulationRunExecutor, SimulationRunExecutor>();
         services.AddSingleton<SimulationRunQueue>();
         services.AddSingleton<ISimulationRunQueue>(sp => sp.GetRequiredService<SimulationRunQueue>());

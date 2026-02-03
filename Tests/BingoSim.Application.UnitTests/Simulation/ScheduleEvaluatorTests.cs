@@ -173,6 +173,57 @@ public class ScheduleEvaluatorTests
     }
 
     [Fact]
+    public void GetNextSessionStart_FromExactlyAtSessionStart_ReturnsNextOccurrenceNotSame()
+    {
+        var schedule = new WeeklyScheduleSnapshotDto
+        {
+            Sessions = [new ScheduledSessionSnapshotDto { DayOfWeek = 1, StartLocalTimeMinutes = 9 * 60, DurationMinutes = 60 }]
+        };
+        var fromEt = Et(2025, 2, 3, 9, 0);
+        var next = ScheduleEvaluator.GetNextSessionStart(schedule, fromEt);
+        next.Should().NotBeNull();
+        next!.Value.Should().BeAfter(fromEt);
+        next.Value.Day.Should().Be(10);
+    }
+
+    [Fact]
+    public void GetEarliestNextSessionStart_AllEmptySchedules_ReturnsNull()
+    {
+        var snapshot = new BingoSim.Application.Simulation.Snapshot.EventSnapshotDto
+        {
+            EventName = "Test",
+            DurationSeconds = 3600,
+            UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = Et(2025, 2, 3, 0, 0).ToString("o"),
+            Rows = [],
+            ActivitiesById = new Dictionary<Guid, BingoSim.Application.Simulation.Snapshot.ActivitySnapshotDto>(),
+            Teams =
+            [
+                new BingoSim.Application.Simulation.Snapshot.TeamSnapshotDto
+                {
+                    TeamId = Guid.NewGuid(),
+                    TeamName = "T1",
+                    StrategyKey = "RowRush",
+                    ParamsJson = null,
+                    Players =
+                    [
+                        new BingoSim.Application.Simulation.Snapshot.PlayerSnapshotDto
+                        {
+                            PlayerId = Guid.NewGuid(),
+                            Name = "P1",
+                            SkillTimeMultiplier = 1.0m,
+                            CapabilityKeys = [],
+                            Schedule = new BingoSim.Application.Simulation.Schedule.WeeklyScheduleSnapshotDto { Sessions = [] }
+                        }
+                    ]
+                }
+            ]
+        };
+        var next = ScheduleEvaluator.GetEarliestNextSessionStart(snapshot, Et(2025, 2, 3, 10, 0));
+        next.Should().BeNull();
+    }
+
+    [Fact]
     public void GetCurrentSessionEnd_Offline_ReturnsNull()
     {
         var schedule = new WeeklyScheduleSnapshotDto

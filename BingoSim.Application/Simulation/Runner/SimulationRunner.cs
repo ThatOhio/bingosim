@@ -21,18 +21,26 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
     /// <summary>
     /// Runs simulation and returns per-team results (aggregates + timeline JSON).
     /// </summary>
-    public IReadOnlyList<TeamRunResultDto> Execute(string snapshotJson, string runSeedString, CancellationToken cancellationToken = default)
+    public IReadOnlyList<TeamRunResultDto> Execute(
+        string snapshotJson,
+        string runSeedString,
+        CancellationToken cancellationToken = default,
+        ISimulationProgressReporter? progressReporter = null)
     {
         var snapshot = EventSnapshotBuilder.Deserialize(snapshotJson);
         if (snapshot is null)
             throw new InvalidOperationException("Invalid snapshot JSON.");
-        return Execute(snapshot, runSeedString, cancellationToken);
+        return Execute(snapshot, runSeedString, cancellationToken, progressReporter);
     }
 
     /// <summary>
     /// Runs simulation from a pre-parsed snapshot. Use when snapshot is already deserialized (e.g. cached per batch).
     /// </summary>
-    public IReadOnlyList<TeamRunResultDto> Execute(EventSnapshotDto snapshot, string runSeedString, CancellationToken cancellationToken = default)
+    public IReadOnlyList<TeamRunResultDto> Execute(
+        EventSnapshotDto snapshot,
+        string runSeedString,
+        CancellationToken cancellationToken = default,
+        ISimulationProgressReporter? progressReporter = null)
     {
         SnapshotValidator.Validate(snapshot);
 
@@ -82,14 +90,18 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         var grantsBuffer = new List<ProgressGrantSnapshotDto>();
         var groupCapsBuffer = new HashSet<string>(StringComparer.Ordinal);
         var simTime = 0;
+        var lastFastForwardSimTime = (int?)null;
+        var repeatCount = 0;
+        const int MaxRepeatBeforeNoProgress = 10;
 
         // Initial schedule: form groups from all players per team
         for (var ti = 0; ti < snapshot.Teams.Count; ti++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var team = snapshot.Teams[ti];
             var state = teamStates[ti];
             var allPlayerIndices = Enumerable.Range(0, team.Players.Count).ToList();
-            ScheduleEventsForPlayers(snapshot, team, ti, allPlayerIndices, state, playerCapabilitySets, scheduleWindows, groupCapsBuffer, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
+            ScheduleEventsForPlayers(snapshot, team, ti, allPlayerIndices, state, playerCapabilitySets, scheduleWindows, groupCapsBuffer, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt, cancellationToken);
         }
 
         while (simTime <= durationSeconds)
@@ -98,20 +110,67 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
 
             if (eventQueue.Count == 0)
             {
-                var nextEt = ScheduleEvaluator.GetEarliestNextSessionStart(snapshot, ScheduleEvaluator.SimTimeToEt(eventStartEt, simTime));
+                var simTimeEt = ScheduleEvaluator.SimTimeToEt(eventStartEt, simTime);
+                var nextEt = ScheduleEvaluator.GetEarliestNextSessionStart(snapshot, simTimeEt);
                 if (nextEt is null)
                     break;
                 var prevSimTime = simTime;
-                simTime = ScheduleEvaluator.EtToSimTime(eventStartEt, nextEt.Value);
+                var nextSimTime = ScheduleEvaluator.EtToSimTime(eventStartEt, nextEt.Value);
+
+                // No-progress guard: nextSimTime must advance (catches schedule bugs)
+                if (nextSimTime < prevSimTime)
+                {
+                    var onlineCount = CountOnlinePlayersAt(snapshot, scheduleWindows, simTimeEt);
+                    throw new SimulationNoProgressException(
+                        $"Schedule fast-forward: nextSimTime ({nextSimTime}) < simTime ({prevSimTime}). " +
+                        $"simTimeEt={simTimeEt:o}, nextSimTimeEt={nextEt:o}, onlinePlayers={onlineCount}.",
+                        prevSimTime,
+                        nextSimTime,
+                        simTimeEt.ToString("o"),
+                        nextEt.Value.ToString("o"),
+                        onlineCount);
+                }
+
+                // EtToSimTime truncates; when nextEt is <1s ahead, nextSimTime can equal prevSimTime. Advance by 1 to avoid loop.
+                if (nextSimTime == prevSimTime)
+                    nextSimTime = prevSimTime + 1;
+
+                // No-progress guard: same nextSimTime repeated too many times (catches infinite loops)
+                if (lastFastForwardSimTime == nextSimTime)
+                {
+                    repeatCount++;
+                    if (repeatCount >= MaxRepeatBeforeNoProgress)
+                    {
+                        var onlineCount = CountOnlinePlayersAt(snapshot, scheduleWindows, simTimeEt);
+                        throw new SimulationNoProgressException(
+                            $"Schedule fast-forward: nextSimTime ({nextSimTime}) repeated {repeatCount} times. " +
+                            $"simTimeEt={simTimeEt:o}, nextSimTimeEt={nextEt:o}, onlinePlayers={onlineCount}.",
+                            prevSimTime,
+                            nextSimTime,
+                            simTimeEt.ToString("o"),
+                            nextEt.Value.ToString("o"),
+                            onlineCount);
+                    }
+                }
+                else
+                {
+                    lastFastForwardSimTime = nextSimTime;
+                    repeatCount = 0;
+                }
+
+                simTime = nextSimTime;
                 logger?.LogDebug("Schedule fast-forward: simTime {Prev} -> {Next} (next session start)", prevSimTime, simTime);
+                progressReporter?.Report(simTime, simTime, eventQueue.Count, CountOnlinePlayersAt(snapshot, scheduleWindows, ScheduleEvaluator.SimTimeToEt(eventStartEt, simTime)));
+
                 if (simTime > durationSeconds)
                     break;
                 for (var tIdx = 0; tIdx < snapshot.Teams.Count; tIdx++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var t = snapshot.Teams[tIdx];
                     var st = teamStates[tIdx];
                     var allPlayerIndices = Enumerable.Range(0, t.Players.Count).ToList();
-                    ScheduleEventsForPlayers(snapshot, t, tIdx, allPlayerIndices, st, playerCapabilitySets, scheduleWindows, groupCapsBuffer, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
+                    ScheduleEventsForPlayers(snapshot, t, tIdx, allPlayerIndices, st, playerCapabilitySets, scheduleWindows, groupCapsBuffer, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt, cancellationToken);
                 }
                 continue;
             }
@@ -121,6 +180,8 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
             simTime = evt.SimTime;
             if (simTime > durationSeconds)
                 break;
+
+            progressReporter?.Report(simTime, null, eventQueue.Count, CountOnlinePlayersAt(snapshot, scheduleWindows, ScheduleEvaluator.SimTimeToEt(eventStartEt, simTime)));
 
             var ti = evt.TeamIndex;
             var team = snapshot.Teams[ti];
@@ -134,11 +195,12 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
             var groupSize = playerIndices.Count;
 
             grantsBuffer.Clear();
-            CollectGrantsFromAttempts(activity, rule, playerIndices, groupSize, ti, playerCapabilitySets, grantsBuffer, groupCapsBuffer, rng);
+            CollectGrantsFromAttempts(activity, rule, playerIndices, groupSize, ti, playerCapabilitySets, grantsBuffer, groupCapsBuffer, rng, cancellationToken);
 
             var allocator = allocatorFactory.GetAllocator(team.StrategyKey);
             foreach (var grant in grantsBuffer)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var eligible = GetEligibleTileKeys(snapshot, state, grant.DropKey, tileRowIndex, tilePoints, tileRequiredCount, tileToRules);
                 if (eligible.Count == 0)
                     continue;
@@ -157,7 +219,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
                 state.AddProgress(target, grant.Units, simTime, tileRequiredCount[target], tileRowIndex[target], tilePoints[target]);
             }
 
-            ScheduleEventsForPlayers(snapshot, team, ti, playerIndices, state, playerCapabilitySets, scheduleWindows, groupCapsBuffer, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
+            ScheduleEventsForPlayers(snapshot, team, ti, playerIndices, state, playerCapabilitySets, scheduleWindows, groupCapsBuffer, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt, cancellationToken);
         }
 
         var maxPoints = teamStates.Max(s => s.TotalPoints);
@@ -196,10 +258,12 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         List<List<HashSet<string>>> playerCapabilitySets,
         List<ProgressGrantSnapshotDto> grantsOut,
         HashSet<string> groupCapsBuffer,
-        Random rng)
+        Random rng,
+        CancellationToken cancellationToken = default)
     {
         foreach (var attempt in activity.Attempts)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (attempt.RollScope == PerPlayerRollScope)
             {
                 foreach (var pi in playerIndices)
@@ -254,10 +318,13 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         int simTime,
         int durationSeconds,
         Random rng,
-        DateTimeOffset eventStartEt)
+        DateTimeOffset eventStartEt,
+        CancellationToken cancellationToken = default)
     {
         if (playerIndicesToSchedule.Count == 0)
             return;
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         var simTimeEt = ScheduleEvaluator.SimTimeToEt(eventStartEt, simTime);
         var teamWindows = scheduleWindows[teamIndex];
@@ -285,6 +352,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         var used = new HashSet<int>();
         foreach (var (pi, activityId, rule) in assignments)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (used.Contains(pi))
                 continue;
 
@@ -354,6 +422,24 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
             var priority = (endTime, teamIndex, group[0]);
             eventQueue.Enqueue(new SimEvent(endTime, teamIndex, group, activityId, rule), priority);
         }
+    }
+
+    private static int CountOnlinePlayersAt(
+        EventSnapshotDto snapshot,
+        List<List<ScheduleEvaluator.DailyWindows>> scheduleWindows,
+        DateTimeOffset simTimeEt)
+    {
+        var count = 0;
+        for (var ti = 0; ti < snapshot.Teams.Count; ti++)
+        {
+            var teamWindows = scheduleWindows[ti];
+            for (var pi = 0; pi < teamWindows.Count; pi++)
+            {
+                if (ScheduleEvaluator.IsOnlineAt(teamWindows[pi], simTimeEt))
+                    count++;
+            }
+        }
+        return count;
     }
 
     private static List<List<HashSet<string>>> BuildPlayerCapabilitySets(EventSnapshotDto snapshot)
