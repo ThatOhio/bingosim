@@ -8,7 +8,7 @@ namespace BingoSim.Infrastructure.Persistence.Repositories;
 public class SimulationBatchRepository(AppDbContext context) : ISimulationBatchRepository
 {
     public async Task<SimulationBatch?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
-        await context.SimulationBatches.FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+        await context.SimulationBatches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
 
     public async Task AddAsync(SimulationBatch batch, CancellationToken cancellationToken = default)
     {

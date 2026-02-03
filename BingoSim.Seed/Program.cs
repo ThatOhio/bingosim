@@ -1,5 +1,6 @@
 using BingoSim.Application.Interfaces;
 using BingoSim.Application.Simulation;
+using BingoSim.Application.Simulation.Snapshot;
 using MassTransit;
 using BingoSim.Application.Simulation.Allocation;
 using BingoSim.Application.Simulation.Runner;
@@ -173,9 +174,11 @@ public static class Program
         var eventRepo = scope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.IEventRepository>();
         var batchService = scope.ServiceProvider.GetRequiredService<ISimulationBatchService>();
         var runRepo = scope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.ISimulationRunRepository>();
+        var snapshotRepo = scope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.IEventSnapshotRepository>();
         var executor = scope.ServiceProvider.GetRequiredService<ISimulationRunExecutor>();
         var bufferedPersister = scope.ServiceProvider.GetService<BingoSim.Application.Interfaces.IBufferedRunResultPersister>();
         var perfRecorder = scope.ServiceProvider.GetService<IPerfRecorder>() as PerfRecorder;
+        var perfOpts = scope.ServiceProvider.GetService<BingoSim.Application.Interfaces.IPerfScenarioOptions>();
 
         var evt = await eventRepo.GetByNameAsync(eventName);
         if (evt is null)
@@ -187,7 +190,6 @@ public static class Program
         Console.WriteLine($"Perf scenario: {runCount} runs, event '{eventName}', seed '{seed}'");
         if (maxDurationSeconds > 0)
             Console.WriteLine($"Max duration: {maxDurationSeconds}s (will stop and report partial results if exceeded)");
-        var perfOpts = scope.ServiceProvider.GetService<BingoSim.Application.Interfaces.IPerfScenarioOptions>();
         if (perfOpts is { UseSyntheticSnapshot: true })
             Console.WriteLine("Snapshot: synthetic (PerfScenarioSnapshot)");
         if (perfOpts is { Verbose: true })
@@ -217,6 +219,38 @@ public static class Program
             return 1;
         }
 
+        var useSyntheticSnapshot = perfOpts?.UseSyntheticSnapshot ?? false;
+
+        EventSnapshotDto snapshot;
+        if (useSyntheticSnapshot)
+        {
+            var dto = EventSnapshotBuilder.Deserialize(PerfScenarioSnapshot.BuildJson());
+            if (dto is null)
+            {
+                Console.WriteLine("Synthetic snapshot JSON invalid.");
+                return 1;
+            }
+            SnapshotValidator.Validate(dto);
+            snapshot = dto;
+        }
+        else
+        {
+            var snapshotEntity = await snapshotRepo.GetByBatchIdAsync(batch.Id);
+            if (snapshotEntity is null)
+            {
+                Console.WriteLine("Snapshot not found for batch.");
+                return 1;
+            }
+            var dto = EventSnapshotBuilder.Deserialize(snapshotEntity.EventConfigJson);
+            if (dto is null)
+            {
+                Console.WriteLine("Snapshot JSON invalid.");
+                return 1;
+            }
+            SnapshotValidator.Validate(dto);
+            snapshot = dto;
+        }
+
         using var cts = maxDurationSeconds > 0
             ? new CancellationTokenSource(TimeSpan.FromSeconds(maxDurationSeconds))
             : new CancellationTokenSource();
@@ -228,7 +262,7 @@ public static class Program
         {
             try
             {
-                await executor.ExecuteAsync(runs[i].Id, ct);
+                await executor.ExecuteAsync(runs[i], snapshot, ct);
                 completed++;
             }
             catch (OperationCanceledException)

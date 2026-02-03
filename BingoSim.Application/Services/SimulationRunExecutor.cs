@@ -60,17 +60,6 @@ public class SimulationRunExecutor(
 
         run.MarkRunning(startedAt);
 
-        var snapshotLoadSw = System.Diagnostics.Stopwatch.StartNew();
-        var snapshotEntity = await snapshotRepo.GetByBatchIdAsync(run.SimulationBatchId, cancellationToken);
-        snapshotLoadSw.Stop();
-        perfRecorder?.Record("snapshot_load", snapshotLoadSw.ElapsedMilliseconds, 1);
-
-        if (snapshotEntity is null)
-        {
-            await FailRunAsync(run, "Snapshot not found", cancellationToken);
-            return;
-        }
-
         EventSnapshotDto snapshot;
         if (_snapshotCache.TryGetValue(run.SimulationBatchId, out var cached))
         {
@@ -78,6 +67,17 @@ public class SimulationRunExecutor(
         }
         else
         {
+            var snapshotLoadSw = System.Diagnostics.Stopwatch.StartNew();
+            var snapshotEntity = await snapshotRepo.GetByBatchIdAsync(run.SimulationBatchId, cancellationToken);
+            snapshotLoadSw.Stop();
+            perfRecorder?.Record("snapshot_load", snapshotLoadSw.ElapsedMilliseconds, 1);
+
+            if (snapshotEntity is null)
+            {
+                await FailRunAsync(run, "Snapshot not found", cancellationToken);
+                return;
+            }
+
             var snapshotJson = perfOptions is { UseSyntheticSnapshot: true }
                 ? PerfScenarioSnapshot.BuildJson()
                 : snapshotEntity.EventConfigJson;
@@ -106,16 +106,35 @@ public class SimulationRunExecutor(
         logger.LogInformation("Executing run {RunId} for batch {BatchId} (attempt {Attempt})",
             run.Id, run.SimulationBatchId, run.AttemptCount + 1);
 
+        await ExecuteWithSnapshotAsync(run, snapshot, cancellationToken);
+    }
+
+    public async Task ExecuteAsync(SimulationRun run, EventSnapshotDto snapshot, CancellationToken cancellationToken = default)
+    {
+        if (run.IsTerminal)
+        {
+            logger.LogDebug("Run {RunId} already terminal", run.Id);
+            return;
+        }
+
+        run.MarkRunning(DateTimeOffset.UtcNow);
+
+        logger.LogInformation("Executing run {RunId} for batch {BatchId} (attempt {Attempt})",
+            run.Id, run.SimulationBatchId, run.AttemptCount + 1);
+
+        await ExecuteWithSnapshotAsync(run, snapshot, cancellationToken);
+    }
+
+    private async Task ExecuteWithSnapshotAsync(SimulationRun run, EventSnapshotDto snapshot, CancellationToken cancellationToken)
+    {
         try
         {
-            logger.LogWarning("Run {RunId}: about to call SimulationRunner.Execute", run.Id);
             var simSw = System.Diagnostics.Stopwatch.StartNew();
             var progressReporter = perfOptions is { Verbose: true }
                 ? new VerboseProgressReporter(VerboseLogEveryNIterations)
                 : null;
             var results = runner.Execute(snapshot, run.Seed, cancellationToken, progressReporter);
             simSw.Stop();
-            logger.LogWarning("Run {RunId}: SimulationRunner.Execute returned", run.Id);
             perfRecorder?.Record("sim", simSw.ElapsedMilliseconds, 1);
             logger.LogInformation("Run {RunId} simulation completed in {ElapsedMs}ms ({TeamCount} teams)",
                 run.Id, simSw.ElapsedMilliseconds, results.Count);

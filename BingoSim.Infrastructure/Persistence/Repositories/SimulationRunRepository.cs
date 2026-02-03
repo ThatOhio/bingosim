@@ -8,10 +8,11 @@ namespace BingoSim.Infrastructure.Persistence.Repositories;
 public class SimulationRunRepository(AppDbContext context) : ISimulationRunRepository
 {
     public async Task<SimulationRun?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
-        await context.SimulationRuns.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+        await context.SimulationRuns.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
     public async Task<IReadOnlyList<SimulationRun>> GetByBatchIdAsync(Guid batchId, CancellationToken cancellationToken = default) =>
         await context.SimulationRuns
+            .AsNoTracking()
             .Where(r => r.SimulationBatchId == batchId)
             .OrderBy(r => r.RunIndex)
             .ToListAsync(cancellationToken);
@@ -53,8 +54,9 @@ public class SimulationRunRepository(AppDbContext context) : ISimulationRunRepos
         if (runIds.Count == 0)
             return 0;
 
+        // Update Pending (local perf path) or Running (distributed path) to Completed
         var rowsAffected = await context.SimulationRuns
-            .Where(r => runIds.Contains(r.Id) && r.Status == RunStatus.Running)
+            .Where(r => runIds.Contains(r.Id) && (r.Status == RunStatus.Pending || r.Status == RunStatus.Running))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(r => r.Status, RunStatus.Completed)
                 .SetProperty(r => r.CompletedAt, completedAt),
@@ -80,5 +82,13 @@ public class SimulationRunRepository(AppDbContext context) : ISimulationRunRepos
                 .SetProperty(r => r.LastAttemptAt, (DateTimeOffset?)null),
                 cancellationToken);
         return rowsAffected;
+    }
+
+    public async Task<bool> HasNonTerminalRunsAsync(Guid batchId, CancellationToken cancellationToken = default)
+    {
+        return await context.SimulationRuns
+            .AsNoTracking()
+            .Where(r => r.SimulationBatchId == batchId && (r.Status == RunStatus.Pending || r.Status == RunStatus.Running))
+            .AnyAsync(cancellationToken);
     }
 }

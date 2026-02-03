@@ -14,18 +14,21 @@ public class TeamRunResultRepository(AppDbContext context) : ITeamRunResultRepos
 
     public async Task<IReadOnlyList<TeamRunResult>> GetByRunIdAsync(Guid runId, CancellationToken cancellationToken = default) =>
         await context.TeamRunResults
+            .AsNoTracking()
             .Where(r => r.SimulationRunId == runId)
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<TeamRunResult>> GetByBatchIdAsync(Guid batchId, CancellationToken cancellationToken = default)
     {
         var runIds = await context.SimulationRuns
+            .AsNoTracking()
             .Where(r => r.SimulationBatchId == batchId)
             .Select(r => r.Id)
             .ToListAsync(cancellationToken);
         if (runIds.Count == 0)
             return [];
         return await context.TeamRunResults
+            .AsNoTracking()
             .Where(r => runIds.Contains(r.SimulationRunId))
             .ToListAsync(cancellationToken);
     }

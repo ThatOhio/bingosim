@@ -100,4 +100,34 @@ public class SimulationRunRepositoryTryClaimTests : IAsyncLifetime
 
         claimed.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task HasNonTerminalRunsAsync_WithPendingRun_ReturnsTrue()
+    {
+        var batch = new SimulationBatch(Guid.NewGuid(), 2, "seed", ExecutionMode.Distributed);
+        await _batchRepo.AddAsync(batch);
+        var run0 = new SimulationRun(batch.Id, 0, "seed_0");
+        var run1 = new SimulationRun(batch.Id, 1, "seed_1");
+        await _runRepo.AddRangeAsync([run0, run1]);
+
+        var hasNonTerminal = await _runRepo.HasNonTerminalRunsAsync(batch.Id);
+
+        hasNonTerminal.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task HasNonTerminalRunsAsync_AllCompleted_ReturnsFalse()
+    {
+        var batch = new SimulationBatch(Guid.NewGuid(), 1, "seed", ExecutionMode.Distributed);
+        await _batchRepo.AddAsync(batch);
+        var run = new SimulationRun(batch.Id, 0, "seed_0");
+        await _runRepo.AddRangeAsync([run]);
+        run.MarkRunning(DateTimeOffset.UtcNow);
+        run.MarkCompleted(DateTimeOffset.UtcNow);
+        await _runRepo.UpdateAsync(run);
+
+        var hasNonTerminal = await _runRepo.HasNonTerminalRunsAsync(batch.Id);
+
+        hasNonTerminal.Should().BeFalse();
+    }
 }

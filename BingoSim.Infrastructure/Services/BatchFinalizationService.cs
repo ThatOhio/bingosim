@@ -19,11 +19,11 @@ public class BatchFinalizationService(
 {
     public async Task<bool> TryFinalizeAsync(Guid batchId, CancellationToken cancellationToken = default)
     {
-        var runs = await runRepo.GetByBatchIdAsync(batchId, cancellationToken);
-        if (runs.Count == 0)
+        if (await runRepo.HasNonTerminalRunsAsync(batchId, cancellationToken))
             return false;
 
-        if (runs.Any(r => !r.IsTerminal))
+        var runs = await runRepo.GetByBatchIdAsync(batchId, cancellationToken);
+        if (runs.Count == 0)
             return false;
 
         var failedCount = runs.Count(r => r.Status == RunStatus.Failed);

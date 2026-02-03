@@ -26,4 +26,9 @@ public interface ISimulationRunRepository
     /// Resets runs stuck in Running back to Pending for retry. Used for recovery when buffer flush failed.
     /// </summary>
     Task<int> ResetStuckRunsToPendingAsync(Guid batchId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns true if the batch has any runs with status Pending or Running. Lightweight check for finalization.
+    /// </summary>
+    Task<bool> HasNonTerminalRunsAsync(Guid batchId, CancellationToken cancellationToken = default);
 }
