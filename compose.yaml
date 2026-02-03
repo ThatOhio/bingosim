@@ -43,6 +43,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    ports: 
+      - "8080:8080"
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres
       - RABBITMQ_HOST=rabbitmq
