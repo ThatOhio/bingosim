@@ -47,10 +47,10 @@ services:
       - "8080:8080"
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
-      - RABBITMQ_PASS=${RABBITMQ_PASS:-guest}
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=${RABBITMQ_USER:-guest}
+      - RabbitMQ__Password=${RABBITMQ_PASS:-guest}
 
   bingosim.worker:
     image: bingosim.worker
@@ -64,10 +64,10 @@ services:
         condition: service_healthy
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
-      - RABBITMQ_PASS=${RABBITMQ_PASS:-guest}
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=${RABBITMQ_USER:-guest}
+      - RabbitMQ__Password=${RABBITMQ_PASS:-guest}
       - WorkerSimulation__SimulationDelayMs=${WORKER_SIMULATION_DELAY_MS:-0}
 
 volumes:
