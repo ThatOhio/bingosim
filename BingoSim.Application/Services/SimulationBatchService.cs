@@ -24,7 +24,7 @@ public class SimulationBatchService(
     IBatchTeamAggregateRepository aggregateRepo,
     EventSnapshotBuilder snapshotBuilder,
     ISimulationRunQueue runQueue,
-    [FromKeyedServices("distributed")] ISimulationRunWorkPublisher distributedWorkPublisher,
+    IServiceScopeFactory scopeFactory,
     IListBatchesQuery listBatchesQuery,
     ILogger<SimulationBatchService> logger) : ISimulationBatchService
 {
@@ -101,16 +101,37 @@ public class SimulationBatchService(
         batch.SetStatus(BatchStatus.Running);
         await batchRepo.UpdateAsync(batch, cancellationToken);
 
-        if (request.ExecutionMode == ExecutionMode.Local)
+        // Enqueue/publish in background so the caller can return immediately (e.g. UI navigates to results page).
+        // Without this, 10k+ runs would block the HTTP response for Local (10k channel writes) or
+        // Distributed (10k RabbitMQ publishes).
+        var runIds = runs.Select(r => r.Id).ToList();
+        var mode = request.ExecutionMode;
+        var batchId = batch.Id;
+        var runCount = request.RunCount;
+        _ = Task.Run(async () =>
         {
-            foreach (var run in runs)
-                await runQueue.EnqueueAsync(run.Id, cancellationToken);
-        }
-        else
-        {
-            foreach (var run in runs)
-                await distributedWorkPublisher.PublishRunWorkAsync(run.Id, cancellationToken);
-        }
+            try
+            {
+                if (mode == ExecutionMode.Local)
+                {
+                    foreach (var runId in runIds)
+                        await runQueue.EnqueueAsync(runId);
+                }
+                else
+                {
+                    await using var scope = scopeFactory.CreateAsyncScope();
+                    var publisher = scope.ServiceProvider.GetRequiredKeyedService<ISimulationRunWorkPublisher>("distributed");
+                    foreach (var runId in runIds)
+                        await publisher.PublishRunWorkAsync(runId);
+                }
+                logger.LogInformation("Simulation batch {BatchId} enqueued: {RunCount} runs, seed {Seed}, mode {Mode}",
+                    batchId, runCount, seed, mode);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to enqueue runs for batch {BatchId}", batchId);
+            }
+        });
 
         logger.LogInformation("Simulation batch {BatchId} started: {RunCount} runs, seed {Seed}, mode {Mode}",
             batch.Id, request.RunCount, seed, request.ExecutionMode);

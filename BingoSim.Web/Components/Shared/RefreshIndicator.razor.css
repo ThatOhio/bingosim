@@ -1,0 +1,16 @@
+.refresh-indicator {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+}
+
+.refresh-indicator__last-updated {
+    color: #666;
+}
+
+.refresh-indicator__interval {
+    color: #999;
+}

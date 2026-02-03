@@ -1,9 +1,41 @@
-.batch-summary p {
-    margin-bottom: 0.5rem;
+.batch-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
 }
 
-.progress-section {
-    margin: 1rem 0;
+.batch-meta__grid,
+.progress-counts,
+.progress-metrics {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.25rem 1.5rem;
+    margin: 0;
+}
+
+.batch-meta__grid dt,
+.progress-counts dt,
+.progress-metrics dt {
+    color: #666;
+    font-weight: 500;
+}
+
+.batch-meta__grid dd,
+.progress-counts dd,
+.progress-metrics dd {
+    margin: 0;
+}
+
+.progress-bar-wrapper {
+    margin-top: 1rem;
+}
+
+.progress-bar-label {
+    display: block;
+    font-size: 0.875rem;
+    color: #666;
+    margin-bottom: 0.25rem;
 }
 
 .progress-bar-container {

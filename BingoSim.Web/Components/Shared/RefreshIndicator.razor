@@ -1,0 +1,37 @@
+@* Last-updated timestamp, manual refresh, pause/resume, interval display. *@
+<div class="refresh-indicator">
+    <span class="refresh-indicator__last-updated">
+        Last updated: @(LastUpdated.HasValue ? LastUpdated.Value.ToString("g") : "—")
+    </span>
+    <span class="refresh-indicator__interval">(every @IntervalSeconds s)</span>
+    <button type="button" class="btn btn-outline btn-sm" @onclick="OnRefreshInvoked" disabled="@IsRefreshing" title="Refresh now">
+        @(IsRefreshing ? "Refreshing…" : "Refresh")
+    </button>
+    <button type="button" class="btn btn-outline btn-sm" @onclick="OnPauseToggleInvoked" title="@(IsPaused ? "Resume auto-refresh" : "Pause auto-refresh")">
+        @(IsPaused ? "Resume" : "Pause")
+    </button>
+</div>
+
+@code {
+    [Parameter]
+    public DateTimeOffset? LastUpdated { get; set; }
+
+    [Parameter]
+    public bool IsPaused { get; set; }
+
+    [Parameter]
+    public bool IsRefreshing { get; set; }
+
+    [Parameter]
+    public int IntervalSeconds { get; set; } = 5;
+
+    [Parameter]
+    public EventCallback OnRefresh { get; set; }
+
+    [Parameter]
+    public EventCallback OnPauseToggle { get; set; }
+
+    private async Task OnRefreshInvoked() => await OnRefresh.InvokeAsync();
+
+    private async Task OnPauseToggleInvoked() => await OnPauseToggle.InvokeAsync();
+}

@@ -11,60 +11,78 @@
     <h1>Run Simulations</h1>
 </div>
 
-@if (_events.Count == 0 && !_loadingEvents)
+@if (_loadingEvents)
+{
+    <LoadingSpinner Label="Loading events…" />
+}
+else if (_events.Count == 0)
 {
     <p>No events found. <a href="/events">Create an event</a> first, then draft teams.</p>
 }
 else
 {
     <div class="form-section">
-        <div class="form-group">
-            <label for="event-select">Event</label>
-            <select id="event-select" @bind="_selectedEventId" @bind:after="OnEventSelectedAsync">
-                <option value="@Guid.Empty">-- Select event --</option>
-                @foreach (var evt in _events)
-                {
-                    <option value="@evt.Id">@evt.Name</option>
-                }
-            </select>
+        <div class="form-section-group">
+            <FormField Label="Event" For="event-select">
+                <ChildContent>
+                    <select id="event-select" @bind="_selectedEventId" @bind:after="OnEventSelectedAsync">
+                        <option value="@Guid.Empty">-- Select event --</option>
+                        @foreach (var evt in _events)
+                        {
+                            <option value="@evt.Id">@evt.Name</option>
+                        }
+                    </select>
+                </ChildContent>
+            </FormField>
+
+            @if (_selectedEventId != Guid.Empty)
+            {
+                <FormField Label="Drafted teams">
+                    <ChildContent>
+                        @if (_loadingTeams)
+                        {
+                            <LoadingSpinner Inline="true" Label="Loading teams…" />
+                        }
+                        else if (_teams.Count == 0)
+                        {
+                            <p class="text-muted">No teams for this event. <a href="/events/@_selectedEventId/teams">Draft teams</a> first.</p>
+                        }
+                        else
+                        {
+                            <ul class="team-list">
+                                @foreach (var team in _teams)
+                                {
+                                    <li @key="team.Id">@team.Name — @team.StrategyKey @(string.IsNullOrWhiteSpace(team.ParamsJson) ? "" : $"({(team.ParamsJson.Length > 30 ? team.ParamsJson[..30] + "…" : team.ParamsJson)})")</li>
+                                }
+                            </ul>
+                        }
+                    </ChildContent>
+                </FormField>
+            }
         </div>
 
-        @if (_selectedEventId != Guid.Empty && _teams.Count >= 0)
+        @if (_selectedEventId != Guid.Empty && _teams.Count > 0)
         {
-            <div class="form-group">
-                <label>Drafted teams</label>
-                @if (_teams.Count == 0)
-                {
-                    <p class="text-muted">No teams for this event. <a href="/events/@_selectedEventId/teams">Draft teams</a> first.</p>
-                }
-                else
-                {
-                    <ul class="team-list">
-                        @foreach (var team in _teams)
-                        {
-                            <li @key="team.Id">@team.Name — @team.StrategyKey @(string.IsNullOrWhiteSpace(team.ParamsJson) ? "" : $"({(team.ParamsJson.Length > 30 ? team.ParamsJson[..30] + "…" : team.ParamsJson)})")</li>
-                        }
-                    </ul>
-                }
-            </div>
-
-            @if (_teams.Count > 0)
-            {
-                <div class="form-group">
-                    <label for="run-count">Run count</label>
-                    <input id="run-count" type="number" min="1" max="100000" @bind="_runCount" />
-                </div>
-                <div class="form-group">
-                    <label for="seed">Seed (optional)</label>
-                    <input id="seed" type="text" placeholder="Leave empty for auto-generated" @bind="_seed" />
-                </div>
-                <div class="form-group">
-                    <label>Execution mode</label>
-                    <div>
-                        <label><input type="radio" name="mode" checked="@(_executionMode == "Local")" @onclick="SetModeLocal" /> Local (in-process)</label>
-                        <label><input type="radio" name="mode" checked="@(_executionMode == "Distributed")" @onclick="SetModeDistributed" /> Distributed</label>
-                    </div>
-                </div>
+            <div class="form-section-group form-section-group--bordered">
+                <h3 class="form-section-title">Simulation settings</h3>
+                <FormField Label="Run count" For="run-count" HelperText="Number of simulation runs per team (1–100,000).">
+                    <ChildContent>
+                        <input id="run-count" type="number" min="1" max="100000" @bind="_runCount" />
+                    </ChildContent>
+                </FormField>
+                <FormField Label="Seed (optional)" For="seed" HelperText="Leave empty for random; use a fixed value for reproducible results.">
+                    <ChildContent>
+                        <input id="seed" type="text" placeholder="Leave empty for auto-generated" @bind="_seed" />
+                    </ChildContent>
+                </FormField>
+                <FormField Label="Execution mode" Tooltip="Local: runs in-process on this server, good for quick tests. Distributed: uses worker processes (e.g. via RabbitMQ), good for large batches and horizontal scaling.">
+                    <ChildContent>
+                        <div>
+                            <label><input type="radio" name="mode" checked="@(_executionMode == "Local")" @onclick="SetModeLocal" /> Local (in-process)</label>
+                            <label><input type="radio" name="mode" checked="@(_executionMode == "Distributed")" @onclick="SetModeDistributed" /> Distributed</label>
+                        </div>
+                    </ChildContent>
+                </FormField>
                 <div class="form-actions">
                     <button type="button" class="btn btn-primary" @onclick="StartBatchAsync" disabled="@(_starting || _teams.Count == 0)">
                         @(_starting ? "Starting…" : "Start batch")
@@ -72,22 +90,18 @@ else
                 </div>
                 @if (!string.IsNullOrEmpty(_error))
                 {
-                    <p class="text-danger">@_error</p>
+                    <Alert Message="@_error" Severity="AlertSeverity.Error" />
                 }
-            }
+            </div>
         }
     </div>
-}
-
-@if (_loadingEvents)
-{
-    <p>Loading events…</p>
 }
 
 @code {
     private List<BingoSim.Application.DTOs.EventResponse> _events = [];
     private List<BingoSim.Application.DTOs.TeamResponse> _teams = [];
     private bool _loadingEvents = true;
+    private bool _loadingTeams;
     private Guid _selectedEventId = Guid.Empty;
     private int _runCount = 100;
     private string _seed = string.Empty;
@@ -110,9 +124,18 @@ else
         if (_selectedEventId == Guid.Empty)
         {
             _teams = [];
+            _loadingTeams = false;
             return;
         }
-        _teams = (await TeamService.GetByEventIdAsync(_selectedEventId)).ToList();
+        _loadingTeams = true;
+        try
+        {
+            _teams = (await TeamService.GetByEventIdAsync(_selectedEventId)).ToList();
+        }
+        finally
+        {
+            _loadingTeams = false;
+        }
     }
 
     private async Task StartBatchAsync()

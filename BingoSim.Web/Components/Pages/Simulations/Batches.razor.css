@@ -1,19 +1,39 @@
 .batches-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    align-items: center;
     margin-bottom: 1rem;
 }
 
-.batches-filters .form-select,
-.batches-filters .form-input {
+.batches-filters__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.batches-filters__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.batches-filters__field label {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.batches-filters__field .form-select,
+.batches-filters__field .form-input {
     padding: 0.375rem 0.75rem;
     font-size: 1rem;
     border: 1px solid #ced4da;
     border-radius: 4px;
 }
 
-.batches-filters .form-input {
+.batches-filters__field .form-input {
     min-width: 12rem;
+}
+
+.batches-filters__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }

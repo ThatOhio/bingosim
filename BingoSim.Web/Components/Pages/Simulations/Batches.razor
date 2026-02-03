@@ -10,31 +10,59 @@
     <a href="/simulations/run" class="btn btn-primary">Run new batch</a>
 </div>
 
-@if (_hasActiveBatches)
+@if (_hasActiveBatches && _hasLoadedOnce)
 {
-    <p class="text-muted">Refreshing every 5 seconds while batches are running…</p>
+    <RefreshIndicator
+        LastUpdated="_lastUpdated"
+        IsPaused="_refreshPaused"
+        IsRefreshing="_backgroundRefreshInProgress"
+        IntervalSeconds="5"
+        OnRefresh="ManualRefreshAsync"
+        OnPauseToggle="TogglePauseAsync" />
 }
 
-<div class="batches-filters">
-    <select @bind="_statusFilter" class="form-select">
-        <option value="">All statuses</option>
-        <option value="Pending">Pending</option>
-        <option value="Running">Running</option>
-        <option value="Completed">Completed</option>
-        <option value="Error">Error</option>
-    </select>
-    <input type="text" @bind="_eventNameSearch" placeholder="Search by event name" class="form-input" />
-    <button type="button" class="btn btn-outline" @onclick="LoadBatchesAsync">Apply</button>
+@if (!string.IsNullOrEmpty(_error))
+{
+    <Alert Message="@_error" Severity="AlertSeverity.Error" />
+}
+
+<div class="batches-filters card">
+    <h3 class="card__title">Filters</h3>
+    <div class="card__body batches-filters__row">
+        <div class="batches-filters__field">
+            <label for="status-filter">Status</label>
+            <select id="status-filter" @bind="_statusFilter" class="form-select">
+                <option value="">All statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Running">Running</option>
+                <option value="Completed">Completed</option>
+                <option value="Error">Error</option>
+            </select>
+        </div>
+        <div class="batches-filters__field">
+            <label for="event-search">Event name</label>
+            <input id="event-search" type="text" @bind="_eventNameSearch" placeholder="Search by event name" class="form-input" />
+        </div>
+        <div class="batches-filters__actions">
+            <button type="button" class="btn btn-outline" @onclick="ApplyFiltersAsync" disabled="@_refreshing">Apply</button>
+            @if (_refreshing)
+            {
+                <LoadingSpinner Inline="true" Label="Applying filters…" />
+            }
+        </div>
+    </div>
 </div>
 
-@if (_loading)
+@if (!_hasLoadedOnce)
 {
-    <p>Loading…</p>
+    <LoadingSpinner Label="Loading batches…" />
 }
 else if (_items.Count == 0)
 {
     <div class="empty-state">
-        <p>No batches found. Run a simulation to see results here.</p>
+        <p>No batches found.</p>
+        <p>Run a simulation to see results here.</p>
+        <a href="/simulations/run" class="btn btn-primary" style="margin-top: 1rem;">Run Simulations</a>
     </div>
 }
 else
@@ -76,8 +104,15 @@ else
 }
 
 @code {
+    private const int RefreshIntervalSeconds = 5;
+
     private List<BatchListRowDto> _items = [];
-    private bool _loading = true;
+    private bool _hasLoadedOnce;
+    private bool _refreshing;
+    private bool _backgroundRefreshInProgress;
+    private bool _refreshPaused;
+    private DateTimeOffset? _lastUpdated;
+    private string? _error;
     private string _statusFilter = "";
     private string _eventNameSearch = "";
     private bool _hasActiveBatches;
@@ -85,7 +120,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadBatchesAsync();
+        await LoadBatchesAsync(isBackgroundRefresh: false);
     }
 
     public void Dispose()
@@ -93,9 +128,56 @@ else
         _refreshTimer?.Dispose();
     }
 
-    private async Task LoadBatchesAsync()
+    private Task ApplyFiltersAsync() => LoadBatchesAsync(isBackgroundRefresh: false);
+
+    private async Task ManualRefreshAsync()
     {
-        _loading = true;
+        if (_backgroundRefreshInProgress) return;
+        await LoadBatchesAsync(isBackgroundRefresh: true);
+    }
+
+    private async Task TogglePauseAsync()
+    {
+        _refreshPaused = !_refreshPaused;
+        if (_refreshPaused)
+        {
+            _refreshTimer?.Dispose();
+            _refreshTimer = null;
+        }
+        else if (_hasActiveBatches)
+        {
+            StartTimer();
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void StartTimer()
+    {
+        _refreshTimer?.Dispose();
+        _refreshTimer = new System.Threading.Timer(_ => InvokeAsync(TimerTickAsync).GetAwaiter().GetResult(), null, RefreshIntervalSeconds * 1000, RefreshIntervalSeconds * 1000);
+    }
+
+    private async Task TimerTickAsync()
+    {
+        if (_refreshPaused || _backgroundRefreshInProgress) return;
+        await LoadBatchesAsync(isBackgroundRefresh: true);
+    }
+
+    private async Task LoadBatchesAsync(bool isBackgroundRefresh)
+    {
+        if (isBackgroundRefresh)
+        {
+            if (_backgroundRefreshInProgress) return;
+            _backgroundRefreshInProgress = true;
+        }
+        else
+        {
+            if (_hasLoadedOnce)
+            {
+                _refreshing = true;
+            }
+            _error = null;
+        }
         try
         {
             var request = new ListBatchesRequest
@@ -106,20 +188,32 @@ else
             };
             var result = await SimulationBatchService.GetBatchesAsync(request);
             _items = result.Items.ToList();
+            _hasLoadedOnce = true;
+            _lastUpdated = DateTimeOffset.UtcNow;
             _hasActiveBatches = _items.Any(r => r.Status == BingoSim.Core.Enums.BatchStatus.Running || r.Status == BingoSim.Core.Enums.BatchStatus.Pending);
-            if (_hasActiveBatches && _refreshTimer is null)
+
+            if (_hasActiveBatches && !_refreshPaused)
             {
-                _refreshTimer = new System.Threading.Timer(_ => InvokeAsync(LoadBatchesAsync).GetAwaiter().GetResult(), null, 5000, 5000);
+                if (_refreshTimer is null)
+                    StartTimer();
             }
-            else if (!_hasActiveBatches)
+            else
             {
                 _refreshTimer?.Dispose();
                 _refreshTimer = null;
             }
         }
+        catch (Exception ex)
+        {
+            if (!isBackgroundRefresh)
+            {
+                _error = ex.Message;
+            }
+        }
         finally
         {
-            _loading = false;
+            _refreshing = false;
+            _backgroundRefreshInProgress = false;
         }
     }
 

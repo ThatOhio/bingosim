@@ -1,0 +1,16 @@
+@* Supports inline and block usage; optional label. *@
+<span class="loading-spinner loading-spinner--@(Inline ? "inline" : "block")" aria-busy="true" aria-label="@(Label ?? "Loading")">
+    <span class="loading-spinner__dot"></span>
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <span class="loading-spinner__label">@Label</span>
+    }
+</span>
+
+@code {
+    [Parameter]
+    public bool Inline { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+}

@@ -7,6 +7,7 @@ using BingoSim.Core.Entities;
 using BingoSim.Core.Enums;
 using BingoSim.Core.Interfaces;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
@@ -45,13 +46,13 @@ public class SimulationBatchServiceTests
         var aggregateRepo = Substitute.For<IBatchTeamAggregateRepository>();
         var snapshotBuilder = new EventSnapshotBuilder(eventRepo, teamRepo, activityRepo, playerRepo);
         var runQueue = Substitute.For<ISimulationRunQueue>();
-        var distributedWorkPublisher = Substitute.For<ISimulationRunWorkPublisher>();
+        var scopeFactory = Substitute.For<IServiceScopeFactory>();
         var listBatchesQuery = Substitute.For<IListBatchesQuery>();
         var logger = Substitute.For<ILogger<SimulationBatchService>>();
 
         var service = new SimulationBatchService(
             eventRepo, teamRepo, batchRepo, snapshotRepo, runRepo, resultRepo, aggregateRepo,
-            snapshotBuilder, runQueue, distributedWorkPublisher, listBatchesQuery, logger);
+            snapshotBuilder, runQueue, scopeFactory, listBatchesQuery, logger);
 
         var progress = await service.GetProgressAsync(batchId);
 
@@ -98,12 +99,12 @@ public class SimulationBatchServiceTests
         var aggregateRepo = Substitute.For<IBatchTeamAggregateRepository>();
         var snapshotBuilder = new EventSnapshotBuilder(eventRepo, teamRepo, activityRepo, playerRepo);
         var runQueue = Substitute.For<ISimulationRunQueue>();
-        var distributedWorkPublisher = Substitute.For<ISimulationRunWorkPublisher>();
+        var scopeFactory = Substitute.For<IServiceScopeFactory>();
         var logger = Substitute.For<ILogger<SimulationBatchService>>();
 
         var service = new SimulationBatchService(
             eventRepo, teamRepo, batchRepo, snapshotRepo, runRepo, resultRepo, aggregateRepo,
-            snapshotBuilder, runQueue, distributedWorkPublisher, listBatchesQuery, logger);
+            snapshotBuilder, runQueue, scopeFactory, listBatchesQuery, logger);
 
         var result = await service.GetBatchesAsync(request);
 

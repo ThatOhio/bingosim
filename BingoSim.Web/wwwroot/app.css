@@ -31,6 +31,90 @@ h1:focus {
     outline: none;
 }
 
+/* Page header - shared across pages */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    margin: 0;
+}
+
+/* Shared list/table styles */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    background: white;
+    border-radius: 8px;
+    color: #666;
+}
+
+/* Card - grouped content blocks */
+.card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.card__title {
+    margin: 0 0 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.card__body {
+    margin: 0;
+}
+
+.table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.data-table th {
+    background: #f9f9f9;
+    font-weight: 600;
+    color: #333;
+}
+
+.data-table tbody tr:hover {
+    background: #f5f5f5;
+}
+
+.data-table .actions {
+    white-space: nowrap;
+}
+
+.data-table .actions .btn {
+    margin-right: 0.5rem;
+}
+
+.data-table .actions .btn:last-child {
+    margin-right: 0;
+}
+
 /* Button styles */
 .btn {
     display: inline-block;
@@ -92,6 +176,17 @@ h1:focus {
 .btn-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.875rem;
+}
+
+.btn-outline {
+    color: #4a9eff;
+    background-color: transparent;
+    border-color: #4a9eff;
+}
+
+.btn-outline:hover {
+    background-color: rgba(74, 158, 255, 0.1);
+    border-color: #3a8eef;
 }
 
 /* Form validation styles */
