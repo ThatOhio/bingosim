@@ -18,8 +18,13 @@ public class ScheduleEvaluatorTests
     {
         var schedule = new WeeklyScheduleSnapshotDto { Sessions = [] };
         ScheduleEvaluator.IsOnlineAt(schedule, Et(2025, 2, 3, 10, 0)).Should().BeTrue();
+    }
 
-        ScheduleEvaluator.IsOnlineAt(null, Et(2025, 2, 3, 10, 0)).Should().BeTrue();
+    [Fact]
+    public void IsOnlineAt_NullSessions_ReturnsTrue()
+    {
+        var schedule = new WeeklyScheduleSnapshotDto { Sessions = null };
+        ScheduleEvaluator.IsOnlineAt(schedule, Et(2025, 2, 3, 10, 0)).Should().BeTrue();
     }
 
     [Fact]

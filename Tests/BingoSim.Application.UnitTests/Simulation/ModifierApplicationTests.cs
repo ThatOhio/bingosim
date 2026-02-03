@@ -66,16 +66,6 @@ public class ModifierApplicationTests
     }
 
     [Fact]
-    public void ComputeCombinedTimeMultiplier_NullRule_ReturnsOne()
-    {
-        var caps = new HashSet<string>(StringComparer.Ordinal) { "quest.ds2" };
-
-        var result = ModifierApplicator.ComputeCombinedTimeMultiplier(null, caps);
-
-        result.Should().Be(1.0m);
-    }
-
-    [Fact]
     public void ApplicableModifiers_PlayerHasCapability_ModifierApplies()
     {
         var rule = CreateRule([("quest.ds2", 0.9m, 1.1m)]);

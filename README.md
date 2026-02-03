@@ -84,6 +84,13 @@ docker compose up -d
 
 The Web and Worker services run in the same network as Postgres and RabbitMQ. To access the Web UI from your host, add `ports: - "8080:8080"` under `bingosim.web` in `compose.yaml`.
 
+## Upgrading / Database Wipe
+
+When upgrading BingoSim, **a full database reset is expected** if snapshot schema or validation rules have changed. Snapshot fields are required; there is no backward compatibility with older snapshots.
+
+- Run `dotnet run --project BingoSim.Seed -- --full-reset --confirm` to wipe and re-seed.
+- Ensure all drafted teams have **StrategyConfig** configured before running simulations.
+
 ## Project Structure
 
 - **BingoSim.Core**: Domain models and core logic.

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using BingoSim.Application.Simulation.Allocation;
 using BingoSim.Application.Simulation.Runner;
+using BingoSim.Application.Simulation.Schedule;
 using BingoSim.Application.Simulation.Snapshot;
 using FluentAssertions;
 using Xunit;
@@ -73,11 +74,15 @@ public class GroupPlaySimulationTests
             Modifiers = []
         };
 
+        var eventStart = new DateTimeOffset(2025, 2, 3, 9, 0, 0, TimeSpan.FromHours(-5));
+        var alwaysOnline = new WeeklyScheduleSnapshotDto { Sessions = [] };
+
         var dto = new EventSnapshotDto
         {
             EventName = "Skill Test",
             DurationSeconds = 3600,
             UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = eventStart.ToString("o"),
             Rows =
             [
                 new RowSnapshotDto
@@ -125,7 +130,7 @@ public class GroupPlaySimulationTests
                     TeamName = "Solo Fast",
                     StrategyKey = "RowRush",
                     ParamsJson = null,
-                    Players = [new PlayerSnapshotDto { PlayerId = fastPlayerId, Name = "Fast", SkillTimeMultiplier = 0.8m, CapabilityKeys = [] }]
+                    Players = [new PlayerSnapshotDto { PlayerId = fastPlayerId, Name = "Fast", SkillTimeMultiplier = 0.8m, CapabilityKeys = [], Schedule = alwaysOnline }]
                 },
                 new TeamSnapshotDto
                 {
@@ -135,8 +140,8 @@ public class GroupPlaySimulationTests
                     ParamsJson = null,
                     Players =
                     [
-                        new PlayerSnapshotDto { PlayerId = fastPlayerId, Name = "Fast", SkillTimeMultiplier = 0.8m, CapabilityKeys = [] },
-                        new PlayerSnapshotDto { PlayerId = slowPlayerId, Name = "Slow", SkillTimeMultiplier = 1.4m, CapabilityKeys = [] }
+                        new PlayerSnapshotDto { PlayerId = fastPlayerId, Name = "Fast", SkillTimeMultiplier = 0.8m, CapabilityKeys = [], Schedule = alwaysOnline },
+                        new PlayerSnapshotDto { PlayerId = slowPlayerId, Name = "Slow", SkillTimeMultiplier = 1.4m, CapabilityKeys = [], Schedule = alwaysOnline }
                     ]
                 }
             ]
@@ -161,11 +166,15 @@ public class GroupPlaySimulationTests
             Modifiers = []
         };
 
+        var eventStart = new DateTimeOffset(2025, 2, 3, 9, 0, 0, TimeSpan.FromHours(-5));
+        var alwaysOnline = new WeeklyScheduleSnapshotDto { Sessions = [] };
+
         var dto = new EventSnapshotDto
         {
             EventName = "Group Test",
             DurationSeconds = 3600,
             UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = eventStart.ToString("o"),
             Rows =
             [
                 new RowSnapshotDto
@@ -215,8 +224,8 @@ public class GroupPlaySimulationTests
                     ParamsJson = null,
                     Players =
                     [
-                        new PlayerSnapshotDto { PlayerId = p1, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] },
-                        new PlayerSnapshotDto { PlayerId = p2, Name = "P2", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] }
+                        new PlayerSnapshotDto { PlayerId = p1, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline },
+                        new PlayerSnapshotDto { PlayerId = p2, Name = "P2", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }
                     ]
                 }
             ]

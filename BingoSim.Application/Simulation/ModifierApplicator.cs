@@ -12,19 +12,18 @@ public static class ModifierApplicator
 
     /// <summary>
     /// Computes combined time and probability multipliers in a single pass.
-    /// Returns (1.0, 1.0) if rule is null, Modifiers is null/empty, or no applicable modifiers.
+    /// Returns (1.0, 1.0) if Modifiers is empty or no applicable modifiers.
     /// </summary>
     public static (decimal Time, decimal Probability) ComputeCombinedMultipliers(
-        TileActivityRuleSnapshotDto? rule,
+        TileActivityRuleSnapshotDto rule,
         IReadOnlySet<string> playerCapabilityKeys)
     {
-        var modifiers = rule?.Modifiers ?? [];
-        if (modifiers.Count == 0)
+        if (rule.Modifiers.Count == 0)
             return (1.0m, 1.0m);
 
         decimal timeProduct = 1.0m;
         decimal probProduct = 1.0m;
-        foreach (var mod in modifiers)
+        foreach (var mod in rule.Modifiers)
         {
             if (!playerCapabilityKeys.Contains(mod.CapabilityKey))
                 continue;
@@ -40,7 +39,7 @@ public static class ModifierApplicator
     /// Computes combined time multiplier. Delegates to ComputeCombinedMultipliers.
     /// </summary>
     public static decimal ComputeCombinedTimeMultiplier(
-        TileActivityRuleSnapshotDto? rule,
+        TileActivityRuleSnapshotDto rule,
         IReadOnlySet<string> playerCapabilityKeys) =>
         ComputeCombinedMultipliers(rule, playerCapabilityKeys).Time;
 
@@ -48,7 +47,7 @@ public static class ModifierApplicator
     /// Computes combined probability multiplier. Delegates to ComputeCombinedMultipliers.
     /// </summary>
     public static decimal ComputeCombinedProbabilityMultiplier(
-        TileActivityRuleSnapshotDto? rule,
+        TileActivityRuleSnapshotDto rule,
         IReadOnlySet<string> playerCapabilityKeys) =>
         ComputeCombinedMultipliers(rule, playerCapabilityKeys).Probability;
 
@@ -57,13 +56,13 @@ public static class ModifierApplicator
     /// get their weight multiplied by probabilityMultiplier. Clamps to [0, MaxAdjustedWeight].
     /// If total weight would be 0, returns original weights.
     /// </summary>
-    /// <param name="acceptedDropKeys">Drop keys relevant to the tile (null/empty => no scaling).</param>
+    /// <param name="acceptedDropKeys">Drop keys relevant to the tile. Empty => no scaling.</param>
     public static IReadOnlyList<int> ApplyProbabilityMultiplier(
         IReadOnlyList<OutcomeSnapshotDto> outcomes,
-        IReadOnlyCollection<string>? acceptedDropKeys,
+        IReadOnlyCollection<string> acceptedDropKeys,
         decimal probabilityMultiplier)
     {
-        if (probabilityMultiplier == 1.0m || acceptedDropKeys is not { Count: > 0 })
+        if (probabilityMultiplier == 1.0m || acceptedDropKeys.Count == 0)
             return outcomes.Select(o => o.WeightNumerator).ToList();
 
         var adjusted = new int[outcomes.Count];
@@ -71,7 +70,7 @@ public static class ModifierApplicator
         for (var i = 0; i < outcomes.Count; i++)
         {
             var o = outcomes[i];
-            var isRelevant = o.Grants?.Any(g => acceptedDropKeys.Contains(g.DropKey)) ?? false;
+            var isRelevant = o.Grants.Any(g => acceptedDropKeys.Contains(g.DropKey));
             var raw = isRelevant
                 ? (long)Math.Round(o.WeightNumerator * probabilityMultiplier)
                 : o.WeightNumerator;

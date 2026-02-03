@@ -1,5 +1,6 @@
 using BingoSim.Application.Simulation.Allocation;
 using BingoSim.Application.Simulation.Runner;
+using BingoSim.Application.Simulation.Schedule;
 using BingoSim.Application.Simulation.Snapshot;
 using FluentAssertions;
 using Xunit;
@@ -49,11 +50,15 @@ public class SimulationRunnerReproducibilityTests
         var actId = Guid.NewGuid();
         var teamId = Guid.NewGuid();
         var playerId = Guid.NewGuid();
+        var eventStart = new DateTimeOffset(2025, 2, 3, 9, 0, 0, TimeSpan.FromHours(-5));
+        var alwaysOnline = new WeeklyScheduleSnapshotDto { Sessions = [] };
+
         var dto = new EventSnapshotDto
         {
             EventName = "Minimal",
             DurationSeconds = 3600,
             UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = eventStart.ToString("o"),
             Rows =
             [
                 new RowSnapshotDto
@@ -61,10 +66,10 @@ public class SimulationRunnerReproducibilityTests
                     Index = 0,
                     Tiles =
                     [
-                        new TileSnapshotDto { Key = "t1", Name = "T1", Points = 1, RequiredCount = 1, AllowedActivities = [new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = [] }] },
-                        new TileSnapshotDto { Key = "t2", Name = "T2", Points = 2, RequiredCount = 1, AllowedActivities = [new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = [] }] },
-                        new TileSnapshotDto { Key = "t3", Name = "T3", Points = 3, RequiredCount = 1, AllowedActivities = [new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = [] }] },
-                        new TileSnapshotDto { Key = "t4", Name = "T4", Points = 4, RequiredCount = 1, AllowedActivities = [new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = [] }] }
+                        new TileSnapshotDto { Key = "t1", Name = "T1", Points = 1, RequiredCount = 1, AllowedActivities = [new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] }] },
+                        new TileSnapshotDto { Key = "t2", Name = "T2", Points = 2, RequiredCount = 1, AllowedActivities = [new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] }] },
+                        new TileSnapshotDto { Key = "t3", Name = "T3", Points = 3, RequiredCount = 1, AllowedActivities = [new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] }] },
+                        new TileSnapshotDto { Key = "t4", Name = "T4", Points = 4, RequiredCount = 1, AllowedActivities = [new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] }] }
                     ]
                 }
             ],
@@ -85,7 +90,8 @@ public class SimulationRunnerReproducibilityTests
                             Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }]
                         }
                     ],
-                    GroupScalingBands = []
+                    GroupScalingBands = [],
+                    ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false }
                 }
             },
             Teams =
@@ -96,7 +102,7 @@ public class SimulationRunnerReproducibilityTests
                     TeamName = "Team A",
                     StrategyKey = "RowRush",
                     ParamsJson = null,
-                    Players = [new PlayerSnapshotDto { PlayerId = playerId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] }]
+                    Players = [new PlayerSnapshotDto { PlayerId = playerId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }]
                 }
             ]
         };

@@ -134,6 +134,11 @@ else
                 ExecutionMode = mode
             };
             var batch = await SimulationBatchService.StartBatchAsync(request);
+            if (batch.Status == BingoSim.Core.Enums.BatchStatus.Error && !string.IsNullOrEmpty(batch.ErrorMessage))
+            {
+                _error = batch.ErrorMessage;
+                return;
+            }
             NavigationManager.NavigateTo($"/simulations/results/{batch.Id}");
         }
         catch (Exception ex)

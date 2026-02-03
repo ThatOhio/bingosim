@@ -54,7 +54,39 @@ public class SimulationBatchService(
             batchName);
         await batchRepo.AddAsync(batch, cancellationToken);
 
-        var snapshotJson = await snapshotBuilder.BuildSnapshotJsonAsync(request.EventId, batch.CreatedAt, cancellationToken);
+        string snapshotJson;
+        try
+        {
+            snapshotJson = await snapshotBuilder.BuildSnapshotJsonAsync(request.EventId, batch.CreatedAt, cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            batch.SetError(ex.Message, DateTimeOffset.UtcNow);
+            await batchRepo.UpdateAsync(batch, cancellationToken);
+            logger.LogWarning("Snapshot build failed for batch {BatchId}: {Message}", batch.Id, ex.Message);
+            return ToBatchResponse(batch);
+        }
+
+        var snapshotDto = EventSnapshotBuilder.Deserialize(snapshotJson);
+        if (snapshotDto is null)
+        {
+            batch.SetError("Snapshot JSON is invalid or empty.", DateTimeOffset.UtcNow);
+            await batchRepo.UpdateAsync(batch, cancellationToken);
+            return ToBatchResponse(batch);
+        }
+
+        try
+        {
+            SnapshotValidator.Validate(snapshotDto);
+        }
+        catch (SnapshotValidationException ex)
+        {
+            batch.SetError(ex.Message, DateTimeOffset.UtcNow);
+            await batchRepo.UpdateAsync(batch, cancellationToken);
+            logger.LogWarning("Snapshot validation failed for batch {BatchId}: {Message}", batch.Id, ex.Message);
+            return ToBatchResponse(batch);
+        }
+
         var snapshot = new EventSnapshot(batch.Id, snapshotJson);
         await snapshotRepo.AddAsync(snapshot, cancellationToken);
 

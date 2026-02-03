@@ -37,7 +37,7 @@ public static class GroupScalingBandSelector
     public static (decimal EffectiveTime, decimal EffectiveProb) ComputeEffectiveMultipliers(
         IReadOnlyList<GroupSizeBandSnapshotDto>? bands,
         int groupSize,
-        TileActivityRuleSnapshotDto? rule,
+        TileActivityRuleSnapshotDto rule,
         IReadOnlySet<string> capabilityKeys)
     {
         var (groupTime, groupProb) = Select(bands, groupSize);

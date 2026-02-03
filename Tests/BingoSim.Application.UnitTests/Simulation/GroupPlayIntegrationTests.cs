@@ -1,6 +1,7 @@
 using System.Text.Json;
 using BingoSim.Application.Simulation.Allocation;
 using BingoSim.Application.Simulation.Runner;
+using BingoSim.Application.Simulation.Schedule;
 using BingoSim.Application.Simulation.Snapshot;
 using FluentAssertions;
 using Xunit;
@@ -70,19 +71,6 @@ public class GroupPlayIntegrationTests
     }
 
     [Fact]
-    public void GroupPlay_SnapshotWithoutModeSupport_RunsAsSolo()
-    {
-        var snapshotJson = BuildMinimalSnapshotWithoutModeSupport();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
-
-        var results = runner.Execute(snapshotJson, "backward-compat-group", CancellationToken.None);
-
-        results.Should().NotBeEmpty();
-        results.Sum(r => r.TotalPoints).Should().BeGreaterThan(0);
-    }
-
-    [Fact]
     public void GroupPlay_EightPlayersMaxFourPerGroup_FormsMultipleConcurrentGroups()
     {
         var snapshotJson = BuildSnapshotEightPlayersMaxFour();
@@ -111,11 +99,15 @@ public class GroupPlayIntegrationTests
             Modifiers = []
         };
 
+        var eventStart = new DateTimeOffset(2025, 2, 3, 9, 0, 0, TimeSpan.FromHours(-5));
+        var alwaysOnlineSchedule = new WeeklyScheduleSnapshotDto { Sessions = [] };
+
         var dto = new EventSnapshotDto
         {
             EventName = "8 Players Max 4",
             DurationSeconds = 3600,
             UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = eventStart.ToString("o"),
             Rows =
             [
                 new RowSnapshotDto
@@ -163,7 +155,7 @@ public class GroupPlayIntegrationTests
                     TeamName = "Team 8 Players",
                     StrategyKey = "RowRush",
                     ParamsJson = null,
-                    Players = players.Select((id, i) => new PlayerSnapshotDto { PlayerId = id, Name = $"P{i + 1}", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] }).ToList()
+                    Players = players.Select((id, i) => new PlayerSnapshotDto { PlayerId = id, Name = $"P{i + 1}", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnlineSchedule }).ToList()
                 }
             ]
         };
@@ -187,11 +179,15 @@ public class GroupPlayIntegrationTests
             Modifiers = []
         };
 
+        var eventStart = new DateTimeOffset(2025, 2, 3, 9, 0, 0, TimeSpan.FromHours(-5));
+        var alwaysOnline = new WeeklyScheduleSnapshotDto { Sessions = [] };
+
         var dto = new EventSnapshotDto
         {
             EventName = "PerPlayer+PerGroup",
             DurationSeconds = 7200,
             UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = eventStart.ToString("o"),
             Rows =
             [
                 new RowSnapshotDto
@@ -257,8 +253,8 @@ public class GroupPlayIntegrationTests
                     ParamsJson = null,
                     Players =
                     [
-                        new PlayerSnapshotDto { PlayerId = p1, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] },
-                        new PlayerSnapshotDto { PlayerId = p2, Name = "P2", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] }
+                        new PlayerSnapshotDto { PlayerId = p1, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline },
+                        new PlayerSnapshotDto { PlayerId = p2, Name = "P2", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }
                     ]
                 }
             ]
@@ -283,11 +279,15 @@ public class GroupPlayIntegrationTests
             Modifiers = []
         };
 
+        var eventStart = new DateTimeOffset(2025, 2, 3, 9, 0, 0, TimeSpan.FromHours(-5));
+        var alwaysOnline = new WeeklyScheduleSnapshotDto { Sessions = [] };
+
         var dto = new EventSnapshotDto
         {
             EventName = "1 vs 4",
             DurationSeconds = 3600,
             UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = eventStart.ToString("o"),
             Rows =
             [
                 new RowSnapshotDto
@@ -335,7 +335,7 @@ public class GroupPlayIntegrationTests
                     TeamName = "Team 1 Player",
                     StrategyKey = "RowRush",
                     ParamsJson = null,
-                    Players = [new PlayerSnapshotDto { PlayerId = players[0], Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] }]
+                    Players = [new PlayerSnapshotDto { PlayerId = players[0], Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }]
                 },
                 new TeamSnapshotDto
                 {
@@ -343,7 +343,7 @@ public class GroupPlayIntegrationTests
                     TeamName = "Team 4 Players",
                     StrategyKey = "RowRush",
                     ParamsJson = null,
-                    Players = players.Select((id, i) => new PlayerSnapshotDto { PlayerId = id, Name = $"P{i + 1}", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] }).ToList()
+                    Players = players.Select((id, i) => new PlayerSnapshotDto { PlayerId = id, Name = $"P{i + 1}", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }).ToList()
                 }
             ]
         };
@@ -367,11 +367,15 @@ public class GroupPlayIntegrationTests
             Modifiers = []
         };
 
+        var eventStart = new DateTimeOffset(2025, 2, 3, 9, 0, 0, TimeSpan.FromHours(-5));
+        var alwaysOnline = new WeeklyScheduleSnapshotDto { Sessions = [] };
+
         var dto = new EventSnapshotDto
         {
             EventName = "Scaling Bands",
             DurationSeconds = 3600,
             UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = eventStart.ToString("o"),
             Rows =
             [
                 new RowSnapshotDto
@@ -421,8 +425,8 @@ public class GroupPlayIntegrationTests
                     ParamsJson = null,
                     Players =
                     [
-                        new PlayerSnapshotDto { PlayerId = p1, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] },
-                        new PlayerSnapshotDto { PlayerId = p2, Name = "P2", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] }
+                        new PlayerSnapshotDto { PlayerId = p1, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline },
+                        new PlayerSnapshotDto { PlayerId = p2, Name = "P2", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }
                     ]
                 }
             ]
@@ -431,73 +435,4 @@ public class GroupPlayIntegrationTests
         return JsonSerializer.Serialize(dto);
     }
 
-    private static string BuildMinimalSnapshotWithoutModeSupport()
-    {
-        var actId = Guid.NewGuid();
-        var teamId = Guid.NewGuid();
-        var playerId = Guid.NewGuid();
-
-        var rule = new TileActivityRuleSnapshotDto
-        {
-            ActivityDefinitionId = actId,
-            ActivityKey = "act",
-            AcceptedDropKeys = ["drop"],
-            RequirementKeys = [],
-            Modifiers = []
-        };
-
-        var dto = new EventSnapshotDto
-        {
-            EventName = "Backward Compat",
-            DurationSeconds = 3600,
-            UnlockPointsRequiredPerRow = 5,
-            Rows =
-            [
-                new RowSnapshotDto
-                {
-                    Index = 0,
-                    Tiles =
-                    [
-                        new TileSnapshotDto { Key = "t1", Name = "T1", Points = 1, RequiredCount = 1, AllowedActivities = [rule] },
-                        new TileSnapshotDto { Key = "t2", Name = "T2", Points = 2, RequiredCount = 1, AllowedActivities = [rule] },
-                        new TileSnapshotDto { Key = "t3", Name = "T3", Points = 3, RequiredCount = 1, AllowedActivities = [rule] },
-                        new TileSnapshotDto { Key = "t4", Name = "T4", Points = 4, RequiredCount = 1, AllowedActivities = [rule] }
-                    ]
-                }
-            ],
-            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>
-            {
-                [actId] = new ActivitySnapshotDto
-                {
-                    Id = actId,
-                    Key = "act",
-                    Attempts =
-                    [
-                        new AttemptSnapshotDto
-                        {
-                            Key = "main",
-                            RollScope = 0,
-                            BaselineTimeSeconds = 60,
-                            VarianceSeconds = 10,
-                            Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }]
-                        }
-                    ],
-                    GroupScalingBands = []
-                }
-            },
-            Teams =
-            [
-                new TeamSnapshotDto
-                {
-                    TeamId = teamId,
-                    TeamName = "Solo",
-                    StrategyKey = "RowRush",
-                    ParamsJson = null,
-                    Players = [new PlayerSnapshotDto { PlayerId = playerId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] }]
-                }
-            ]
-        };
-
-        return JsonSerializer.Serialize(dto);
-    }
 }

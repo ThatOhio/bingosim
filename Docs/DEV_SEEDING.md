@@ -92,6 +92,14 @@ Seeding uses stable keys (names/keys) for find-or-create. No duplicates are crea
 
 The database is **not** dropped; only these seed-tagged records are removed before re-seeding.
 
+## Snapshot Requirements (No Backward Compatibility)
+
+Simulation snapshots require all fields to be present. There is no backward compatibility with older snapshots. When upgrading:
+
+- **DB wipe expected** — run `--full-reset` then re-seed.
+- **StrategyConfig** — every drafted team must have StrategyConfig before running simulations.
+- **Schedule** — every player must have a Schedule (use `Sessions = []` for always-online).
+
 ## Slice 4 (Teams/Strategy) — Included
 
 Seed data for **Teams** and **StrategyConfig** is included so that Run Simulations can be used with seeded events without manual team drafting:

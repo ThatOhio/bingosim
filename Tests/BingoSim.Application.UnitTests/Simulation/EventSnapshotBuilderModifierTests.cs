@@ -35,7 +35,7 @@ public class EventSnapshotBuilderModifierTests
         playerRepo.GetByIdAsync(playerId, Arg.Any<CancellationToken>()).Returns(player);
 
         var builder = new EventSnapshotBuilder(eventRepo, teamRepo, activityRepo, playerRepo);
-        var json = await builder.BuildSnapshotJsonAsync(eventId);
+        var json = await builder.BuildSnapshotJsonAsync(eventId, DateTimeOffset.UtcNow);
 
         var dto = EventSnapshotBuilder.Deserialize(json);
         dto.Should().NotBeNull();
@@ -69,7 +69,7 @@ public class EventSnapshotBuilderModifierTests
         playerRepo.GetByIdAsync(playerId, Arg.Any<CancellationToken>()).Returns(player);
 
         var builder = new EventSnapshotBuilder(eventRepo, teamRepo, activityRepo, playerRepo);
-        var json = await builder.BuildSnapshotJsonAsync(eventId);
+        var json = await builder.BuildSnapshotJsonAsync(eventId, DateTimeOffset.UtcNow);
 
         var dto = EventSnapshotBuilder.Deserialize(json);
         dto.Should().NotBeNull();
@@ -118,9 +118,17 @@ public class EventSnapshotBuilderModifierTests
     {
         var team = new Team(eventId, "Team A");
         SetPrivateId(team, teamId);
+        var strategy = new StrategyConfig(teamId, "RowRush", "{}");
+        SetStrategyConfig(team, strategy);
         var tp = new TeamPlayer(teamId, playerId);
         SetTeamPlayers(team, [tp]);
         return team;
+    }
+
+    private static void SetStrategyConfig(Team team, StrategyConfig config)
+    {
+        var prop = typeof(Team).GetProperty("StrategyConfig", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+        prop?.SetValue(team, config);
     }
 
     private static PlayerProfile CreatePlayer(Guid id)

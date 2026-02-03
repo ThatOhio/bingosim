@@ -27,6 +27,11 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         if (snapshot is null)
             throw new InvalidOperationException("Invalid snapshot JSON.");
 
+        SnapshotValidator.Validate(snapshot);
+
+        if (!DateTimeOffset.TryParse(snapshot.EventStartTimeEt, out var eventStartEt))
+            throw new SnapshotValidationException($"EventStartTimeEt '{snapshot.EventStartTimeEt}' could not be parsed as DateTimeOffset.");
+
         var rngSeed = SeedDerivation.DeriveRngSeed(runSeedString, 0);
         var rng = new Random(rngSeed);
 
@@ -69,10 +74,6 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         var grantsBuffer = new List<ProgressGrantSnapshotDto>();
         var simTime = 0;
 
-        DateTimeOffset? eventStartEt = null;
-        if (!string.IsNullOrEmpty(snapshot.EventStartTimeEt) && DateTimeOffset.TryParse(snapshot.EventStartTimeEt, out var parsed))
-            eventStartEt = parsed;
-
         // Initial schedule: form groups from all players per team
         for (var ti = 0; ti < snapshot.Teams.Count; ti++)
         {
@@ -88,26 +89,22 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
 
             if (eventQueue.Count == 0)
             {
-                if (eventStartEt is { } startEt)
+                var nextEt = ScheduleEvaluator.GetEarliestNextSessionStart(snapshot, ScheduleEvaluator.SimTimeToEt(eventStartEt, simTime));
+                if (nextEt is null)
+                    break;
+                var prevSimTime = simTime;
+                simTime = ScheduleEvaluator.EtToSimTime(eventStartEt, nextEt.Value);
+                logger?.LogDebug("Schedule fast-forward: simTime {Prev} -> {Next} (next session start)", prevSimTime, simTime);
+                if (simTime > durationSeconds)
+                    break;
+                for (var tIdx = 0; tIdx < snapshot.Teams.Count; tIdx++)
                 {
-                    var nextEt = ScheduleEvaluator.GetEarliestNextSessionStart(snapshot, ScheduleEvaluator.SimTimeToEt(startEt, simTime));
-                    if (nextEt is null)
-                        break;
-                    var prevSimTime = simTime;
-                    simTime = ScheduleEvaluator.EtToSimTime(startEt, nextEt.Value);
-                    logger?.LogDebug("Schedule fast-forward: simTime {Prev} -> {Next} (next session start)", prevSimTime, simTime);
-                    if (simTime > durationSeconds)
-                        break;
-                    for (var tIdx = 0; tIdx < snapshot.Teams.Count; tIdx++)
-                    {
-                        var t = snapshot.Teams[tIdx];
-                        var st = teamStates[tIdx];
-                        var allPlayerIndices = Enumerable.Range(0, t.Players.Count).ToList();
-                        ScheduleEventsForPlayers(snapshot, t, tIdx, allPlayerIndices, st, playerCapabilitySets, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
-                    }
-                    continue;
+                    var t = snapshot.Teams[tIdx];
+                    var st = teamStates[tIdx];
+                    var allPlayerIndices = Enumerable.Range(0, t.Players.Count).ToList();
+                    ScheduleEventsForPlayers(snapshot, t, tIdx, allPlayerIndices, st, playerCapabilitySets, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt);
                 }
-                break;
+                continue;
             }
 
             if (!eventQueue.TryDequeue(out var evt, out var _))
@@ -201,8 +198,8 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
                     var (_, effectiveProb) = GroupScalingBandSelector.ComputeEffectiveMultipliers(
                         activity.GroupScalingBands, groupSize, rule, caps);
                     var outcome = RollOutcome(attempt, rule, effectiveProb, rng);
-                    if (outcome?.Grants is { } g)
-                        grantsOut.AddRange(g);
+                    if (outcome is { } o && o.Grants.Count > 0)
+                        grantsOut.AddRange(o.Grants);
                 }
             }
             else
@@ -211,8 +208,8 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
                 var (_, effectiveProb) = GroupScalingBandSelector.ComputeEffectiveMultipliers(
                     activity.GroupScalingBands, groupSize, rule, groupCaps);
                 var outcome = RollOutcome(attempt, rule, effectiveProb, rng);
-                if (outcome?.Grants is { } g)
-                    grantsOut.AddRange(g);
+                if (outcome is { } o && o.Grants.Count > 0)
+                    grantsOut.AddRange(o.Grants);
             }
         }
     }
@@ -246,14 +243,14 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         int simTime,
         int durationSeconds,
         Random rng,
-        DateTimeOffset? eventStartEt)
+        DateTimeOffset eventStartEt)
     {
         if (playerIndicesToSchedule.Count == 0)
             return;
 
-        var scheduleFiltered = eventStartEt is { } startEt
-            ? playerIndicesToSchedule.Where(pi => ScheduleEvaluator.IsOnlineAt(team.Players[pi].Schedule, ScheduleEvaluator.SimTimeToEt(startEt, simTime))).ToList()
-            : playerIndicesToSchedule.ToList();
+        var scheduleFiltered = playerIndicesToSchedule
+            .Where(pi => ScheduleEvaluator.IsOnlineAt(team.Players[pi].Schedule, ScheduleEvaluator.SimTimeToEt(eventStartEt, simTime)))
+            .ToList();
 
         if (scheduleFiltered.Count == 0)
             return;
@@ -281,7 +278,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
             if (!snapshot.ActivitiesById.TryGetValue(activityId, out var activity))
                 continue;
 
-            var modeSupport = activity.ModeSupport ?? new ActivityModeSupportSnapshotDto();
+            var modeSupport = activity.ModeSupport;
             var supportsGroup = modeSupport.SupportsGroup;
             var supportsSolo = modeSupport.SupportsSolo;
             var minGroupSize = modeSupport.MinGroupSize ?? 1;
@@ -322,10 +319,9 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
             var duration = SampleAttemptDuration(snapshot, activityId, group, rule, playerCapabilitySets[teamIndex], teamIndex, rng);
             var attemptEndSimTime = simTime + duration;
 
-            if (eventStartEt is { } evtStart)
             {
-                var simTimeEt = ScheduleEvaluator.SimTimeToEt(evtStart, simTime);
-                var attemptEndEt = ScheduleEvaluator.SimTimeToEt(evtStart, attemptEndSimTime);
+                var simTimeEt = ScheduleEvaluator.SimTimeToEt(eventStartEt, simTime);
+                var attemptEndEt = ScheduleEvaluator.SimTimeToEt(eventStartEt, attemptEndSimTime);
                 var minSessionEnd = (DateTimeOffset?)null;
                 foreach (var p in group)
                 {
@@ -418,14 +414,14 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
     /// <param name="effectiveProbabilityMultiplier">groupProb * modifierProb (from ComputeEffectiveMultipliers).</param>
     private static OutcomeSnapshotDto? RollOutcome(
         AttemptSnapshotDto attempt,
-        TileActivityRuleSnapshotDto? rule,
+        TileActivityRuleSnapshotDto rule,
         decimal effectiveProbabilityMultiplier,
         Random rng)
     {
         if (attempt.Outcomes.Count == 0)
             return null;
 
-        var weights = ModifierApplicator.ApplyProbabilityMultiplier(attempt.Outcomes, rule?.AcceptedDropKeys, effectiveProbabilityMultiplier);
+        var weights = ModifierApplicator.ApplyProbabilityMultiplier(attempt.Outcomes, rule.AcceptedDropKeys, effectiveProbabilityMultiplier);
 
         var totalWeight = weights.Sum();
         if (totalWeight <= 0)
@@ -445,14 +441,13 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
         EventSnapshotDto snapshot,
         Guid activityId,
         IReadOnlyList<int> playerIndices,
-        TileActivityRuleSnapshotDto? rule,
+        TileActivityRuleSnapshotDto rule,
         List<HashSet<string>> teamCapabilitySets,
         int teamIndex,
         Random rng)
     {
-        var activity = snapshot.ActivitiesById.GetValueOrDefault(activityId);
-        if (activity is null)
-            return 60;
+        if (!snapshot.ActivitiesById.TryGetValue(activityId, out var activity))
+            throw new InvalidOperationException($"Activity {activityId} not found in snapshot.");
 
         var (baseline, variance) = GetMaxAttemptTimeModel(activity);
         var rawTime = baseline + (variance > 0 ? rng.Next(-variance, variance + 1) : 0);
@@ -478,9 +473,9 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
     private static (int baseline, int variance) GetMaxAttemptTimeModel(ActivitySnapshotDto activity)
     {
         if (activity.Attempts.Count == 0)
-            return (60, 0);
+            throw new InvalidOperationException($"Activity '{activity.Key}' has no Attempts.");
         var maxBaseline = activity.Attempts.Max(a => a.BaselineTimeSeconds);
-        var maxVariance = activity.Attempts.Max(a => a.VarianceSeconds ?? 0);
+        var maxVariance = activity.Attempts.Max(a => a.VarianceSeconds);
         return (maxBaseline, maxVariance);
     }
 

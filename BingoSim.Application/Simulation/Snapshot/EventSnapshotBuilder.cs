@@ -21,8 +21,8 @@ public class EventSnapshotBuilder(
         WriteIndented = false
     };
 
-    /// <param name="eventStartTimeUtc">When provided, used as event start for schedule evaluation (converted to ET). Null = no schedule enforcement.</param>
-    public async Task<string> BuildSnapshotJsonAsync(Guid eventId, DateTimeOffset? eventStartTimeUtc = null, CancellationToken cancellationToken = default)
+    /// <param name="eventStartTimeUtc">Event start for schedule evaluation (converted to ET). Required.</param>
+    public async Task<string> BuildSnapshotJsonAsync(Guid eventId, DateTimeOffset eventStartTimeUtc, CancellationToken cancellationToken = default)
     {
         var evt = await eventRepo.GetByIdAsync(eventId, cancellationToken)
             ?? throw new InvalidOperationException($"Event {eventId} not found.");
@@ -89,7 +89,7 @@ public class EventSnapshotBuilder(
                     Key = a.Key,
                     RollScope = (int)a.RollScope,
                     BaselineTimeSeconds = a.TimeModel.BaselineTimeSeconds,
-                    VarianceSeconds = a.TimeModel.VarianceSeconds,
+                    VarianceSeconds = a.TimeModel.VarianceSeconds ?? 0,
                     Outcomes = a.Outcomes.Select(o => new OutcomeSnapshotDto
                     {
                         WeightNumerator = o.WeightNumerator,
@@ -117,7 +117,9 @@ public class EventSnapshotBuilder(
         var teamDtos = new List<TeamSnapshotDto>();
         foreach (var team in teams)
         {
-            var strategy = team.StrategyConfig;
+            var strategy = team.StrategyConfig
+                ?? throw new InvalidOperationException($"Team '{team.Name}' (Id={team.Id}) has no StrategyConfig. Configure strategy before running.");
+
             var playerDtos = new List<PlayerSnapshotDto>();
             foreach (var tp in team.TeamPlayers)
             {
@@ -139,15 +141,13 @@ public class EventSnapshotBuilder(
             {
                 TeamId = team.Id,
                 TeamName = team.Name,
-                StrategyKey = strategy?.StrategyKey ?? "RowRush",
-                ParamsJson = strategy?.ParamsJson,
+                StrategyKey = strategy.StrategyKey,
+                ParamsJson = strategy.ParamsJson,
                 Players = playerDtos
             });
         }
 
-        var eventStartTimeEt = eventStartTimeUtc.HasValue
-            ? TimeZoneInfo.ConvertTime(eventStartTimeUtc.Value, Eastern).ToString("o")
-            : null;
+        var eventStartTimeEt = TimeZoneInfo.ConvertTime(eventStartTimeUtc, Eastern).ToString("o");
 
         var dto = new EventSnapshotDto
         {
@@ -170,10 +170,13 @@ public class EventSnapshotBuilder(
         return JsonSerializer.Deserialize<EventSnapshotDto>(json, JsonOptions);
     }
 
-    private static WeeklyScheduleSnapshotDto? MapSchedule(WeeklySchedule schedule)
+    /// <summary>
+    /// Maps schedule to snapshot DTO. Always returns non-null; empty Sessions = always online.
+    /// </summary>
+    private static WeeklyScheduleSnapshotDto MapSchedule(WeeklySchedule schedule)
     {
         if (schedule.Sessions.Count == 0)
-            return null;
+            return new WeeklyScheduleSnapshotDto { Sessions = [] };
         var sessions = schedule.Sessions.Select(s => new ScheduledSessionSnapshotDto
         {
             DayOfWeek = (int)s.DayOfWeek,

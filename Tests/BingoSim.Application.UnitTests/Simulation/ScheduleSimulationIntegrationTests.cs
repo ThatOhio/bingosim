@@ -58,19 +58,6 @@ public class ScheduleSimulationIntegrationTests
     }
 
     [Fact]
-    public void BackwardCompat_NoScheduleInSnapshot_AllPlayersAlwaysOnline()
-    {
-        var snapshotJson = BuildMinimalSnapshotNoSchedule();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
-
-        var results = runner.Execute(snapshotJson, "backward-compat-seed", CancellationToken.None);
-
-        results.Should().NotBeEmpty();
-        results.Sum(r => r.TotalPoints).Should().BeGreaterThan(0);
-    }
-
-    [Fact]
     public void GroupActivity_OnlyOneEligiblePlayerOnline_DoesNotStartGroup()
     {
         var snapshotJson = BuildSnapshotGroupRequiresTwo_OneOnline();
@@ -169,7 +156,7 @@ public class ScheduleSimulationIntegrationTests
                     TeamName = "Always Online",
                     StrategyKey = "RowRush",
                     ParamsJson = null,
-                    Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "Always", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = null }]
+                    Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "Always", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = new WeeklyScheduleSnapshotDto { Sessions = [] } }]
                 },
                 new TeamSnapshotDto
                 {
@@ -256,7 +243,7 @@ public class ScheduleSimulationIntegrationTests
                     TeamName = "Always Online",
                     StrategyKey = "RowRush",
                     ParamsJson = null,
-                    Players = [new PlayerSnapshotDto { PlayerId = alwaysOnlinePlayer, Name = "Always", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = null }]
+                    Players = [new PlayerSnapshotDto { PlayerId = alwaysOnlinePlayer, Name = "Always", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = new WeeklyScheduleSnapshotDto { Sessions = [] } }]
                 },
                 new TeamSnapshotDto
                 {
@@ -345,75 +332,6 @@ public class ScheduleSimulationIntegrationTests
                     StrategyKey = "RowRush",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = schedule }]
-                }
-            ]
-        };
-
-        return JsonSerializer.Serialize(dto);
-    }
-
-    private static string BuildMinimalSnapshotNoSchedule()
-    {
-        var actId = Guid.NewGuid();
-        var rule = new TileActivityRuleSnapshotDto
-        {
-            ActivityDefinitionId = actId,
-            ActivityKey = "act",
-            AcceptedDropKeys = ["drop"],
-            RequirementKeys = [],
-            Modifiers = []
-        };
-
-        var dto = new EventSnapshotDto
-        {
-            EventName = "No Schedule",
-            DurationSeconds = 3600,
-            UnlockPointsRequiredPerRow = 5,
-            EventStartTimeEt = null,
-            Rows =
-            [
-                new RowSnapshotDto
-                {
-                    Index = 0,
-                    Tiles =
-                    [
-                        new TileSnapshotDto { Key = "t1", Name = "T1", Points = 1, RequiredCount = 1, AllowedActivities = [rule] },
-                        new TileSnapshotDto { Key = "t2", Name = "T2", Points = 2, RequiredCount = 1, AllowedActivities = [rule] },
-                        new TileSnapshotDto { Key = "t3", Name = "T3", Points = 3, RequiredCount = 1, AllowedActivities = [rule] },
-                        new TileSnapshotDto { Key = "t4", Name = "T4", Points = 4, RequiredCount = 1, AllowedActivities = [rule] }
-                    ]
-                }
-            ],
-            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>
-            {
-                [actId] = new ActivitySnapshotDto
-                {
-                    Id = actId,
-                    Key = "act",
-                    Attempts =
-                    [
-                        new AttemptSnapshotDto
-                        {
-                            Key = "main",
-                            RollScope = 0,
-                            BaselineTimeSeconds = 60,
-                            VarianceSeconds = 0,
-                            Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }]
-                        }
-                    ],
-                    GroupScalingBands = [],
-                    ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false }
-                }
-            },
-            Teams =
-            [
-                new TeamSnapshotDto
-                {
-                    TeamId = Guid.NewGuid(),
-                    TeamName = "Team",
-                    StrategyKey = "RowRush",
-                    ParamsJson = null,
-                    Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] }]
                 }
             ]
         };

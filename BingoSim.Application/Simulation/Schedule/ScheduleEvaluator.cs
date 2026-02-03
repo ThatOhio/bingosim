@@ -22,10 +22,11 @@ public static class ScheduleEvaluator
     {
         private readonly List<(int Day, int StartMin, int EndMin, int? EndMinNextDay)> _intervals = [];
 
-        public static DailyWindows Build(WeeklyScheduleSnapshotDto? schedule)
+        /// <summary>Schedule is required. Sessions null/empty = always online.</summary>
+        public static DailyWindows Build(WeeklyScheduleSnapshotDto schedule)
         {
             var w = new DailyWindows();
-            if (schedule?.Sessions is not { Count: > 0 })
+            if (schedule.Sessions is not { Count: > 0 })
                 return w;
 
             foreach (var s in schedule.Sessions)
@@ -63,9 +64,9 @@ public static class ScheduleEvaluator
 
     /// <summary>
     /// Returns true if the player is online at the given ET timestamp.
-    /// Null or empty schedule = always online (backward compatibility).
+    /// Schedule is required; Sessions null/empty = always online.
     /// </summary>
-    public static bool IsOnlineAt(WeeklyScheduleSnapshotDto? schedule, DateTimeOffset timestampEt)
+    public static bool IsOnlineAt(WeeklyScheduleSnapshotDto schedule, DateTimeOffset timestampEt)
     {
         var windows = DailyWindows.Build(schedule);
         if (windows.IsAlwaysOnline)
@@ -78,7 +79,7 @@ public static class ScheduleEvaluator
     /// <summary>
     /// Returns the end time of the session containing the given timestamp, or null if offline.
     /// </summary>
-    public static DateTimeOffset? GetCurrentSessionEnd(WeeklyScheduleSnapshotDto? schedule, DateTimeOffset timestampEt)
+    public static DateTimeOffset? GetCurrentSessionEnd(WeeklyScheduleSnapshotDto schedule, DateTimeOffset timestampEt)
     {
         var windows = DailyWindows.Build(schedule);
         if (windows.IsAlwaysOnline)
@@ -105,9 +106,9 @@ public static class ScheduleEvaluator
     /// Returns the next session start at or after the given ET timestamp, or null if no sessions.
     /// Uses raw sessions (not precomputed) to avoid duplicate starts from midnight-spanning splits.
     /// </summary>
-    public static DateTimeOffset? GetNextSessionStart(WeeklyScheduleSnapshotDto? schedule, DateTimeOffset fromEt)
+    public static DateTimeOffset? GetNextSessionStart(WeeklyScheduleSnapshotDto schedule, DateTimeOffset fromEt)
     {
-        if (schedule?.Sessions is not { Count: > 0 })
+        if (schedule.Sessions is not { Count: > 0 })
             return null;
 
         var et = ToEastern(fromEt);

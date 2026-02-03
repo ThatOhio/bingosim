@@ -1,6 +1,7 @@
 using System.Text.Json;
 using BingoSim.Application.Simulation.Allocation;
 using BingoSim.Application.Simulation.Runner;
+using BingoSim.Application.Simulation.Schedule;
 using BingoSim.Application.Simulation.Snapshot;
 using FluentAssertions;
 using Xunit;
@@ -37,19 +38,6 @@ public class ModifierSimulationIntegrationTests
         var meanB = teamBPoints.Average();
         meanA.Should().BeGreaterThanOrEqualTo(meanB, "player with modifier capability (faster time, better drop chance) should not underperform");
         teamAPoints.Sum().Should().BeGreaterThan(0, "simulation should produce progress");
-    }
-
-    [Fact]
-    public void Execute_SnapshotWithoutModifiers_RunsSuccessfully()
-    {
-        var snapshotJson = BuildMinimalSnapshotWithoutModifiers();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
-
-        var results = runner.Execute(snapshotJson, "backward-compat-seed", CancellationToken.None);
-
-        results.Should().NotBeEmpty();
-        results.Sum(r => r.TotalPoints).Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -90,11 +78,15 @@ public class ModifierSimulationIntegrationTests
             ]
         };
 
+        var eventStart = new DateTimeOffset(2025, 2, 3, 9, 0, 0, TimeSpan.FromHours(-5));
+        var alwaysOnline = new WeeklyScheduleSnapshotDto { Sessions = [] };
+
         var dto = new EventSnapshotDto
         {
             EventName = "Modifier Test",
             DurationSeconds = 3600,
             UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = eventStart.ToString("o"),
             Rows =
             [
                 new RowSnapshotDto
@@ -130,7 +122,8 @@ public class ModifierSimulationIntegrationTests
                             ]
                         }
                     ],
-                    GroupScalingBands = []
+                    GroupScalingBands = [],
+                    ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false }
                 }
             },
             Teams =
@@ -141,7 +134,7 @@ public class ModifierSimulationIntegrationTests
                     TeamName = "Team With Capability",
                     StrategyKey = "RowRush",
                     ParamsJson = null,
-                    Players = [new PlayerSnapshotDto { PlayerId = playerAId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = ["quest.ds2"] }]
+                    Players = [new PlayerSnapshotDto { PlayerId = playerAId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = ["quest.ds2"], Schedule = alwaysOnline }]
                 },
                 new TeamSnapshotDto
                 {
@@ -149,7 +142,7 @@ public class ModifierSimulationIntegrationTests
                     TeamName = "Team Without Capability",
                     StrategyKey = "RowRush",
                     ParamsJson = null,
-                    Players = [new PlayerSnapshotDto { PlayerId = playerBId, Name = "P2", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] }]
+                    Players = [new PlayerSnapshotDto { PlayerId = playerBId, Name = "P2", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }]
                 }
             ]
         };
@@ -172,11 +165,15 @@ public class ModifierSimulationIntegrationTests
             Modifiers = [new ActivityModifierRuleSnapshotDto { CapabilityKey = "quest.ds2", TimeMultiplier = 0.9m, ProbabilityMultiplier = 1.1m }]
         };
 
+        var eventStart = new DateTimeOffset(2025, 2, 3, 9, 0, 0, TimeSpan.FromHours(-5));
+        var alwaysOnline = new WeeklyScheduleSnapshotDto { Sessions = [] };
+
         var dto = new EventSnapshotDto
         {
             EventName = "Modifier Determinism",
             DurationSeconds = 3600,
             UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = eventStart.ToString("o"),
             Rows =
             [
                 new RowSnapshotDto
@@ -208,7 +205,8 @@ public class ModifierSimulationIntegrationTests
                             Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }]
                         }
                     ],
-                    GroupScalingBands = []
+                    GroupScalingBands = [],
+                    ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false }
                 }
             },
             Teams =
@@ -219,81 +217,7 @@ public class ModifierSimulationIntegrationTests
                     TeamName = "Team A",
                     StrategyKey = "RowRush",
                     ParamsJson = null,
-                    Players = [new PlayerSnapshotDto { PlayerId = playerId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = ["quest.ds2"] }]
-                }
-            ]
-        };
-
-        return JsonSerializer.Serialize(dto);
-    }
-
-    /// <summary>
-    /// Builds snapshot JSON that omits Modifiers (simulates pre-Slice-8 snapshot).
-    /// Verifies backward compatibility when deserializing old snapshots.
-    /// </summary>
-    private static string BuildMinimalSnapshotWithoutModifiers()
-    {
-        var actId = Guid.NewGuid();
-        var teamId = Guid.NewGuid();
-        var playerId = Guid.NewGuid();
-
-        var ruleWithoutModifiers = new TileActivityRuleSnapshotDto
-        {
-            ActivityDefinitionId = actId,
-            ActivityKey = "act",
-            AcceptedDropKeys = ["drop"],
-            RequirementKeys = []
-            // Modifiers intentionally omitted - when deserialized from old JSON, may be null
-        };
-
-        var dto = new EventSnapshotDto
-        {
-            EventName = "Backward Compat",
-            DurationSeconds = 3600,
-            UnlockPointsRequiredPerRow = 5,
-            Rows =
-            [
-                new RowSnapshotDto
-                {
-                    Index = 0,
-                    Tiles =
-                    [
-                        new TileSnapshotDto { Key = "t1", Name = "T1", Points = 1, RequiredCount = 1, AllowedActivities = [ruleWithoutModifiers] },
-                        new TileSnapshotDto { Key = "t2", Name = "T2", Points = 2, RequiredCount = 1, AllowedActivities = [ruleWithoutModifiers] },
-                        new TileSnapshotDto { Key = "t3", Name = "T3", Points = 3, RequiredCount = 1, AllowedActivities = [ruleWithoutModifiers] },
-                        new TileSnapshotDto { Key = "t4", Name = "T4", Points = 4, RequiredCount = 1, AllowedActivities = [ruleWithoutModifiers] }
-                    ]
-                }
-            ],
-            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>
-            {
-                [actId] = new ActivitySnapshotDto
-                {
-                    Id = actId,
-                    Key = "act",
-                    Attempts =
-                    [
-                        new AttemptSnapshotDto
-                        {
-                            Key = "main",
-                            RollScope = 0,
-                            BaselineTimeSeconds = 60,
-                            VarianceSeconds = 10,
-                            Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }]
-                        }
-                    ],
-                    GroupScalingBands = []
-                }
-            },
-            Teams =
-            [
-                new TeamSnapshotDto
-                {
-                    TeamId = teamId,
-                    TeamName = "Team A",
-                    StrategyKey = "RowRush",
-                    ParamsJson = null,
-                    Players = [new PlayerSnapshotDto { PlayerId = playerId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [] }]
+                    Players = [new PlayerSnapshotDto { PlayerId = playerId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = ["quest.ds2"], Schedule = alwaysOnline }]
                 }
             ]
         };
