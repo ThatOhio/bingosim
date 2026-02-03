@@ -122,6 +122,17 @@ When `--max-duration` is reached, output shows partial runs and `[TIMED OUT]`. U
 | E2E 10K | 10000 | _TBD_ | _TBD_ | snapshot_load: _ms (1), sim: _ms (10000), persist: _ms (10000) |
 | Engine-only 10K | 10000 | _TBD_ | _TBD_ | N/A |
 
+### Post-Optimization (DB Optimize 01 — Batched Persistence)
+
+| Scenario | Runs | Elapsed (s) | Runs/sec | SaveChanges | Buffered Persist |
+|----------|------|-------------|----------|-------------|-------------------|
+| E2E 10K (batched) | 10000 | 87.8 | 114.0 | 175 | 175 flushes, 20K rows, 3094ms |
+| E2E 2K (immediate) | 2000 | 51.3 | 39.0 | ~4000 | N/A |
+
+**Command:** `dotnet run --project BingoSim.Seed -- --perf --runs 10000 --perf-snapshot synthetic --max-duration 120`
+
+**Improvement:** ~3× throughput (39 → 114 runs/sec); ~57× fewer SaveChanges (10000 → 175).
+
 ### Example Output (E2E)
 
 ```
@@ -139,3 +150,20 @@ Phase totals (ms total, count):
 ```
 
 Note: With snapshot caching, `snapshot_load` shows 1 invocation for the entire batch.
+
+---
+
+## Stuck Runs (Buffered Persistence)
+
+### Symptom
+
+Distributed batch shows "Running" for the last N runs indefinitely (e.g. 81 completed, 19 running, 0 pending). Worker logs show "simulation completed" for those runs.
+
+### Root Cause
+
+`BufferedRunResultPersister` only flushes when `AddAsync` is called and either (a) buffer count ≥ BatchSize, or (b) FlushIntervalMs has elapsed since last flush. When the **last runs of a batch** complete in quick succession, the buffer may have &lt; BatchSize items and no further `AddAsync` calls occur, so the buffer never flushes. Runs stay in "Running" in the DB forever.
+
+### Fix (2025-02-03)
+
+- **BufferedPersisterFlushHostedService** runs every FlushIntervalMs and calls `FlushAsync`, ensuring the buffer is flushed even when no new runs complete.
+- **Recovery:** `dotnet run --project BingoSim.Seed -- --recover-batch <batchId>` resets stuck runs to Pending and re-publishes them to RabbitMQ.

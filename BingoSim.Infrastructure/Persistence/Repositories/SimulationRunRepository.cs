@@ -47,4 +47,38 @@ public class SimulationRunRepository(AppDbContext context) : ISimulationRunRepos
 
         return rowsAffected > 0;
     }
+
+    public async Task<int> BulkMarkCompletedAsync(IReadOnlyList<Guid> runIds, DateTimeOffset completedAt, CancellationToken cancellationToken = default)
+    {
+        if (runIds.Count == 0)
+            return 0;
+
+        var rowsAffected = await context.SimulationRuns
+            .Where(r => runIds.Contains(r.Id) && r.Status == RunStatus.Running)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.Status, RunStatus.Completed)
+                .SetProperty(r => r.CompletedAt, completedAt),
+                cancellationToken);
+
+        foreach (var runId in runIds)
+        {
+            var tracked = context.ChangeTracker.Entries<SimulationRun>().FirstOrDefault(e => e.Entity.Id == runId);
+            if (tracked is not null)
+                tracked.State = EntityState.Detached;
+        }
+
+        return rowsAffected;
+    }
+
+    public async Task<int> ResetStuckRunsToPendingAsync(Guid batchId, CancellationToken cancellationToken = default)
+    {
+        var rowsAffected = await context.SimulationRuns
+            .Where(r => r.SimulationBatchId == batchId && r.Status == RunStatus.Running)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.Status, RunStatus.Pending)
+                .SetProperty(r => r.StartedAt, (DateTimeOffset?)null)
+                .SetProperty(r => r.LastAttemptAt, (DateTimeOffset?)null),
+                cancellationToken);
+        return rowsAffected;
+    }
 }

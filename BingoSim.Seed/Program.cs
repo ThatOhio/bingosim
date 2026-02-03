@@ -1,5 +1,6 @@
 using BingoSim.Application.Interfaces;
 using BingoSim.Application.Simulation;
+using MassTransit;
 using BingoSim.Application.Simulation.Allocation;
 using BingoSim.Application.Simulation.Runner;
 using BingoSim.Core.Enums;
@@ -24,6 +25,7 @@ public static class Program
         var confirm = args.Contains("--confirm", StringComparer.OrdinalIgnoreCase);
         var perf = args.Contains("--perf", StringComparer.OrdinalIgnoreCase);
         var perfRegression = args.Contains("--perf-regression", StringComparer.OrdinalIgnoreCase);
+        var recoverBatchId = GetArg(args, "--recover-batch");
 
         if (perfRegression)
         {
@@ -66,6 +68,19 @@ public static class Program
                     services.AddSingleton<IPerfRecorder>(perfRecorder);
                 if (perfOptions is not null)
                     services.AddSingleton<BingoSim.Application.Interfaces.IPerfScenarioOptions>(perfOptions);
+                if (recoverBatchId is not null)
+                {
+                    var rabbitHost = context.Configuration["RabbitMQ:Host"] ?? "localhost";
+                    var rabbitPort = int.TryParse(context.Configuration["RabbitMQ:Port"], out var p) ? p : 5672;
+                    var rabbitUser = context.Configuration["RabbitMQ:Username"] ?? "guest";
+                    var rabbitPass = context.Configuration["RabbitMQ:Password"] ?? "guest";
+                    var rabbitUri = new Uri($"amqp://{rabbitUser}:{rabbitPass}@{rabbitHost}:{rabbitPort}/");
+                    services.AddMassTransit(x =>
+                    {
+                        x.UsingRabbitMq((_, cfg) => cfg.Host(rabbitUri));
+                    });
+                    services.AddScoped<BingoSim.Infrastructure.Simulation.MassTransitRunWorkPublisher>();
+                }
             })
             .Build();
 
@@ -74,6 +89,19 @@ public static class Program
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             await dbContext.Database.MigrateAsync();
+        }
+
+        if (recoverBatchId is not null)
+        {
+            await host.StartAsync();
+            try
+            {
+                return await RunRecoverBatchAsync(host, recoverBatchId);
+            }
+            finally
+            {
+                await host.StopAsync();
+            }
         }
 
         if (perf)
@@ -146,6 +174,7 @@ public static class Program
         var batchService = scope.ServiceProvider.GetRequiredService<ISimulationBatchService>();
         var runRepo = scope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.ISimulationRunRepository>();
         var executor = scope.ServiceProvider.GetRequiredService<ISimulationRunExecutor>();
+        var bufferedPersister = scope.ServiceProvider.GetService<BingoSim.Application.Interfaces.IBufferedRunResultPersister>();
         var perfRecorder = scope.ServiceProvider.GetService<IPerfRecorder>() as PerfRecorder;
 
         var evt = await eventRepo.GetByNameAsync(eventName);
@@ -221,6 +250,9 @@ public static class Program
         }
         totalSw.Stop();
 
+        if (bufferedPersister is not null)
+            await bufferedPersister.FlushAsync(ct);
+
         var elapsedSec = totalSw.Elapsed.TotalSeconds;
         var runsPerSec = elapsedSec > 0 ? completed / elapsedSec : 0;
         var timedOut = maxDurationSeconds > 0 && totalSw.Elapsed.TotalSeconds >= maxDurationSeconds - 0.1;
@@ -242,6 +274,48 @@ public static class Program
                 Console.WriteLine($"  {phase}: {totalMs}ms total, {count} invocations");
         }
 
+        if (bufferedPersister is not null)
+        {
+            var stats = bufferedPersister.GetStats();
+            Console.WriteLine("Buffered persist: {0} flushes, {1} rows inserted, {2} runs updated, {3} SaveChanges, {4}ms total",
+                stats.FlushCount, stats.RowsInserted, stats.RowsUpdated, stats.SaveChangesCount, stats.ElapsedMsTotal);
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Resets runs stuck in Running to Pending and re-publishes them to RabbitMQ for retry.
+    /// Use when BufferedRunResultPersister never flushed (e.g. last N runs of a batch).
+    /// </summary>
+    private static async Task<int> RunRecoverBatchAsync(IHost host, string batchIdStr)
+    {
+        if (!Guid.TryParse(batchIdStr, out var batchId))
+        {
+            Console.WriteLine($"Invalid batch ID: {batchIdStr}");
+            return 1;
+        }
+
+        using var scope = host.Services.CreateScope();
+        var runRepo = scope.ServiceProvider.GetRequiredService<BingoSim.Core.Interfaces.ISimulationRunRepository>();
+        var runs = await runRepo.GetByBatchIdAsync(batchId);
+        var stuck = runs.Where(r => r.Status == BingoSim.Core.Enums.RunStatus.Running).ToList();
+
+        if (stuck.Count == 0)
+        {
+            Console.WriteLine($"No runs stuck in Running for batch {batchId}");
+            return 0;
+        }
+
+        var reset = await runRepo.ResetStuckRunsToPendingAsync(batchId);
+        Console.WriteLine($"Reset {reset} runs from Running to Pending");
+
+        var publisher = scope.ServiceProvider.GetRequiredService<BingoSim.Infrastructure.Simulation.MassTransitRunWorkPublisher>();
+        foreach (var run in stuck)
+        {
+            await publisher.PublishRunWorkAsync(run.Id);
+        }
+        Console.WriteLine($"Re-published {stuck.Count} run IDs to RabbitMQ. Worker will pick them up.");
         return 0;
     }
 

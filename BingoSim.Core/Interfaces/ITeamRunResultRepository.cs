@@ -11,4 +11,9 @@ public interface ITeamRunResultRepository
     Task<IReadOnlyList<TeamRunResult>> GetByRunIdAsync(Guid runId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TeamRunResult>> GetByBatchIdAsync(Guid batchId, CancellationToken cancellationToken = default);
     Task DeleteByRunIdAsync(Guid runId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Delete results for multiple runs (for retry cleanup in batched flush).
+    /// </summary>
+    Task<int> DeleteByRunIdsAsync(IReadOnlyList<Guid> runIds, CancellationToken cancellationToken = default);
 }

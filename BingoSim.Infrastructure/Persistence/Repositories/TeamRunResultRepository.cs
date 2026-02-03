@@ -36,4 +36,14 @@ public class TeamRunResultRepository(AppDbContext context) : ITeamRunResultRepos
         context.TeamRunResults.RemoveRange(toDelete);
         await context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<int> DeleteByRunIdsAsync(IReadOnlyList<Guid> runIds, CancellationToken cancellationToken = default)
+    {
+        if (runIds.Count == 0)
+            return 0;
+
+        return await context.TeamRunResults
+            .Where(r => runIds.Contains(r.SimulationRunId))
+            .ExecuteDeleteAsync(cancellationToken);
+    }
 }

@@ -40,7 +40,8 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:DefaultConnection"] = connectionString
+                ["ConnectionStrings:DefaultConnection"] = connectionString,
+                ["SimulationPersistence:BatchSize"] = "1"
             })
             .Build();
 

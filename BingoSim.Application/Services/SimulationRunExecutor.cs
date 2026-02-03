@@ -24,6 +24,8 @@ public class SimulationRunExecutor(
     IBatchFinalizationService finalizationService,
     SimulationRunner runner,
     ILogger<SimulationRunExecutor> logger,
+    IBufferedRunResultPersister? bufferedPersister = null,
+    ISimulationPersistenceConfig? persistenceConfig = null,
     ISimulationMetrics? metrics = null,
     IPerfRecorder? perfRecorder = null,
     IPerfScenarioOptions? perfOptions = null) : ISimulationRunExecutor
@@ -118,31 +120,47 @@ public class SimulationRunExecutor(
             logger.LogInformation("Run {RunId} simulation completed in {ElapsedMs}ms ({TeamCount} teams)",
                 run.Id, simSw.ElapsedMilliseconds, results.Count);
 
-            var dbSw = System.Diagnostics.Stopwatch.StartNew();
-            await resultRepo.DeleteByRunIdAsync(run.Id, cancellationToken);
-            var entities = results.Select(r => new TeamRunResult(
-                run.Id,
-                r.TeamId,
-                r.TeamName,
-                r.StrategyKey,
-                r.ParamsJson,
-                r.TotalPoints,
-                r.TilesCompletedCount,
-                r.RowReached,
-                r.IsWinner,
-                r.RowUnlockTimesJson,
-                r.TileCompletionTimesJson)).ToList();
-            await resultRepo.AddRangeAsync(entities, cancellationToken);
+            var completedAt = DateTimeOffset.UtcNow;
+            run.MarkCompleted(completedAt);
+            var useBuffer = bufferedPersister is not null && persistenceConfig is not null && persistenceConfig.BatchSize > 1;
 
-            run.MarkCompleted(DateTimeOffset.UtcNow);
-            await runRepo.UpdateAsync(run, cancellationToken);
-            dbSw.Stop();
-            perfRecorder?.Record("persist", dbSw.ElapsedMilliseconds, 1);
-            logger.LogInformation("Run {RunId} DB ops completed in {ElapsedMs}ms", run.Id, dbSw.ElapsedMilliseconds);
+            if (useBuffer)
+            {
+                await bufferedPersister!.AddAsync(
+                    run.Id,
+                    run.SimulationBatchId,
+                    completedAt,
+                    isRetry: run.AttemptCount > 0,
+                    results,
+                    cancellationToken);
+                perfRecorder?.Record("persist", 0, 1);
+            }
+            else
+            {
+                var dbSw = System.Diagnostics.Stopwatch.StartNew();
+                if (run.AttemptCount > 0)
+                    await resultRepo.DeleteByRunIdAsync(run.Id, cancellationToken);
+                var entities = results.Select(r => new TeamRunResult(
+                    run.Id,
+                    r.TeamId,
+                    r.TeamName,
+                    r.StrategyKey,
+                    r.ParamsJson,
+                    r.TotalPoints,
+                    r.TilesCompletedCount,
+                    r.RowReached,
+                    r.IsWinner,
+                    r.RowUnlockTimesJson,
+                    r.TileCompletionTimesJson)).ToList();
+                await resultRepo.AddRangeAsync(entities, cancellationToken);
+                await runRepo.UpdateAsync(run, cancellationToken);
+                dbSw.Stop();
+                perfRecorder?.Record("persist", dbSw.ElapsedMilliseconds, 1);
+                await finalizationService.TryFinalizeAsync(run.SimulationBatchId, cancellationToken);
+            }
+
+            logger.LogInformation("Run {RunId} DB ops completed for batch {BatchId}", run.Id, run.SimulationBatchId);
             metrics?.RecordRunCompleted(run.SimulationBatchId, run.Id);
-            logger.LogInformation("Run {RunId} completed for batch {BatchId}", run.Id, run.SimulationBatchId);
-
-            await finalizationService.TryFinalizeAsync(run.SimulationBatchId, cancellationToken);
         }
         catch (Exception ex)
         {

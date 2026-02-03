@@ -61,6 +61,12 @@ public static class DependencyInjection
         services.AddScoped<ISimulationBatchService, SimulationBatchService>();
         services.AddScoped<IBatchFinalizationService, BatchFinalizationService>();
 
+        services.Configure<SimulationPersistenceOptions>(
+            configuration.GetSection(SimulationPersistenceOptions.SectionName));
+        services.AddSingleton<ISimulationPersistenceConfig, SimulationPersistenceConfig>();
+        services.AddSingleton<IBufferedRunResultPersister, BufferedRunResultPersister>();
+        services.AddHostedService<Hosting.BufferedPersisterFlushHostedService>();
+
         // Application Services
         services.AddScoped<IPlayerProfileService, PlayerProfileService>();
         services.AddScoped<IActivityDefinitionService, ActivityDefinitionService>();
