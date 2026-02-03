@@ -7,10 +7,12 @@ namespace BingoSim.Application.Simulation.Runner;
 /// <summary>
 /// Executes one simulation run from a snapshot and produces per-team results.
 /// Uses deterministic RNG from run seed string for reproducibility.
+/// Supports group formation for group-capable activities, PerGroup/PerPlayer roll scopes, and GroupScalingBands.
 /// </summary>
 public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
 {
-    private const int MaxAttemptsPerPlayerPerSecond = 10;
+    private const int PerPlayerRollScope = 0;
+    private const int PerGroupRollScope = 1;
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = null, WriteIndented = false };
 
     /// <summary>
@@ -26,9 +28,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
         var rng = new Random(rngSeed);
 
         var durationSeconds = snapshot.DurationSeconds;
-        var unlockRequired = snapshot.UnlockPointsRequiredPerRow;
         var rows = snapshot.Rows.OrderBy(r => r.Index).ToList();
-        var totalRowCount = rows.Count;
 
         var tileRowIndex = new Dictionary<string, int>(StringComparer.Ordinal);
         var tilePoints = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -57,60 +57,49 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
                 tileRowIndex,
                 tilePoints,
                 tileRequiredCount,
-                unlockRequired);
+                snapshot.UnlockPointsRequiredPerRow);
             teamStates.Add(state);
         }
 
         var playerCapabilitySets = BuildPlayerCapabilitySets(snapshot);
-
-        var eventQueue = new PriorityQueue<SimEvent, int>();
+        var eventQueue = new PriorityQueue<SimEvent, (int EndTime, int TeamIndex, int FirstPlayerIndex)>();
+        var grantsBuffer = new List<ProgressGrantSnapshotDto>();
         var simTime = 0;
+
+        // Initial schedule: form groups from all players per team
         for (var ti = 0; ti < snapshot.Teams.Count; ti++)
         {
             var team = snapshot.Teams[ti];
             var state = teamStates[ti];
-            for (var pi = 0; pi < team.Players.Count; pi++)
-            {
-                var (activityId, attemptKey, rule) = GetFirstEligibleActivity(snapshot, team, pi, state.UnlockedRowIndices, state.CompletedTiles, playerCapabilitySets[ti][pi]);
-                if (activityId is null)
-                    continue;
-                var duration = SampleAttemptDuration(snapshot, activityId.Value, attemptKey!, team.Players[pi].SkillTimeMultiplier, rule, playerCapabilitySets[ti][pi], rng);
-                var endTime = Math.Min(simTime + duration, durationSeconds + 1);
-                eventQueue.Enqueue(new SimEvent(endTime, ti, pi, activityId.Value, attemptKey!, rule!), endTime);
-            }
+            var allPlayerIndices = Enumerable.Range(0, team.Players.Count).ToList();
+            ScheduleEventsForPlayers(snapshot, team, ti, allPlayerIndices, state, playerCapabilitySets, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng);
         }
 
         while (eventQueue.Count > 0 && simTime <= durationSeconds)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!eventQueue.TryDequeue(out var evt, out _))
+            if (!eventQueue.TryDequeue(out var evt, out var _))
                 break;
             simTime = evt.SimTime;
             if (simTime > durationSeconds)
                 break;
 
             var ti = evt.TeamIndex;
-            var pi = evt.PlayerIndex;
             var team = snapshot.Teams[ti];
             var state = teamStates[ti];
-            var player = team.Players[pi];
-
-            var activityId = evt.ActivityId;
-            var attemptKey = evt.AttemptKey;
-            var activity = snapshot.ActivitiesById.GetValueOrDefault(activityId);
+            var activity = snapshot.ActivitiesById.GetValueOrDefault(evt.ActivityId);
             if (activity is null)
                 continue;
-            var attempt = activity.Attempts.FirstOrDefault(a => a.Key == attemptKey);
-            if (attempt is null)
-                attempt = activity.Attempts[0];
 
             var rule = evt.Rule;
-            var outcome = RollOutcome(attempt, rule, playerCapabilitySets[ti][pi], rng);
-            if (outcome is null)
-                continue;
+            var playerIndices = evt.PlayerIndices;
+            var groupSize = playerIndices.Count;
+
+            grantsBuffer.Clear();
+            CollectGrantsFromAttempts(activity, rule, playerIndices, groupSize, ti, playerCapabilitySets, grantsBuffer, rng);
 
             var allocator = allocatorFactory.GetAllocator(team.StrategyKey);
-            foreach (var grant in outcome.Grants)
+            foreach (var grant in grantsBuffer)
             {
                 var eligible = GetEligibleTileKeys(snapshot, state, grant.DropKey, tileRowIndex, tilePoints, tileRequiredCount, tileToRules);
                 if (eligible.Count == 0)
@@ -130,13 +119,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
                 state.AddProgress(target, grant.Units, simTime, tileRequiredCount[target], tileRowIndex[target], tilePoints[target]);
             }
 
-            var (nextActivityId, nextAttemptKey, nextRule) = GetFirstEligibleActivity(snapshot, team, pi, state.UnlockedRowIndices, state.CompletedTiles, playerCapabilitySets[ti][pi]);
-            if (nextActivityId is not null && nextAttemptKey is not null && nextRule is not null)
-            {
-                var nextDuration = SampleAttemptDuration(snapshot, nextActivityId.Value, nextAttemptKey, player.SkillTimeMultiplier, nextRule, playerCapabilitySets[ti][pi], rng);
-                var nextEnd = Math.Min(simTime + nextDuration, durationSeconds + 1);
-                eventQueue.Enqueue(new SimEvent(nextEnd, ti, pi, nextActivityId.Value, nextAttemptKey, nextRule), nextEnd);
-            }
+            ScheduleEventsForPlayers(snapshot, team, ti, playerIndices, state, playerCapabilitySets, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng);
         }
 
         var maxPoints = teamStates.Max(s => s.TotalPoints);
@@ -166,6 +149,143 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
         return results;
     }
 
+    private static void CollectGrantsFromAttempts(
+        ActivitySnapshotDto activity,
+        TileActivityRuleSnapshotDto rule,
+        IReadOnlyList<int> playerIndices,
+        int groupSize,
+        int teamIndex,
+        List<List<HashSet<string>>> playerCapabilitySets,
+        List<ProgressGrantSnapshotDto> grantsOut,
+        Random rng)
+    {
+        foreach (var attempt in activity.Attempts)
+        {
+            if (attempt.RollScope == PerPlayerRollScope)
+            {
+                foreach (var pi in playerIndices)
+                {
+                    var caps = playerCapabilitySets[teamIndex][pi];
+                    var (_, effectiveProb) = GroupScalingBandSelector.ComputeEffectiveMultipliers(
+                        activity.GroupScalingBands, groupSize, rule, caps);
+                    var outcome = RollOutcome(attempt, rule, effectiveProb, rng);
+                    if (outcome?.Grants is { } g)
+                        grantsOut.AddRange(g);
+                }
+            }
+            else
+            {
+                var groupCaps = GetUnionCapabilityKeys(playerCapabilitySets[teamIndex], playerIndices);
+                var (_, effectiveProb) = GroupScalingBandSelector.ComputeEffectiveMultipliers(
+                    activity.GroupScalingBands, groupSize, rule, groupCaps);
+                var outcome = RollOutcome(attempt, rule, effectiveProb, rng);
+                if (outcome?.Grants is { } g)
+                    grantsOut.AddRange(g);
+            }
+        }
+    }
+
+    private static HashSet<string> GetUnionCapabilityKeys(List<HashSet<string>> teamCaps, IReadOnlyList<int> playerIndices)
+    {
+        var union = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var pi in playerIndices)
+        {
+            if (pi < teamCaps.Count)
+            {
+                foreach (var cap in teamCaps[pi])
+                    union.Add(cap);
+            }
+        }
+        return union;
+    }
+
+    private void ScheduleEventsForPlayers(
+        EventSnapshotDto snapshot,
+        TeamSnapshotDto team,
+        int teamIndex,
+        IReadOnlyList<int> playerIndicesToSchedule,
+        TeamRunState state,
+        List<List<HashSet<string>>> playerCapabilitySets,
+        IReadOnlyDictionary<string, int> tileRowIndex,
+        IReadOnlyDictionary<string, int> tilePoints,
+        IReadOnlyDictionary<string, int> tileRequiredCount,
+        IReadOnlyDictionary<string, List<TileActivityRuleSnapshotDto>> tileToRules,
+        PriorityQueue<SimEvent, (int EndTime, int TeamIndex, int FirstPlayerIndex)> eventQueue,
+        int simTime,
+        int durationSeconds,
+        Random rng)
+    {
+        if (playerIndicesToSchedule.Count == 0)
+            return;
+
+        var sortedPlayers = playerIndicesToSchedule
+            .OrderBy(pi => team.Players[pi].PlayerId)
+            .ToList();
+
+        var assignments = new List<(int pi, Guid activityId, TileActivityRuleSnapshotDto rule)>();
+        foreach (var pi in sortedPlayers)
+        {
+            var caps = playerCapabilitySets[teamIndex][pi];
+            var (activityId, rule) = GetFirstEligibleActivity(snapshot, team, pi, state.UnlockedRowIndices, state.CompletedTiles, caps);
+            if (activityId is null || rule is null)
+                continue;
+            assignments.Add((pi, activityId.Value, rule));
+        }
+
+        var used = new HashSet<int>();
+        foreach (var (pi, activityId, rule) in assignments)
+        {
+            if (used.Contains(pi))
+                continue;
+
+            if (!snapshot.ActivitiesById.TryGetValue(activityId, out var activity))
+                continue;
+
+            var modeSupport = activity.ModeSupport ?? new ActivityModeSupportSnapshotDto();
+            var supportsGroup = modeSupport.SupportsGroup;
+            var supportsSolo = modeSupport.SupportsSolo;
+            var minGroupSize = modeSupport.MinGroupSize ?? 1;
+            var maxGroupSize = modeSupport.MaxGroupSize ?? int.MaxValue;
+
+            var sameWork = assignments
+                .Where(a => a.activityId == activityId && a.rule == rule && !used.Contains(a.pi))
+                .Select(a => a.pi)
+                .OrderBy(p => team.Players[p].PlayerId)
+                .ToList();
+
+            List<int> group;
+            if (supportsGroup && sameWork.Count >= 2)
+            {
+                var desiredSize = Math.Min(sameWork.Count, maxGroupSize);
+                group = sameWork.Take(desiredSize).ToList();
+                if (group.Count < minGroupSize && !supportsSolo)
+                    continue;
+                if (group.Count == 1 && !supportsSolo)
+                    continue;
+            }
+            else if (supportsSolo)
+            {
+                group = [sameWork[0]];
+            }
+            else if (supportsGroup && sameWork.Count >= minGroupSize)
+            {
+                group = sameWork.Take(Math.Min(sameWork.Count, maxGroupSize)).ToList();
+            }
+            else
+            {
+                continue;
+            }
+
+            foreach (var p in group)
+                used.Add(p);
+
+            var duration = SampleAttemptDuration(snapshot, activityId, group, rule, playerCapabilitySets[teamIndex], teamIndex, rng);
+            var endTime = Math.Min(simTime + duration, durationSeconds + 1);
+            var priority = (endTime, teamIndex, group[0]);
+            eventQueue.Enqueue(new SimEvent(endTime, teamIndex, group, activityId, rule), priority);
+        }
+    }
+
     private static List<List<HashSet<string>>> BuildPlayerCapabilitySets(EventSnapshotDto snapshot)
     {
         var result = new List<List<HashSet<string>>>();
@@ -179,7 +299,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
         return result;
     }
 
-    private static (Guid? activityId, string? attemptKey, TileActivityRuleSnapshotDto? rule) GetFirstEligibleActivity(
+    private static (Guid? activityId, TileActivityRuleSnapshotDto? rule) GetFirstEligibleActivity(
         EventSnapshotDto snapshot,
         TeamSnapshotDto team,
         int playerIndex,
@@ -202,11 +322,11 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
                     var activity = snapshot.ActivitiesById.GetValueOrDefault(rule.ActivityDefinitionId);
                     if (activity is null || activity.Attempts.Count == 0)
                         continue;
-                    return (rule.ActivityDefinitionId, activity.Attempts[0].Key, rule);
+                    return (rule.ActivityDefinitionId, rule);
                 }
             }
         }
-        return (null, null, null);
+        return (null, null);
     }
 
     private static List<string> GetEligibleTileKeys(
@@ -233,17 +353,17 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
         return list;
     }
 
+    /// <param name="effectiveProbabilityMultiplier">groupProb * modifierProb (from ComputeEffectiveMultipliers).</param>
     private static OutcomeSnapshotDto? RollOutcome(
         AttemptSnapshotDto attempt,
         TileActivityRuleSnapshotDto? rule,
-        IReadOnlySet<string> playerCapabilityKeys,
+        decimal effectiveProbabilityMultiplier,
         Random rng)
     {
         if (attempt.Outcomes.Count == 0)
             return null;
 
-        var probMultiplier = ModifierApplicator.ComputeCombinedProbabilityMultiplier(rule, playerCapabilityKeys);
-        var weights = ModifierApplicator.ApplyProbabilityMultiplier(attempt.Outcomes, rule?.AcceptedDropKeys, probMultiplier);
+        var weights = ModifierApplicator.ApplyProbabilityMultiplier(attempt.Outcomes, rule?.AcceptedDropKeys, effectiveProbabilityMultiplier);
 
         var totalWeight = weights.Sum();
         if (totalWeight <= 0)
@@ -262,40 +382,60 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory)
     private static int SampleAttemptDuration(
         EventSnapshotDto snapshot,
         Guid activityId,
-        string attemptKey,
-        decimal skillMultiplier,
+        IReadOnlyList<int> playerIndices,
         TileActivityRuleSnapshotDto? rule,
-        IReadOnlySet<string> playerCapabilityKeys,
+        List<HashSet<string>> teamCapabilitySets,
+        int teamIndex,
         Random rng)
     {
         var activity = snapshot.ActivitiesById.GetValueOrDefault(activityId);
         if (activity is null)
             return 60;
-        var attempt = activity.Attempts.FirstOrDefault(a => a.Key == attemptKey) ?? activity.Attempts[0];
-        var baseline = attempt.BaselineTimeSeconds;
-        var variance = attempt.VarianceSeconds ?? 0;
+
+        var (baseline, variance) = GetMaxAttemptTimeModel(activity);
         var rawTime = baseline + (variance > 0 ? rng.Next(-variance, variance + 1) : 0);
-        var timeMultiplier = ModifierApplicator.ComputeCombinedTimeMultiplier(rule, playerCapabilityKeys);
-        var time = rawTime * (double)skillMultiplier * (double)timeMultiplier;
+        rawTime = Math.Max(1, rawTime);
+
+        var team = snapshot.Teams[teamIndex];
+        var groupSize = playerIndices.Count;
+
+        // v1 assumption: slowest member dominates — the group waits for the slowest player.
+        // Higher SkillTimeMultiplier = slower. We use max (slowest) so the attempt duration reflects the bottleneck.
+        var skillMultiplier = playerIndices.Count > 0
+            ? playerIndices.Max(pi => pi < team.Players.Count ? team.Players[pi].SkillTimeMultiplier : 1.0m)
+            : 1.0m;
+
+        var groupCaps = GetUnionCapabilityKeys(teamCapabilitySets, playerIndices);
+        var (effectiveTimeMult, _) = GroupScalingBandSelector.ComputeEffectiveMultipliers(
+            activity.GroupScalingBands, groupSize, rule, groupCaps);
+
+        var time = rawTime * (double)skillMultiplier * (double)effectiveTimeMult;
         return Math.Max(1, (int)Math.Floor(time));
+    }
+
+    private static (int baseline, int variance) GetMaxAttemptTimeModel(ActivitySnapshotDto activity)
+    {
+        if (activity.Attempts.Count == 0)
+            return (60, 0);
+        var maxBaseline = activity.Attempts.Max(a => a.BaselineTimeSeconds);
+        var maxVariance = activity.Attempts.Max(a => a.VarianceSeconds ?? 0);
+        return (maxBaseline, maxVariance);
     }
 
     private sealed class SimEvent
     {
         public int SimTime { get; }
         public int TeamIndex { get; }
-        public int PlayerIndex { get; }
+        public IReadOnlyList<int> PlayerIndices { get; }
         public Guid ActivityId { get; }
-        public string AttemptKey { get; }
         public TileActivityRuleSnapshotDto Rule { get; }
 
-        public SimEvent(int simTime, int teamIndex, int playerIndex, Guid activityId, string attemptKey, TileActivityRuleSnapshotDto rule)
+        public SimEvent(int simTime, int teamIndex, IReadOnlyList<int> playerIndices, Guid activityId, TileActivityRuleSnapshotDto rule)
         {
             SimTime = simTime;
             TeamIndex = teamIndex;
-            PlayerIndex = playerIndex;
+            PlayerIndices = playerIndices;
             ActivityId = activityId;
-            AttemptKey = attemptKey;
             Rule = rule;
         }
     }

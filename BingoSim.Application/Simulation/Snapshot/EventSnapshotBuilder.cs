@@ -100,7 +100,14 @@ public class EventSnapshotBuilder(
                     MaxSize = b.MaxSize,
                     TimeMultiplier = b.TimeMultiplier,
                     ProbabilityMultiplier = b.ProbabilityMultiplier
-                }).ToList()
+                }).ToList(),
+                ModeSupport = new ActivityModeSupportSnapshotDto
+                {
+                    SupportsSolo = activity.ModeSupport.SupportsSolo,
+                    SupportsGroup = activity.ModeSupport.SupportsGroup,
+                    MinGroupSize = activity.ModeSupport.MinGroupSize,
+                    MaxGroupSize = activity.ModeSupport.MaxGroupSize
+                }
             };
         }
 
