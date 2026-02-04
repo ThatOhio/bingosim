@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using BingoSim.Application.Simulation;
 using BingoSim.Application.Simulation.Allocation;
 using BingoSim.Application.Simulation.Snapshot;
 
@@ -22,25 +23,35 @@ public sealed class RowUnlockingStrategy : ITeamStrategy
     /// </summary>
     public (Guid? activityId, TileActivityRuleSnapshotDto? rule)? SelectTaskForPlayer(TaskSelectionContext context)
     {
+        var teamLabel = $"[Team {context.TeamSnapshot.TeamName} RowUnlocking]";
+        var furthestRow = context.UnlockedRowIndices.Count > 0 ? context.UnlockedRowIndices.Max() : -1;
+        SimulationDiagnostics.Log($"{teamLabel} SelectTaskForPlayer called, furthest row: {furthestRow}, unlocked: [{string.Join(",", context.UnlockedRowIndices.OrderBy(r => r))}]");
+
         if (context.UnlockedRowIndices.Count == 0)
             return null;
 
-        var furthestRow = context.UnlockedRowIndices.Max();
         var threshold = context.EventSnapshot.UnlockPointsRequiredPerRow;
-        var combinations = GetCombinationsForRow(furthestRow, context.EventSnapshot, threshold);
+        var combinations = GetCombinationsForRow(furthestRow, context.EventSnapshot, threshold, teamLabel);
 
         if (combinations.Count == 0)
+        {
+            SimulationDiagnostics.Log($"{teamLabel} No combinations for row {furthestRow}, using FindFallbackTask");
             return FindFallbackTask(context);
+        }
 
         var optimalCombination = combinations
             .OrderBy(c => c.EstimatedCompletionTime)
             .ThenBy(c => string.Join(",", c.TileKeys.OrderBy(k => k, StringComparer.Ordinal)), StringComparer.Ordinal)
             .First();
 
-        var taskFromOptimal = FindTaskInTiles(context, optimalCombination.TileKeys, furthestRow);
+        var taskFromOptimal = FindTaskInTiles(context, optimalCombination.TileKeys, furthestRow, teamLabel);
         if (taskFromOptimal.HasValue)
+        {
+            SimulationDiagnostics.Log($"{teamLabel} Player {context.PlayerIndex} assigned to tile in optimal combination");
             return taskFromOptimal;
+        }
 
+        SimulationDiagnostics.Log($"{teamLabel} No task from optimal combination, using FindFallbackTask");
         return FindFallbackTask(context);
     }
 
@@ -50,26 +61,37 @@ public sealed class RowUnlockingStrategy : ITeamStrategy
     private static (Guid? activityId, TileActivityRuleSnapshotDto? rule)? FindTaskInTiles(
         TaskSelectionContext context,
         IReadOnlyList<string> targetTileKeys,
-        int rowIndex)
+        int rowIndex,
+        string teamLabel)
     {
+        SimulationDiagnostics.Log($"{teamLabel} FindTaskInTiles called for row {rowIndex} with {targetTileKeys.Count} target tiles: [{string.Join(", ", targetTileKeys)}]");
+
         var row = context.EventSnapshot.Rows.FirstOrDefault(r => r.Index == rowIndex);
         if (row is null)
+        {
+            SimulationDiagnostics.Log($"{teamLabel} Row {rowIndex} not found in snapshot");
             return null;
+        }
 
         var targetSet = targetTileKeys.ToHashSet(StringComparer.Ordinal);
         var tiles = row.Tiles
             .Where(t => targetSet.Contains(t.Key))
             .Where(t => !context.CompletedTiles.Contains(t.Key))
             .OrderByDescending(t => t.Points)
-            .ThenBy(t => t.Key, StringComparer.Ordinal);
+            .ThenBy(t => t.Key, StringComparer.Ordinal)
+            .ToList();
 
         foreach (var tile in tiles)
         {
             var eligibleRule = FindEligibleRule(context, tile);
             if (eligibleRule.HasValue)
+            {
+                SimulationDiagnostics.Log($"{teamLabel} Found eligible tile {tile.Key} on row {rowIndex}");
                 return (eligibleRule.Value.activityId, eligibleRule.Value.rule);
+            }
         }
 
+        SimulationDiagnostics.Log($"{teamLabel} No eligible tiles found in target list for row {rowIndex}");
         return null;
     }
 
@@ -148,7 +170,7 @@ public sealed class RowUnlockingStrategy : ITeamStrategy
             .SelectMany(r => r.Tiles)
             .Where(t => !context.CompletedTiles.Contains(t.Key))
             .OrderByDescending(t => t.Points)
-            .ThenBy(t => context.TileRowIndex.GetValueOrDefault(t.Key, -1))
+            .ThenByDescending(t => context.TileRowIndex.GetValueOrDefault(t.Key, -1))
             .ThenBy(t => t.Key, StringComparer.Ordinal);
 
         foreach (var tile in allTiles)
@@ -206,7 +228,8 @@ public sealed class RowUnlockingStrategy : ITeamStrategy
     /// </summary>
     public void InvalidateCacheForRow(int rowIndex)
     {
-        _combinationCache.TryRemove(rowIndex, out _);
+        var removed = _combinationCache.TryRemove(rowIndex, out _);
+        SimulationDiagnostics.Log($"[RowUnlocking] InvalidateCacheForRow({rowIndex}) called, entry {(removed ? "was removed" : "did not exist")}");
     }
 
     /// <summary>
@@ -217,18 +240,41 @@ public sealed class RowUnlockingStrategy : ITeamStrategy
     private List<TileCombination> GetCombinationsForRow(
         int rowIndex,
         EventSnapshotDto snapshot,
-        int threshold)
+        int threshold,
+        string teamLabel)
     {
+        SimulationDiagnostics.Log($"{teamLabel} GetCombinationsForRow called for row {rowIndex}, threshold {threshold}");
+
         if (_combinationCache.TryGetValue(rowIndex, out var cached))
+        {
+            SimulationDiagnostics.Log($"{teamLabel} Cache HIT for row {rowIndex}: {cached.Count} combinations");
             return cached;
+        }
+
+        SimulationDiagnostics.Log($"{teamLabel} Cache MISS for row {rowIndex}, calculating...");
 
         var row = snapshot.Rows.FirstOrDefault(r => r.Index == rowIndex);
         if (row is null)
+        {
+            SimulationDiagnostics.Log($"{teamLabel} ERROR: Row {rowIndex} not found in snapshot!");
             return [];
+        }
 
         var tiles = row.Tiles.ToDictionary(t => t.Key, t => t.Points);
+        SimulationDiagnostics.Log($"{teamLabel} Row {rowIndex} has {tiles.Count} tiles: [{string.Join(", ", tiles.Select(t => $"{t.Key}({t.Value}pts)"))}]");
+
         var combinations = RowCombinationCalculator.CalculateCombinations(tiles, threshold);
+        SimulationDiagnostics.Log($"{teamLabel} CalculateCombinations returned {combinations.Count} combinations");
+
+        if (combinations.Count == 0)
+            SimulationDiagnostics.Log($"{teamLabel} WARNING: No combinations found for row {rowIndex}!");
+        else
+            SimulationDiagnostics.Log($"{teamLabel} First combination: [{string.Join(", ", combinations[0].TileKeys)}] = {combinations[0].TotalPoints}pts");
+
         EnrichCombinationsWithTimeEstimates(combinations, snapshot, rowIndex);
+        if (combinations.Count > 0)
+            SimulationDiagnostics.Log($"{teamLabel} After enrichment, first combination time: {combinations[0].EstimatedCompletionTime}");
+
         _combinationCache[rowIndex] = combinations;
         return combinations;
     }

@@ -1,0 +1,565 @@
+[SimulationRunner] Event duration: 14400 seconds, rows: 20, unlock threshold: 5
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 0, unlocked: [0]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 0, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 0, calculating...
+[Team Alpha RowUnlocking] Row 0 has 2 tiles: [r0t1(2pts), r0t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r0t1, r0t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 0 with 2 target tiles: [r0t1, r0t2]
+[Team Alpha RowUnlocking] Found eligible tile r0t2 on row 0
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 0
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r0t2 COMPLETED on row 0 for 3 points at simTime 56
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 0, unlocked: [0]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 0, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 0: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 0 with 2 target tiles: [r0t1, r0t2]
+[Team Alpha RowUnlocking] Found eligible tile r0t1 on row 0
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r0t2 COMPLETED on row 0 for 3 points at simTime 57
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 0
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r0t1 COMPLETED on row 0 for 2 points at simTime 112
+[Team Beta] Row 1 UNLOCKED at simTime 112
+[ComboUnlocking] InvalidateCacheForRow(1) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 1
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r0t1 COMPLETED on row 0 for 2 points at simTime 121
+[Team Alpha] Row 1 UNLOCKED at simTime 121
+[RowUnlocking] InvalidateCacheForRow(1) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 1, unlocked: [0,1]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 1, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 1, calculating...
+[Team Alpha RowUnlocking] Row 1 has 2 tiles: [r1t1(2pts), r1t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r1t1, r1t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 1 with 2 target tiles: [r1t1, r1t2]
+[Team Alpha RowUnlocking] Found eligible tile r1t2 on row 1
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r1t2 COMPLETED on row 1 for 3 points at simTime 173
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 1
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r1t2 COMPLETED on row 1 for 3 points at simTime 181
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 1, unlocked: [0,1]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 1, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 1: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 1 with 2 target tiles: [r1t1, r1t2]
+[Team Alpha RowUnlocking] Found eligible tile r1t1 on row 1
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r1t1 COMPLETED on row 1 for 2 points at simTime 236
+[Team Alpha] Row 2 UNLOCKED at simTime 236
+[RowUnlocking] InvalidateCacheForRow(2) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 2, unlocked: [0,1,2]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 2, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 2, calculating...
+[Team Alpha RowUnlocking] Row 2 has 2 tiles: [r2t1(2pts), r2t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r2t1, r2t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 2 with 2 target tiles: [r2t1, r2t2]
+[Team Alpha RowUnlocking] Found eligible tile r2t2 on row 2
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r1t1 COMPLETED on row 1 for 2 points at simTime 238
+[Team Beta] Row 2 UNLOCKED at simTime 238
+[ComboUnlocking] InvalidateCacheForRow(2) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 2
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r2t2 COMPLETED on row 2 for 3 points at simTime 296
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 2, unlocked: [0,1,2]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 2, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 2: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 2 with 2 target tiles: [r2t1, r2t2]
+[Team Alpha RowUnlocking] Found eligible tile r2t1 on row 2
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r2t2 COMPLETED on row 2 for 3 points at simTime 301
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 2
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r2t1 COMPLETED on row 2 for 2 points at simTime 355
+[Team Alpha] Row 3 UNLOCKED at simTime 355
+[RowUnlocking] InvalidateCacheForRow(3) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 3, unlocked: [0,1,2,3]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 3, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 3, calculating...
+[Team Alpha RowUnlocking] Row 3 has 2 tiles: [r3t1(2pts), r3t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r3t1, r3t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 3 with 2 target tiles: [r3t1, r3t2]
+[Team Alpha RowUnlocking] Found eligible tile r3t2 on row 3
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r2t1 COMPLETED on row 2 for 2 points at simTime 364
+[Team Beta] Row 3 UNLOCKED at simTime 364
+[ComboUnlocking] InvalidateCacheForRow(3) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 3
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r3t2 COMPLETED on row 3 for 3 points at simTime 417
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 3, unlocked: [0,1,2,3]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 3, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 3: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 3 with 2 target tiles: [r3t1, r3t2]
+[Team Alpha RowUnlocking] Found eligible tile r3t1 on row 3
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r3t2 COMPLETED on row 3 for 3 points at simTime 425
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 3
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r3t1 COMPLETED on row 3 for 2 points at simTime 481
+[Team Alpha] Row 4 UNLOCKED at simTime 481
+[RowUnlocking] InvalidateCacheForRow(4) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 4, unlocked: [0,1,2,3,4]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 4, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 4, calculating...
+[Team Alpha RowUnlocking] Row 4 has 2 tiles: [r4t1(2pts), r4t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r4t1, r4t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 4 with 2 target tiles: [r4t1, r4t2]
+[Team Alpha RowUnlocking] Found eligible tile r4t2 on row 4
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r3t1 COMPLETED on row 3 for 2 points at simTime 485
+[Team Beta] Row 4 UNLOCKED at simTime 485
+[ComboUnlocking] InvalidateCacheForRow(4) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 4
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r4t2 COMPLETED on row 4 for 3 points at simTime 543
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 4, unlocked: [0,1,2,3,4]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 4, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 4: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 4 with 2 target tiles: [r4t1, r4t2]
+[Team Alpha RowUnlocking] Found eligible tile r4t1 on row 4
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r4t2 COMPLETED on row 4 for 3 points at simTime 547
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 4
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r4t1 COMPLETED on row 4 for 2 points at simTime 603
+[Team Alpha] Row 5 UNLOCKED at simTime 603
+[RowUnlocking] InvalidateCacheForRow(5) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 5, unlocked: [0,1,2,3,4,5]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 5, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 5, calculating...
+[Team Alpha RowUnlocking] Row 5 has 2 tiles: [r5t1(2pts), r5t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r5t1, r5t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 5 with 2 target tiles: [r5t1, r5t2]
+[Team Alpha RowUnlocking] Found eligible tile r5t2 on row 5
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r4t1 COMPLETED on row 4 for 2 points at simTime 609
+[Team Beta] Row 5 UNLOCKED at simTime 609
+[ComboUnlocking] InvalidateCacheForRow(5) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 5
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r5t2 COMPLETED on row 5 for 3 points at simTime 658
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 5, unlocked: [0,1,2,3,4,5]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 5, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 5: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 5 with 2 target tiles: [r5t1, r5t2]
+[Team Alpha RowUnlocking] Found eligible tile r5t1 on row 5
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r5t2 COMPLETED on row 5 for 3 points at simTime 670
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 5
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r5t1 COMPLETED on row 5 for 2 points at simTime 719
+[Team Alpha] Row 6 UNLOCKED at simTime 719
+[RowUnlocking] InvalidateCacheForRow(6) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 6, unlocked: [0,1,2,3,4,5,6]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 6, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 6, calculating...
+[Team Alpha RowUnlocking] Row 6 has 2 tiles: [r6t1(2pts), r6t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r6t1, r6t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 6 with 2 target tiles: [r6t1, r6t2]
+[Team Alpha RowUnlocking] Found eligible tile r6t2 on row 6
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r5t1 COMPLETED on row 5 for 2 points at simTime 730
+[Team Beta] Row 6 UNLOCKED at simTime 730
+[ComboUnlocking] InvalidateCacheForRow(6) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 6
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r6t2 COMPLETED on row 6 for 3 points at simTime 783
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 6, unlocked: [0,1,2,3,4,5,6]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 6, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 6: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 6 with 2 target tiles: [r6t1, r6t2]
+[Team Alpha RowUnlocking] Found eligible tile r6t1 on row 6
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r6t2 COMPLETED on row 6 for 3 points at simTime 795
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 6
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r6t1 COMPLETED on row 6 for 2 points at simTime 848
+[Team Alpha] Row 7 UNLOCKED at simTime 848
+[RowUnlocking] InvalidateCacheForRow(7) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 7, unlocked: [0,1,2,3,4,5,6,7]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 7, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 7, calculating...
+[Team Alpha RowUnlocking] Row 7 has 2 tiles: [r7t1(2pts), r7t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r7t1, r7t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 7 with 2 target tiles: [r7t1, r7t2]
+[Team Alpha RowUnlocking] Found eligible tile r7t2 on row 7
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r6t1 COMPLETED on row 6 for 2 points at simTime 859
+[Team Beta] Row 7 UNLOCKED at simTime 859
+[ComboUnlocking] InvalidateCacheForRow(7) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 7
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r7t2 COMPLETED on row 7 for 3 points at simTime 906
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 7, unlocked: [0,1,2,3,4,5,6,7]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 7, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 7: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 7 with 2 target tiles: [r7t1, r7t2]
+[Team Alpha RowUnlocking] Found eligible tile r7t1 on row 7
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r7t2 COMPLETED on row 7 for 3 points at simTime 924
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 7
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r7t1 COMPLETED on row 7 for 2 points at simTime 969
+[Team Alpha] Row 8 UNLOCKED at simTime 969
+[RowUnlocking] InvalidateCacheForRow(8) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 8, unlocked: [0,1,2,3,4,5,6,7,8]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 8, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 8, calculating...
+[Team Alpha RowUnlocking] Row 8 has 2 tiles: [r8t1(2pts), r8t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r8t1, r8t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 8 with 2 target tiles: [r8t1, r8t2]
+[Team Alpha RowUnlocking] Found eligible tile r8t2 on row 8
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r7t1 COMPLETED on row 7 for 2 points at simTime 983
+[Team Beta] Row 8 UNLOCKED at simTime 983
+[ComboUnlocking] InvalidateCacheForRow(8) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 8
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r8t2 COMPLETED on row 8 for 3 points at simTime 1034
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 8, unlocked: [0,1,2,3,4,5,6,7,8]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 8, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 8: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 8 with 2 target tiles: [r8t1, r8t2]
+[Team Alpha RowUnlocking] Found eligible tile r8t1 on row 8
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r8t2 COMPLETED on row 8 for 3 points at simTime 1039
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 8
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r8t1 COMPLETED on row 8 for 2 points at simTime 1097
+[Team Alpha] Row 9 UNLOCKED at simTime 1097
+[RowUnlocking] InvalidateCacheForRow(9) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 9, unlocked: [0,1,2,3,4,5,6,7,8,9]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 9, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 9, calculating...
+[Team Alpha RowUnlocking] Row 9 has 2 tiles: [r9t1(2pts), r9t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r9t1, r9t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 9 with 2 target tiles: [r9t1, r9t2]
+[Team Alpha RowUnlocking] Found eligible tile r9t2 on row 9
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r8t1 COMPLETED on row 8 for 2 points at simTime 1099
+[Team Beta] Row 9 UNLOCKED at simTime 1099
+[ComboUnlocking] InvalidateCacheForRow(9) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 9
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r9t2 COMPLETED on row 9 for 3 points at simTime 1158
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 9, unlocked: [0,1,2,3,4,5,6,7,8,9]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 9, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 9: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 9 with 2 target tiles: [r9t1, r9t2]
+[Team Alpha RowUnlocking] Found eligible tile r9t1 on row 9
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r9t2 COMPLETED on row 9 for 3 points at simTime 1162
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 9
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r9t1 COMPLETED on row 9 for 2 points at simTime 1215
+[Team Alpha] Row 10 UNLOCKED at simTime 1215
+[RowUnlocking] InvalidateCacheForRow(10) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 10, unlocked: [0,1,2,3,4,5,6,7,8,9,10]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 10, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 10, calculating...
+[Team Alpha RowUnlocking] Row 10 has 2 tiles: [r10t1(2pts), r10t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r10t1, r10t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 10 with 2 target tiles: [r10t1, r10t2]
+[Team Alpha RowUnlocking] Found eligible tile r10t2 on row 10
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r9t1 COMPLETED on row 9 for 2 points at simTime 1219
+[Team Beta] Row 10 UNLOCKED at simTime 1219
+[ComboUnlocking] InvalidateCacheForRow(10) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 10
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r10t2 COMPLETED on row 10 for 3 points at simTime 1274
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 10
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r10t2 COMPLETED on row 10 for 3 points at simTime 1278
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 10, unlocked: [0,1,2,3,4,5,6,7,8,9,10]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 10, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 10: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 10 with 2 target tiles: [r10t1, r10t2]
+[Team Alpha RowUnlocking] Found eligible tile r10t1 on row 10
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r10t1 COMPLETED on row 10 for 2 points at simTime 1332
+[Team Beta] Row 11 UNLOCKED at simTime 1332
+[ComboUnlocking] InvalidateCacheForRow(11) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 11
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r10t1 COMPLETED on row 10 for 2 points at simTime 1336
+[Team Alpha] Row 11 UNLOCKED at simTime 1336
+[RowUnlocking] InvalidateCacheForRow(11) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 11, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 11, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 11, calculating...
+[Team Alpha RowUnlocking] Row 11 has 2 tiles: [r11t1(2pts), r11t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r11t1, r11t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 11 with 2 target tiles: [r11t1, r11t2]
+[Team Alpha RowUnlocking] Found eligible tile r11t2 on row 11
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r11t2 COMPLETED on row 11 for 3 points at simTime 1389
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 11
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r11t2 COMPLETED on row 11 for 3 points at simTime 1399
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 11, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 11, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 11: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 11 with 2 target tiles: [r11t1, r11t2]
+[Team Alpha RowUnlocking] Found eligible tile r11t1 on row 11
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r11t1 COMPLETED on row 11 for 2 points at simTime 1445
+[Team Beta] Row 12 UNLOCKED at simTime 1445
+[ComboUnlocking] InvalidateCacheForRow(12) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 12
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r11t1 COMPLETED on row 11 for 2 points at simTime 1459
+[Team Alpha] Row 12 UNLOCKED at simTime 1459
+[RowUnlocking] InvalidateCacheForRow(12) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 12, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 12, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 12, calculating...
+[Team Alpha RowUnlocking] Row 12 has 2 tiles: [r12t1(2pts), r12t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r12t1, r12t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 12 with 2 target tiles: [r12t1, r12t2]
+[Team Alpha RowUnlocking] Found eligible tile r12t2 on row 12
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r12t2 COMPLETED on row 12 for 3 points at simTime 1500
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 12
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r12t2 COMPLETED on row 12 for 3 points at simTime 1517
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 12, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 12, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 12: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 12 with 2 target tiles: [r12t1, r12t2]
+[Team Alpha RowUnlocking] Found eligible tile r12t1 on row 12
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r12t1 COMPLETED on row 12 for 2 points at simTime 1557
+[Team Beta] Row 13 UNLOCKED at simTime 1557
+[ComboUnlocking] InvalidateCacheForRow(13) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 13
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r12t1 COMPLETED on row 12 for 2 points at simTime 1578
+[Team Alpha] Row 13 UNLOCKED at simTime 1578
+[RowUnlocking] InvalidateCacheForRow(13) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 13, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 13, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 13, calculating...
+[Team Alpha RowUnlocking] Row 13 has 2 tiles: [r13t1(2pts), r13t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r13t1, r13t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 13 with 2 target tiles: [r13t1, r13t2]
+[Team Alpha RowUnlocking] Found eligible tile r13t2 on row 13
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r13t2 COMPLETED on row 13 for 3 points at simTime 1615
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 13
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r13t2 COMPLETED on row 13 for 3 points at simTime 1642
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 13, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 13, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 13: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 13 with 2 target tiles: [r13t1, r13t2]
+[Team Alpha RowUnlocking] Found eligible tile r13t1 on row 13
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r13t1 COMPLETED on row 13 for 2 points at simTime 1678
+[Team Beta] Row 14 UNLOCKED at simTime 1678
+[ComboUnlocking] InvalidateCacheForRow(14) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 14
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r13t1 COMPLETED on row 13 for 2 points at simTime 1697
+[Team Alpha] Row 14 UNLOCKED at simTime 1697
+[RowUnlocking] InvalidateCacheForRow(14) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 14, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 14, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 14, calculating...
+[Team Alpha RowUnlocking] Row 14 has 2 tiles: [r14t1(2pts), r14t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r14t1, r14t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 14 with 2 target tiles: [r14t1, r14t2]
+[Team Alpha RowUnlocking] Found eligible tile r14t2 on row 14
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r14t2 COMPLETED on row 14 for 3 points at simTime 1734
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 14
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r14t2 COMPLETED on row 14 for 3 points at simTime 1761
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 14, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 14, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 14: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 14 with 2 target tiles: [r14t1, r14t2]
+[Team Alpha RowUnlocking] Found eligible tile r14t1 on row 14
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r14t1 COMPLETED on row 14 for 2 points at simTime 1789
+[Team Beta] Row 15 UNLOCKED at simTime 1789
+[ComboUnlocking] InvalidateCacheForRow(15) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 15
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r14t1 COMPLETED on row 14 for 2 points at simTime 1816
+[Team Alpha] Row 15 UNLOCKED at simTime 1816
+[RowUnlocking] InvalidateCacheForRow(15) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 15, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 15, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 15, calculating...
+[Team Alpha RowUnlocking] Row 15 has 2 tiles: [r15t1(2pts), r15t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r15t1, r15t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 15 with 2 target tiles: [r15t1, r15t2]
+[Team Alpha RowUnlocking] Found eligible tile r15t2 on row 15
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r15t2 COMPLETED on row 15 for 3 points at simTime 1852
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 15
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r15t2 COMPLETED on row 15 for 3 points at simTime 1879
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 15, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 15, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 15: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 15 with 2 target tiles: [r15t1, r15t2]
+[Team Alpha RowUnlocking] Found eligible tile r15t1 on row 15
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r15t1 COMPLETED on row 15 for 2 points at simTime 1909
+[Team Beta] Row 16 UNLOCKED at simTime 1909
+[ComboUnlocking] InvalidateCacheForRow(16) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 16
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r15t1 COMPLETED on row 15 for 2 points at simTime 1937
+[Team Alpha] Row 16 UNLOCKED at simTime 1937
+[RowUnlocking] InvalidateCacheForRow(16) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 16, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 16, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 16, calculating...
+[Team Alpha RowUnlocking] Row 16 has 2 tiles: [r16t1(2pts), r16t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r16t1, r16t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 16 with 2 target tiles: [r16t1, r16t2]
+[Team Alpha RowUnlocking] Found eligible tile r16t2 on row 16
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r16t2 COMPLETED on row 16 for 3 points at simTime 1974
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 16
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r16t2 COMPLETED on row 16 for 3 points at simTime 2001
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 16, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 16, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 16: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 16 with 2 target tiles: [r16t1, r16t2]
+[Team Alpha RowUnlocking] Found eligible tile r16t1 on row 16
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r16t1 COMPLETED on row 16 for 2 points at simTime 2030
+[Team Beta] Row 17 UNLOCKED at simTime 2030
+[ComboUnlocking] InvalidateCacheForRow(17) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 17
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r16t1 COMPLETED on row 16 for 2 points at simTime 2057
+[Team Alpha] Row 17 UNLOCKED at simTime 2057
+[RowUnlocking] InvalidateCacheForRow(17) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 17, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 17, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 17, calculating...
+[Team Alpha RowUnlocking] Row 17 has 2 tiles: [r17t1(2pts), r17t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r17t1, r17t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 17 with 2 target tiles: [r17t1, r17t2]
+[Team Alpha RowUnlocking] Found eligible tile r17t2 on row 17
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r17t2 COMPLETED on row 17 for 3 points at simTime 2090
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 17
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r17t2 COMPLETED on row 17 for 3 points at simTime 2118
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 17, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 17, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 17: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 17 with 2 target tiles: [r17t1, r17t2]
+[Team Alpha RowUnlocking] Found eligible tile r17t1 on row 17
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r17t1 COMPLETED on row 17 for 2 points at simTime 2146
+[Team Beta] Row 18 UNLOCKED at simTime 2146
+[ComboUnlocking] InvalidateCacheForRow(18) called, base=False, penalized=False
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 18
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r17t1 COMPLETED on row 17 for 2 points at simTime 2177
+[Team Alpha] Row 18 UNLOCKED at simTime 2177
+[RowUnlocking] InvalidateCacheForRow(18) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 18, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 18, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 18, calculating...
+[Team Alpha RowUnlocking] Row 18 has 2 tiles: [r18t1(2pts), r18t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r18t1, r18t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 18 with 2 target tiles: [r18t1, r18t2]
+[Team Alpha RowUnlocking] Found eligible tile r18t2 on row 18
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r18t2 COMPLETED on row 18 for 3 points at simTime 2206
+[Team Beta ComboUnlocking] Phase1 SelectTaskForPlayer, furthest row: 18
+[Team Beta ComboUnlocking] Phase1 Player 0 assigned to tile in optimal combination
+[Team Alpha] Tile r18t2 COMPLETED on row 18 for 3 points at simTime 2241
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 18, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 18, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 18: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 18 with 2 target tiles: [r18t1, r18t2]
+[Team Alpha RowUnlocking] Found eligible tile r18t1 on row 18
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r18t1 COMPLETED on row 18 for 2 points at simTime 2262
+[Team Beta] Row 19 UNLOCKED at simTime 2262
+[ComboUnlocking] InvalidateCacheForRow(19) called, base=False, penalized=False
+[Team Alpha] Tile r18t1 COMPLETED on row 18 for 2 points at simTime 2306
+[Team Alpha] Row 19 UNLOCKED at simTime 2306
+[RowUnlocking] InvalidateCacheForRow(19) called, entry did not exist
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 19, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 19, threshold 5
+[Team Alpha RowUnlocking] Cache MISS for row 19, calculating...
+[Team Alpha RowUnlocking] Row 19 has 2 tiles: [r19t1(2pts), r19t2(3pts)]
+[Team Alpha RowUnlocking] CalculateCombinations returned 1 combinations
+[Team Alpha RowUnlocking] First combination: [r19t1, r19t2] = 5pts
+[Team Alpha RowUnlocking] After enrichment, first combination time: 120
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 19 with 2 target tiles: [r19t1, r19t2]
+[Team Alpha RowUnlocking] Found eligible tile r19t2 on row 19
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r19t2 COMPLETED on row 19 for 3 points at simTime 2319
+[Team Alpha] Tile r19t2 COMPLETED on row 19 for 3 points at simTime 2368
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 19, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 19, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 19: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 19 with 2 target tiles: [r19t1, r19t2]
+[Team Alpha RowUnlocking] Found eligible tile r19t1 on row 19
+[Team Alpha RowUnlocking] Player 0 assigned to tile in optimal combination
+[Team Beta] Tile r19t1 COMPLETED on row 19 for 2 points at simTime 2383
+[Team Alpha] Tile r19t1 COMPLETED on row 19 for 2 points at simTime 2430
+[Team Alpha RowUnlocking] SelectTaskForPlayer called, furthest row: 19, unlocked: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+[Team Alpha RowUnlocking] GetCombinationsForRow called for row 19, threshold 5
+[Team Alpha RowUnlocking] Cache HIT for row 19: 1 combinations
+[Team Alpha RowUnlocking] FindTaskInTiles called for row 19 with 2 target tiles: [r19t1, r19t2]
+[Team Alpha RowUnlocking] No eligible tiles found in target list for row 19
+[Team Alpha RowUnlocking] No task from optimal combination, using FindFallbackTask
+[Team Alpha] Simulation ended at simTime 2430, final row reached: 19, tiles completed: 40, total points: 100
+[Team Beta] Simulation ended at simTime 2430, final row reached: 19, tiles completed: 40, total points: 100
+
+=== RESULTS ===
+RowUnlocking: RowReached=19, TilesCompleted=40, Points=100
+ComboUnlocking: RowReached=19, TilesCompleted=40, Points=100

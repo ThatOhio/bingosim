@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.Json;
+using BingoSim.Application.Simulation;
 using BingoSim.Application.Simulation.Allocation;
 using BingoSim.Application.Simulation.Schedule;
 using BingoSim.Application.Simulation.Snapshot;
@@ -44,6 +45,7 @@ public class SimulationRunner(ITeamStrategyFactory strategyFactory, ILogger<Simu
         ISimulationProgressReporter? progressReporter = null)
     {
         SnapshotValidator.Validate(snapshot);
+        SimulationDiagnostics.Log($"[SimulationRunner] Event duration: {snapshot.DurationSeconds} seconds, rows: {snapshot.Rows.Count}, unlock threshold: {snapshot.UnlockPointsRequiredPerRow}");
 
         if (!DateTimeOffset.TryParse(snapshot.EventStartTimeEt, out var eventStartEt))
             throw new SnapshotValidationException($"EventStartTimeEt '{snapshot.EventStartTimeEt}' could not be parsed as DateTimeOffset.");
@@ -220,10 +222,14 @@ public class SimulationRunner(ITeamStrategyFactory strategyFactory, ILogger<Simu
                     continue;
 
                 var prevUnlockedRows = new HashSet<int>(state.UnlockedRowIndices);
+                var completedBefore = state.CompletedTiles.Count;
                 state.AddProgress(target, grant.Units, simTime, tileRequiredCount[target], tileRowIndex[target], tilePoints[target]);
+                if (state.CompletedTiles.Count > completedBefore)
+                    SimulationDiagnostics.Log($"[Team {state.TeamName}] Tile {target} COMPLETED on row {tileRowIndex[target]} for {tilePoints[target]} points at simTime {simTime}");
                 var newlyUnlockedRows = state.UnlockedRowIndices.Except(prevUnlockedRows).ToList();
                 foreach (var rowIndex in newlyUnlockedRows)
                 {
+                    SimulationDiagnostics.Log($"[Team {state.TeamName}] Row {rowIndex} UNLOCKED at simTime {simTime}");
                     NotifyStrategyOfRowUnlock(strategy, rowIndex);
                 }
             }
@@ -234,6 +240,9 @@ public class SimulationRunner(ITeamStrategyFactory strategyFactory, ILogger<Simu
         var maxPoints = teamStates.Max(s => s.TotalPoints);
         var winners = teamStates.Where(s => s.TotalPoints == maxPoints).ToList();
         var winnerId = winners.Count > 0 ? winners[0].TeamId : Guid.Empty;
+
+        foreach (var state in teamStates)
+            SimulationDiagnostics.Log($"[Team {state.TeamName}] Simulation ended at simTime {simTime}, final row reached: {state.RowReached}, tiles completed: {state.TilesCompletedCount}, total points: {state.TotalPoints}");
 
         var results = new List<TeamRunResultDto>();
         foreach (var state in teamStates)

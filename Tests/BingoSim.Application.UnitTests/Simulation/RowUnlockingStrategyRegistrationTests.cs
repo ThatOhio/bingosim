@@ -153,6 +153,83 @@ public class RowUnlockingStrategyRegistrationTests
     }
 
     [Fact]
+    public void SelectTaskForPlayer_FallbackToAllRows_PrefersFurthestRowWhenPointsTie()
+    {
+        // When FindTaskInRow(furthestRow) returns null, we fall back to FindTaskInAllRows.
+        // FindTaskInAllRows must prefer the furthest row when points tie (ThenByDescending).
+        var (strategy, context) = BuildContext_FallbackPrefersFurthestRow();
+        var result = strategy.SelectTaskForPlayer(context);
+
+        result.Should().NotBeNull();
+        var selectedTile = context.EventSnapshot.Rows
+            .SelectMany(r => r.Tiles)
+            .FirstOrDefault(t => t.AllowedActivities.Any(a => a.ActivityDefinitionId == result!.Value.activityId));
+        selectedTile.Should().NotBeNull();
+        selectedTile!.Key.Should().Be("r1_tile", "When falling back to all rows with same points, furthest row (1) should be preferred over row 0");
+    }
+
+    private static (RowUnlockingStrategy strategy, TaskSelectionContext context) BuildContext_FallbackPrefersFurthestRow()
+    {
+        var actId = Guid.NewGuid();
+        var rule = new TileActivityRuleSnapshotDto
+        {
+            ActivityDefinitionId = actId,
+            ActivityKey = "act",
+            AcceptedDropKeys = ["drop"],
+            RequirementKeys = [],
+            Modifiers = []
+        };
+        var snapshot = new EventSnapshotDto
+        {
+            EventName = "Test",
+            DurationSeconds = 3600,
+            UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = "2025-02-04T09:00:00-05:00",
+            Rows =
+            [
+                new RowSnapshotDto { Index = 0, Tiles = [new TileSnapshotDto { Key = "r0_tile", Name = "R0", Points = 3, RequiredCount = 1, AllowedActivities = [rule] }] },
+                new RowSnapshotDto { Index = 1, Tiles = [new TileSnapshotDto { Key = "r1_tile", Name = "R1", Points = 3, RequiredCount = 1, AllowedActivities = [rule] }] },
+                new RowSnapshotDto { Index = 2, Tiles = [new TileSnapshotDto { Key = "r2_tile", Name = "R2", Points = 3, RequiredCount = 1, AllowedActivities = [rule] }] }
+            ],
+            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>
+            {
+                [actId] = new ActivitySnapshotDto
+                {
+                    Id = actId,
+                    Key = "act",
+                    Attempts = [new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] }],
+                    GroupScalingBands = [],
+                    ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false }
+                }
+            },
+            Teams = []
+        };
+        var tileRowIndex = new Dictionary<string, int>(StringComparer.Ordinal) { ["r0_tile"] = 0, ["r1_tile"] = 1, ["r2_tile"] = 2 };
+        var tilePoints = new Dictionary<string, int>(StringComparer.Ordinal) { ["r0_tile"] = 3, ["r1_tile"] = 3, ["r2_tile"] = 3 };
+        var tileToRules = new Dictionary<string, IReadOnlyList<TileActivityRuleSnapshotDto>>(StringComparer.Ordinal)
+        {
+            ["r0_tile"] = [rule], ["r1_tile"] = [rule], ["r2_tile"] = [rule]
+        };
+        var tileRequiredCount = new Dictionary<string, int>(StringComparer.Ordinal) { ["r0_tile"] = 1, ["r1_tile"] = 1, ["r2_tile"] = 1 };
+        var completedTiles = new HashSet<string>(StringComparer.Ordinal) { "r2_tile" };
+        var context = new TaskSelectionContext
+        {
+            PlayerIndex = 0,
+            PlayerCapabilities = new HashSet<string>(StringComparer.Ordinal),
+            EventSnapshot = snapshot,
+            TeamSnapshot = new TeamSnapshotDto { TeamId = Guid.NewGuid(), TeamName = "Test", StrategyKey = StrategyCatalog.RowUnlocking, Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = new WeeklyScheduleSnapshotDto { Sessions = [] } }] },
+            UnlockedRowIndices = new HashSet<int> { 0, 1, 2 },
+            TileProgress = new Dictionary<string, int>(),
+            TileRequiredCount = tileRequiredCount,
+            CompletedTiles = completedTiles,
+            TileRowIndex = tileRowIndex,
+            TilePoints = tilePoints,
+            TileToRules = tileToRules
+        };
+        return (new RowUnlockingStrategy(), context);
+    }
+
+    [Fact]
     public void Simulation_WithRowUnlockingTeam_DoesNotCrash()
     {
         var snapshotJson = BuildSnapshotWithRowUnlockingTeam();

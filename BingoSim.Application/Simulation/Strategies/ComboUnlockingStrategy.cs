@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using BingoSim.Application.Simulation;
 using BingoSim.Application.Simulation.Allocation;
 using BingoSim.Application.Simulation.Snapshot;
 
@@ -48,9 +49,11 @@ public sealed class ComboUnlockingStrategy : ITeamStrategy
     private (Guid? activityId, TileActivityRuleSnapshotDto? rule)? SelectTaskForPlayerPhase1(
         TaskSelectionContext context)
     {
+        var teamLabel = $"[Team {context.TeamSnapshot.TeamName} ComboUnlocking]";
         var furthestRow = context.UnlockedRowIndices.Max();
-        var threshold = context.EventSnapshot.UnlockPointsRequiredPerRow;
+        SimulationDiagnostics.Log($"{teamLabel} Phase1 SelectTaskForPlayer, furthest row: {furthestRow}");
 
+        var threshold = context.EventSnapshot.UnlockPointsRequiredPerRow;
         var combinations = GetPenalizedCombinationsForRow(
             furthestRow,
             context.EventSnapshot,
@@ -58,7 +61,10 @@ public sealed class ComboUnlockingStrategy : ITeamStrategy
             threshold);
 
         if (combinations.Count == 0)
+        {
+            SimulationDiagnostics.Log($"{teamLabel} Phase1 No combinations for row {furthestRow}, using FindFallbackTask");
             return FindFallbackTask(context);
+        }
 
         var optimalCombination = combinations
             .OrderBy(c => c.EstimatedCompletionTime)
@@ -67,8 +73,12 @@ public sealed class ComboUnlockingStrategy : ITeamStrategy
 
         var taskFromOptimal = FindTaskInTiles(context, optimalCombination.TileKeys, furthestRow);
         if (taskFromOptimal.HasValue)
+        {
+            SimulationDiagnostics.Log($"{teamLabel} Phase1 Player {context.PlayerIndex} assigned to tile in optimal combination");
             return taskFromOptimal;
+        }
 
+        SimulationDiagnostics.Log($"{teamLabel} Phase1 No task from optimal, using FindFallbackTask");
         return FindFallbackTask(context);
     }
 
@@ -161,8 +171,9 @@ public sealed class ComboUnlockingStrategy : ITeamStrategy
     /// </summary>
     public void InvalidateCacheForRow(int rowIndex)
     {
-        _combinationCache.TryRemove(rowIndex, out _);
-        _penalizedCombinationCache.TryRemove(rowIndex, out _);
+        var r1 = _combinationCache.TryRemove(rowIndex, out _);
+        var r2 = _penalizedCombinationCache.TryRemove(rowIndex, out _);
+        SimulationDiagnostics.Log($"[ComboUnlocking] InvalidateCacheForRow({rowIndex}) called, base={r1}, penalized={r2}");
     }
 
     /// <summary>
@@ -473,7 +484,7 @@ public sealed class ComboUnlockingStrategy : ITeamStrategy
             .SelectMany(r => r.Tiles)
             .Where(t => !context.CompletedTiles.Contains(t.Key))
             .OrderByDescending(t => t.Points)
-            .ThenBy(t => context.TileRowIndex.GetValueOrDefault(t.Key, -1))
+            .ThenByDescending(t => context.TileRowIndex.GetValueOrDefault(t.Key, -1))
             .ThenBy(t => t.Key, StringComparer.Ordinal);
 
         foreach (var tile in allTiles)
