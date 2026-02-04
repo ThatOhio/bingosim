@@ -17,6 +17,41 @@
 
 **Conclusion:** No meaningful scaling benefit. At 50K, 3 workers are slightly slower than 1 worker.
 
+### 1.4 Phase 4A-4D Results (February 3, 2025)
+
+**Configuration Changes:** BatchSize 10→20, PostgreSQL tuning, Persistence BatchSize 50→100, FlushInterval 500ms→1000ms, Connection pool sized to 50.
+
+| Scenario | 1 Worker | 3 Workers | Scaling Factor | Improvement vs Phase 3 |
+|----------|----------|-----------|----------------|------------------------|
+| 50K runs | 19.3s (~2,591 runs/s) | 18.5s (~2,703 runs/s) | **1.04×** | **2.7× faster (1 worker)** |
+| 100K runs | 35.9s (~2,786 runs/s) | 35.7s (~2,801 runs/s) | **1.01×** | **2.9× faster (1 worker)** |
+
+**Key Findings:**
+
+✅ **Massive absolute improvement:** 50K runs dropped from 52.5s to 19.3s (1 worker) — a 2.7× speedup!
+
+✅ **Database contention reduced:** Claim batches reduced from ~1000 to ~500 per 10K runs (50% reduction as expected).
+
+✅ **Throughput ceiling raised:** Peak steady-state throughput increased from ~952 runs/s to ~2,786 runs/s.
+
+❌ **Multi-worker scaling still absent:** 3 workers provide only 1.01-1.04× improvement over 1 worker — essentially identical performance.
+
+**Analysis:**
+
+The Phase 4 optimizations successfully reduced database load by ~50% through larger batches and better PostgreSQL configuration. However, **the fundamental scaling problem persists**: when multiple workers contend for the same database resources (claim/persist operations), they serialize rather than parallelize.
+
+Looking at the 100K run metrics:
+- **1 Worker steady state:** 43,174 runs/10s with claim=420ms (2,154 batches), persist=8,604ms
+- **3 Workers aggregate (steady state):** ~33,000 runs/10s total, with each worker showing claim times of 18-49ms per 10s
+
+**The database is no longer a time bottleneck, but it's still a concurrency bottleneck.** Workers are getting through batches quickly (claim_avg=0ms means minimal contention), but the overall throughput isn't increasing because:
+
+1. **All workers share one claim queue** - they're all drawing from the same pending runs
+2. **Persistence is now fast** but still requires coordination (separate INSERTs from each worker)
+3. **The simulation itself is extremely fast** (~250-300ms per 10K runs across all workers) - compute is not the bottleneck
+
+**Next Steps:** Phase 4E (message enrichment) is unlikely to help significantly since GetById isn't visible in the metrics. The path forward is **Phase 4F: Batch Affinity/Partitioning** to give each worker exclusive ranges of work, eliminating inter-worker coordination overhead.
+
 ### 1.2 Phase 3 Metrics (50K, Steady State)
 
 | Phase | 1 Worker (per 10s) | 3 Workers (per worker, per 10s) | Aggregate 3 Workers |
@@ -27,6 +62,25 @@
 | sim | ~250 ms | ~60 ms each | ~180 ms |
 
 **Key insight:** Aggregate claim count and claim time are nearly identical regardless of worker count. PostgreSQL processes ~1000 claim batches per 10 seconds whether 1 or 3 workers are requesting. The database is the bottleneck, not CPU or message throughput.
+
+### 1.5 Phase 4A-4D Metrics (100K, Steady State)
+
+**1 Worker (steady state - second 10s window):**
+- Throughput: 43,174 runs/10s (~4,317 runs/s peak)
+- Claim: 420ms for 2,154 batches (batch size 20) = ~0.19ms per batch
+- Persist: 8,604ms for 43,139 results
+- Sim: 16,061ms for 43,167 runs
+
+**3 Workers (steady state - second 10s window, aggregate):**
+- Throughput: ~33,000 runs/10s (~3,300 runs/s peak)
+- Claim: 18-49ms per worker (aggregate ~87ms for ~1,666 batches)
+- Persist: ~5,000ms aggregate
+- Sim: ~844ms aggregate (254+296+294)
+
+**Analysis:** Claim time dropped from 14,000ms to 420ms (97% reduction!), but 3 workers show **lower** aggregate throughput than 1 worker in steady state. This suggests workers are either:
+1. Competing for the same messages (RabbitMQ distribution issue)
+2. Experiencing coordination overhead that nullifies parallelism benefits
+3. Hitting a different bottleneck (network, message broker, etc.)
 
 ### 1.3 Root Cause: Shared Database Contention
 
@@ -157,15 +211,113 @@ Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres;Ti
 
 ---
 
-### 3.6 Batch Affinity / Partitioning (High Effort, High Impact)
+### 3.6 Batch Affinity / Partitioning (High Effort, High Impact) — **CRITICAL FOR MULTI-WORKER SCALING**
 
-**Idea:** Reduce lock contention by ensuring workers rarely update the same rows concurrently.
+**Problem:** Phase 4A-4D proved that database contention is no longer the bottleneck (claim time dropped 97%), yet workers still don't scale. The issue is **work distribution**: all workers consume from the same RabbitMQ queue, competing for the same batches. This creates hidden coordination costs.
 
-**Option A – Batch-level partitioning:** At publish time, partition run IDs by a hash (e.g., `runIndex % workerCount`). Each worker receives batches that tend to touch different rows. Doesn't eliminate contention (SimulationRuns is one table) but could reduce hot spots.
+**Solution:** Pre-partition work at publish time so each worker gets exclusive run ranges.
 
-**Option B – Exclusive batch assignment:** Assign entire batches to workers. Worker 1 gets runs 0–3333, Worker 2 gets 3334–6666, etc. Each worker's claim batches touch a contiguous range. Less random lock contention.
+#### Option A — Worker-Indexed Partitioning (Recommended)
 
-**Implementation:** Would require changing how Web chunks and publishes. Instead of round-robin chunks, partition by run index. Complex; defer until simpler options exhausted.
+**Concept:** At publish time, assign each batch to a specific worker index using a consistent hash or round-robin. Worker 1 gets batches 0, 3, 6, 9...; Worker 2 gets 1, 4, 7, 10...; Worker 3 gets 2, 5, 8, 11...
+
+**Implementation:**
+1. **Message routing:** Add a `WorkerIndex` header to each batch message: `headers: { "WorkerIndex": batchNumber % workerCount }`
+2. **MassTransit routing:** Configure consumer to only consume messages where `WorkerIndex` matches the worker's assigned index (set via environment variable)
+3. **Fallback:** If a worker is down, messages can still be consumed by other workers after a delay (or implement a dead-letter queue strategy)
+
+**Benefits:**
+- No database changes required
+- Workers process disjoint sets of runs → zero claim contention
+- RabbitMQ handles message distribution
+- Graceful degradation if a worker fails
+
+**Trade-offs:**
+- Requires workers to have stable identities (WORKER_INDEX=1, 2, 3)
+- Uneven work distribution if batches have varying complexity (unlikely for simulations)
+- More complex consumer configuration
+
+#### Option B — Range-Based Partitioning
+
+**Concept:** Divide the entire run range into N equal chunks (where N = number of workers). Worker 1 gets runs 0-33,333, Worker 2 gets 33,334-66,666, Worker 3 gets 66,667-100,000.
+
+**Implementation:**
+1. **Publishing:** When creating batches, calculate which worker should handle each run based on RunIndex
+2. **Separate queues:** Create N queues (simulation-runs-worker-1, simulation-runs-worker-2, etc.)
+3. **Each worker subscribes to its dedicated queue**
+
+**Benefits:**
+- Perfect load balance (each worker gets exactly 1/N of the work)
+- Completely eliminates cross-worker contention
+- Simpler message model (no headers needed)
+
+**Trade-offs:**
+- Requires multiple queues
+- If a worker goes down, its work is stranded (need dead-letter or timeout rebalancing)
+- Less flexible than Option A
+
+#### Option C — Hybrid Approach (Most Robust)
+
+**Concept:** Combine Options A and B. Publish to worker-specific queues using range partitioning, but configure fallback routing so if a worker's queue builds up, messages can overflow to other workers.
+
+**Implementation Phases:**
+1. **Phase 4F.1:** Implement Option A (worker-indexed partitioning with headers)
+2. **Phase 4F.2:** If successful, optionally migrate to Option B or C for production
+
+**Recommendation:** Start with **Option A** — it's easier to implement and test, requires no queue topology changes, and provides the core benefit (work isolation) while maintaining flexibility.
+
+---
+
+#### Detailed Implementation Plan for Option A
+
+**Files to modify:**
+
+1. **BingoSim.Shared/Messages/ExecuteSimulationRunBatch.cs**
+   - Add `public int? WorkerIndex { get; init; }` property
+
+2. **BingoSim.Infrastructure/Simulation/MassTransitRunWorkPublisher.cs**
+   - In `PublishRunWorkBatchAsync`, calculate `workerIndex = batchNumber % expectedWorkerCount`
+   - Add to message headers: `context.Headers.Set("WorkerIndex", workerIndex)`
+   - `expectedWorkerCount` should come from configuration (default 3)
+
+3. **BingoSim.Worker/Program.cs or Worker configuration**
+   - Add `WORKER_INDEX` environment variable (1, 2, or 3)
+   - Add `WORKER_COUNT` environment variable (total worker count)
+
+4. **BingoSim.Worker/Consumers/ExecuteSimulationRunBatchConsumerDefinition.cs**
+   - In `ConfigureConsumer`, add message filter:
+     ```csharp
+     configurator.Message<ExecuteSimulationRunBatch>(m => 
+         m.UseFilter(new WorkerIndexFilter(workerIndex, workerCount)));
+     ```
+
+5. **New file: BingoSim.Worker/Filters/WorkerIndexFilter.cs**
+   - Implement `IFilter<ConsumeContext<ExecuteSimulationRunBatch>>`
+   - In `Send` method, check if message.WorkerIndex matches this worker's index
+   - If yes, pass to next filter; if no, skip (move to next message)
+
+**Environment variables for compose.yaml:**
+```yaml
+bingosim.worker:
+  deploy:
+    replicas: 3
+  environment:
+    - WORKER_INDEX=${WORKER_INDEX} # Set to 0, 1, 2 for each replica
+    - WORKER_COUNT=${WORKER_COUNT:-3}
+    - DistributedExecution__WorkerCount=${WORKER_COUNT:-3}
+```
+
+**Note on Docker Compose replicas:** With `replicas: 3`, all workers get the same env vars. Need to either:
+- Run workers separately (not using replicas)
+- Use a different orchestrator (Kubernetes with pod indices)
+- Or implement a registration system where workers self-assign indices on startup
+
+**Simpler alternative for testing:** Run workers manually with different indices:
+```bash
+WORKER_INDEX=0 dotnet run --project BingoSim.Worker &
+WORKER_INDEX=1 dotnet run --project BingoSim.Worker &
+WORKER_INDEX=2 dotnet run --project BingoSim.Worker &
+```
 
 ---
 
@@ -179,27 +331,52 @@ Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres;Ti
 
 ## 4. Recommended Implementation Order
 
-| Phase | Optimization | Effort | Expected Impact | Dependencies |
-|-------|--------------|--------|-----------------|--------------|
-| 4A | Increase batch size (20 → 50) | Low | Medium | None |
-| 4B | PostgreSQL tuning | Low | Variable | None |
-| 4C | Persistence batch size + flush interval | Low | Medium | None |
-| 4D | Connection pool tuning | Low | Low–Medium | None |
-| 4E | Message enrichment (skip GetById) | Medium | Medium | 4A optional |
-| 4F | Batch affinity (if 4A–4E insufficient) | High | High | 4A–4E |
+| Phase | Optimization | Effort | Expected Impact | Dependencies | Status |
+|-------|--------------|--------|-----------------|--------------|--------|
+| 4A | Increase batch size (10 → 20) | Low | Medium | None | ✅ Completed |
+| 4B | PostgreSQL tuning | Low | Variable | None | ✅ Completed |
+| 4C | Persistence batch size + flush interval | Low | Medium | None | ✅ Completed |
+| 4D | Connection pool tuning | Low | Low–Medium | None | ✅ Completed |
+| ~~4E~~ | ~~Message enrichment (skip GetById)~~ | Medium | Low | 4A | ⏭️ **Skip** (not visible in metrics) |
+| **4F** | **Batch affinity / partitioning** | High | **High** | 4A–4D | 🎯 **Next priority** |
 
-**Suggested sequence:** 4A + 4B + 4C + 4D first (all low effort, config-only changes). Measure. If no scaling improvement, add 4E. If still no scaling, consider 4F or document that single-worker is optimal for DB-bound workload.
+**Updated sequence based on Phase 4A-4D results:** 
+
+Phase 4A-4D achieved a **2.7× absolute speedup** but **no multi-worker scaling**. The database is no longer slow, but workers still don't benefit from parallelism because they're all competing for the same work queue.
+
+**Skip Phase 4E:** Message enrichment would eliminate GetByIdAsync calls, but these don't appear in the performance metrics at all — they're negligible compared to claim/persist/sim times.
+
+**Proceed directly to Phase 4F:** Batch affinity/partitioning is now the critical path. By assigning exclusive run ranges to each worker, we eliminate the hidden coordination costs that prevent scaling.
 
 ---
 
 ## 5. Success Metrics
 
-| Metric | Current (3 workers, 50K) | Target |
+### Phase 3 Baseline
+| Metric | 1 Worker (50K) | 3 Workers (50K) |
+|--------|----------------|-----------------|
+| Elapsed time | 52.5s | 55.3s |
+| Throughput | ~952 runs/s | ~905 runs/s |
+| Scaling factor | 1.0× | 0.95× (regression) |
+
+### Phase 4A-4D Achieved
+| Metric | 1 Worker (50K) | 3 Workers (50K) | 1 Worker (100K) | 3 Workers (100K) |
+|--------|----------------|-----------------|-----------------|------------------|
+| Elapsed time | 19.3s | 18.5s | 35.9s | 35.7s |
+| Throughput | ~2,591 runs/s | ~2,703 runs/s | ~2,786 runs/s | ~2,801 runs/s |
+| Scaling factor | 1.0× | 1.04× | 1.0× | 1.01× |
+| **vs Phase 3** | **2.7× faster** | **2.9× faster** | **2.9× faster** | **3.1× faster** |
+
+✅ **Absolute performance goal exceeded:** 50K runs in 19.3s (target was ≤35s)
+❌ **Multi-worker scaling goal not met:** 1.04× actual vs 1.5× target
+
+### Phase 4F Target
+| Metric | Current (3 workers, 100K) | Target |
 |--------|---------------------------|--------|
-| Elapsed time | 55.3s | ≤40s |
-| Aggregate runs/10s | ~900 | ≥1250 |
-| Claim count per 10s | ~990 | ≤500 (with larger batches) |
-| 3 workers vs 1 worker | 0.95× | ≥1.5× |
+| Elapsed time | 35.7s | ≤24s (1.5× improvement) |
+| Peak throughput | ~2,801 runs/s | ≥4,000 runs/s |
+| Scaling factor (3 vs 1 worker) | 1.01× | ≥1.5× |
+| Claim contention | Workers compete for same queue | Workers have exclusive ranges |
 
 ---
 
@@ -233,41 +410,49 @@ Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres;Ti
 
 ## 9. Implementation Progress
 
-### Phase 4A: Status - Completed (2025-02-03)
+### Phase 4A: ✅ Completed (2025-02-03)
 - [x] Update DistributedExecution:BatchSize to 20 in appsettings
 - [x] Update compose.yaml DISTRIBUTED_BATCH_SIZE default
-- [ ] Run baseline tests (1 worker, 3 workers)
-- [ ] Increase to BatchSize 50 if 20 shows improvement
+- [x] Run baseline tests (1 worker, 3 workers)
 - [x] Document results (see Phase_4A-4D_Implementation.md)
 
-### Phase 4B: Status - Completed (2025-02-03)
+**Results:** Batch size 20 reduced claim batches by 50% as expected. Did not test batch size 50 — 20 was sufficient.
+
+### Phase 4B: ✅ Completed (2025-02-03)
 - [x] Add PostgreSQL tuning parameters to compose.yaml
-- [ ] Test with synchronous_commit=off
-- [ ] Test with increased shared_buffers and work_mem
+- [x] Test with synchronous_commit=off
+- [x] Test with increased shared_buffers and work_mem
 - [x] Document results (README.md Performance Tuning section)
 
-### Phase 4C: Status - Completed (2025-02-03)
+**Results:** PostgreSQL tuning contributed to overall 2.7× speedup. Claim time dropped from ~14,000ms to ~420ms per 10s.
+
+### Phase 4C: ✅ Completed (2025-02-03)
 - [x] Update SimulationPersistence:BatchSize to 100
 - [x] Update SimulationPersistence:FlushIntervalMs to 1000
 - [x] Add environment variable overrides to compose.yaml
 - [x] Document results (Phase_4A-4D_Implementation.md, .env.example)
 
-### Phase 4D: Status - Completed (2025-02-03)
+**Results:** Persistence batch size increase contributed to reduced flush frequency and lower overall persist time.
+
+### Phase 4D: ✅ Completed (2025-02-03)
 - [x] Add Maximum Pool Size to connection strings
 - [x] Update compose.yaml connection strings
 - [x] Update appsettings connection strings
 - [x] Document results (README.md Performance Tuning section)
 
-### Phase 4E: Status - Not Started
-- [ ] Design RunWorkItem payload structure
-- [ ] Update ExecuteSimulationRunBatch message
-- [ ] Modify MassTransitRunWorkPublisher to enrich messages
-- [ ] Update ExecuteSimulationRunBatchConsumer to use enriched data
-- [ ] Handle retry scenarios
-- [ ] Document results
+**Results:** No connection pool exhaustion errors observed. Pool sizing confirmed adequate for 3 workers.
 
-### Phase 4F: Status - Not Started
-- [ ] Design partitioning strategy
-- [ ] Implement batch assignment logic
-- [ ] Test and validate
-- [ ] Document results
+### Phase 4E: ⏭️ Skipped
+- Rationale: GetByIdAsync calls are not visible in performance metrics. Message enrichment would provide negligible benefit compared to Phase 4F.
+
+### Phase 4F: 🎯 In Progress
+- [ ] Design partitioning strategy (Option A: Worker-Indexed Partitioning)
+- [ ] Add WorkerIndex to ExecuteSimulationRunBatch message
+- [ ] Implement worker index assignment in MassTransitRunWorkPublisher
+- [ ] Add WORKER_INDEX and WORKER_COUNT environment variables
+- [ ] Implement WorkerIndexFilter for message filtering
+- [ ] Update ExecuteSimulationRunBatchConsumerDefinition
+- [ ] Configure workers with stable identities (manual startup or orchestrator)
+- [ ] Test with 1 worker, then 3 workers
+- [ ] Validate ≥1.5× scaling factor
+- [ ] Document results and final performance metrics
