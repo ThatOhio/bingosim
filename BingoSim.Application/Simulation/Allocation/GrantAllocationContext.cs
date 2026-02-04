@@ -1,9 +1,10 @@
 namespace BingoSim.Application.Simulation.Allocation;
 
 /// <summary>
-/// Context passed to IProgressAllocator: eligible tiles for a progress grant (DropKey, Units).
+/// Context passed to ITeamStrategy.SelectTargetTileForGrant for grant allocation decisions.
+/// Contains eligible tiles and team state for deciding which tile receives a progress grant.
 /// </summary>
-public sealed class AllocatorContext
+public sealed class GrantAllocationContext
 {
     /// <summary>Row indices currently unlocked for this team (monotonic).</summary>
     public required IReadOnlySet<int> UnlockedRowIndices { get; init; }

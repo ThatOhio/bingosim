@@ -9,9 +9,9 @@ public class RowRushAllocatorTests
     private readonly RowRushAllocator _sut = new();
 
     [Fact]
-    public void SelectTargetTile_NoEligible_ReturnsNull()
+    public void SelectTargetTileForGrant_NoEligible_ReturnsNull()
     {
-        var context = new AllocatorContext
+        var context = new GrantAllocationContext
         {
             UnlockedRowIndices = new HashSet<int> { 0 },
             TileProgress = new Dictionary<string, int>(),
@@ -20,13 +20,13 @@ public class RowRushAllocatorTests
             TilePoints = new Dictionary<string, int>(),
             EligibleTileKeys = []
         };
-        _sut.SelectTargetTile(context).Should().BeNull();
+        _sut.SelectTargetTileForGrant(context).Should().BeNull();
     }
 
     [Fact]
-    public void SelectTargetTile_PrefersLowestRowThenLowestPoints()
+    public void SelectTargetTileForGrant_PrefersLowestRowThenLowestPoints()
     {
-        var context = new AllocatorContext
+        var context = new GrantAllocationContext
         {
             UnlockedRowIndices = new HashSet<int> { 0, 1 },
             TileProgress = new Dictionary<string, int> { ["a"] = 0, ["b"] = 0, ["c"] = 0 },
@@ -35,13 +35,13 @@ public class RowRushAllocatorTests
             TilePoints = new Dictionary<string, int> { ["a"] = 1, ["b"] = 4, ["c"] = 1 },
             EligibleTileKeys = ["a", "b", "c"]
         };
-        _sut.SelectTargetTile(context).Should().Be("c");
+        _sut.SelectTargetTileForGrant(context).Should().Be("c");
     }
 
     [Fact]
-    public void SelectTargetTile_TieBreakByTileKey()
+    public void SelectTargetTileForGrant_TieBreakByTileKey()
     {
-        var context = new AllocatorContext
+        var context = new GrantAllocationContext
         {
             UnlockedRowIndices = new HashSet<int> { 0 },
             TileProgress = new Dictionary<string, int> { ["x"] = 0, ["a"] = 0 },
@@ -50,6 +50,6 @@ public class RowRushAllocatorTests
             TilePoints = new Dictionary<string, int> { ["x"] = 1, ["a"] = 1 },
             EligibleTileKeys = ["x", "a"]
         };
-        _sut.SelectTargetTile(context).Should().Be("a");
+        _sut.SelectTargetTileForGrant(context).Should().Be("a");
     }
 }

@@ -204,7 +204,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
                 var eligible = GetEligibleTileKeys(snapshot, state, grant.DropKey, tileRowIndex, tilePoints, tileRequiredCount, tileToRules);
                 if (eligible.Count == 0)
                     continue;
-                var context = new AllocatorContext
+                var context = new GrantAllocationContext
                 {
                     UnlockedRowIndices = state.UnlockedRowIndices,
                     TileProgress = state.TileProgress,
@@ -213,7 +213,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
                     TilePoints = tilePoints,
                     EligibleTileKeys = eligible
                 };
-                var target = allocator.SelectTargetTile(context);
+                var target = allocator.SelectTargetTileForGrant(context);
                 if (target is null)
                     continue;
                 state.AddProgress(target, grant.Units, simTime, tileRequiredCount[target], tileRowIndex[target], tilePoints[target]);
