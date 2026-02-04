@@ -111,7 +111,7 @@ public class SimulationRunExecutor(
             }
         }
 
-        logger.LogInformation("Executing run {RunId} for batch {BatchId} (attempt {Attempt})",
+        logger.LogDebug("Executing run {RunId} for batch {BatchId} (attempt {Attempt})",
             run.Id, run.SimulationBatchId, run.AttemptCount + 1);
 
         await ExecuteWithSnapshotAsync(run, snapshot, cancellationToken);
@@ -127,7 +127,7 @@ public class SimulationRunExecutor(
 
         run.MarkRunning(DateTimeOffset.UtcNow);
 
-        logger.LogInformation("Executing run {RunId} for batch {BatchId} (attempt {Attempt})",
+        logger.LogDebug("Executing run {RunId} for batch {BatchId} (attempt {Attempt})",
             run.Id, run.SimulationBatchId, run.AttemptCount + 1);
 
         await ExecuteWithSnapshotAsync(run, snapshot, cancellationToken);
@@ -144,7 +144,7 @@ public class SimulationRunExecutor(
             var results = runner.Execute(snapshot, run.Seed, cancellationToken, progressReporter);
             simSw.Stop();
             perfRecorder?.Record("sim", simSw.ElapsedMilliseconds, 1);
-            logger.LogInformation("Run {RunId} simulation completed in {ElapsedMs}ms ({TeamCount} teams)",
+            logger.LogDebug("Run {RunId} simulation completed in {ElapsedMs}ms ({TeamCount} teams)",
                 run.Id, simSw.ElapsedMilliseconds, results.Count);
 
             var completedAt = DateTimeOffset.UtcNow;
@@ -186,7 +186,7 @@ public class SimulationRunExecutor(
                 await finalizationService.TryFinalizeAsync(run.SimulationBatchId, cancellationToken);
             }
 
-            logger.LogInformation("Run {RunId} DB ops completed for batch {BatchId}", run.Id, run.SimulationBatchId);
+            logger.LogDebug("Run {RunId} DB ops completed for batch {BatchId}", run.Id, run.SimulationBatchId);
             metrics?.RecordRunCompleted(run.SimulationBatchId, run.Id);
         }
         catch (Exception ex)
