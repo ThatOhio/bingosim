@@ -163,6 +163,8 @@ private static double GetEstimatedCompletionTime(string tileKey, GrantAllocation
 
 ### 5.1 Test Coverage
 
+**Unit tests** (17 total):
+
 - **StrategyCatalog_ContainsGreedy** — Catalog includes Greedy key
 - **Factory_GetStrategy_Greedy_ReturnsGreedyStrategy** — Factory returns correct type
 - **SelectTargetTileForGrant_NoEligible_ReturnsNull** — Empty eligible list
@@ -174,10 +176,21 @@ private static double GetEstimatedCompletionTime(string tileKey, GrantAllocation
 - **SelectTaskForPlayer_PlayerCanWorkOnTile_ReturnsTask** — Returns valid task
 - **SelectTaskForPlayer_HighestPointTile_Selected** — t2 (4 pts) chosen over t1 (2) and t3 (3)
 - **Simulation_WithGreedyTeam_DoesNotCrash** — Full simulation run with Greedy team
+- **SelectTargetTileForGrant_TieBreakByCompletionTime_SelectsFasterTile** — Time tie-breaker for grants
+- **SelectTaskForPlayer_TieBreakByCompletionTime_SelectsFasterTile** — Time tie-breaker for tasks
+- **SelectTaskForPlayer_TieBreakDeterminism_SameInputsSameOutput** — Deterministic selection
+- **SelectTaskForPlayer_CapabilityFiltering_SkipsRestrictedTiles** — Capability filtering
+- **SelectTaskForPlayer_NoValidTiles_ReturnsNull** — No valid options
+- **SelectTaskForPlayer_Points1To4_Selects4PointTile** — [1,2,3,4] points → selects 4
+
+**Integration tests** (5 total, in `StrategyComparisonIntegrationTests`):
+
+- Both strategies complete successfully in same event
+- Determinism, no interference, strategy switching, multi-row events
 
 ### 5.2 Results
 
-All 11 GreedyStrategy tests pass. Full test suite (including RowUnlocking and other tests) passes.
+All Greedy strategy unit tests pass. For comprehensive testing results, integration tests, performance benchmarks, and validation checklist, see [greedy-strategy-testing-results.md](greedy-strategy-testing-results.md).
 
 ---
 

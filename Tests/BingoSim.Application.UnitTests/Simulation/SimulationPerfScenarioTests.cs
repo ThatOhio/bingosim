@@ -1,7 +1,10 @@
+using System.Text.Json;
 using BingoSim.Application.Simulation;
 using BingoSim.Application.Simulation.Allocation;
 using BingoSim.Application.Simulation.Runner;
+using BingoSim.Application.Simulation.Schedule;
 using BingoSim.Application.Simulation.Snapshot;
+using BingoSim.Application.StrategyKeys;
 using FluentAssertions;
 using Xunit;
 
@@ -79,6 +82,90 @@ public class SimulationPerfScenarioTests
             r1[i].TotalPoints.Should().Be(r2[i].TotalPoints);
             r1[i].RowUnlockTimesJson.Should().Be(r2[i].RowUnlockTimesJson);
         }
+    }
+
+    /// <summary>
+    /// Compares simulation throughput: Greedy vs RowUnlocking. Greedy is expected to be faster (no combination cache).
+    /// Run with BINGOSIM_PERF_OUTPUT=1 to see timing comparison.
+    /// </summary>
+    [Fact]
+    public void StrategyComparison_GreedyVsRowUnlocking_Throughput()
+    {
+        const int runCount = 2000;
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
+
+        var greedyJson = BuildPerfSnapshotWithStrategy(StrategyCatalog.Greedy);
+        var rowUnlockJson = BuildPerfSnapshotWithStrategy(StrategyCatalog.RowUnlocking);
+
+        var swGreedy = System.Diagnostics.Stopwatch.StartNew();
+        for (var i = 0; i < runCount; i++)
+            _ = runner.Execute(greedyJson, SeedDerivation.DeriveRunSeedString("greedy-perf", i), CancellationToken.None);
+        swGreedy.Stop();
+
+        var swRowUnlock = System.Diagnostics.Stopwatch.StartNew();
+        for (var i = 0; i < runCount; i++)
+            _ = runner.Execute(rowUnlockJson, SeedDerivation.DeriveRunSeedString("rowunlock-perf", i), CancellationToken.None);
+        swRowUnlock.Stop();
+
+        var greedyRps = runCount / swGreedy.Elapsed.TotalSeconds;
+        var rowUnlockRps = runCount / swRowUnlock.Elapsed.TotalSeconds;
+
+        if (IsPerfOutputEnabled())
+        {
+            Console.WriteLine();
+            Console.WriteLine("=== Strategy Throughput Comparison ===");
+            Console.WriteLine($"Greedy:       {swGreedy.Elapsed.TotalSeconds:F2}s for {runCount} runs = {greedyRps:F0} runs/sec");
+            Console.WriteLine($"RowUnlocking: {swRowUnlock.Elapsed.TotalSeconds:F2}s for {runCount} runs = {rowUnlockRps:F0} runs/sec");
+            Console.WriteLine();
+        }
+
+        greedyRps.Should().BeGreaterThan(30, "Greedy strategy should complete at reasonable throughput");
+        rowUnlockRps.Should().BeGreaterThan(30, "RowUnlocking strategy should complete at reasonable throughput");
+    }
+
+    private static string BuildPerfSnapshotWithStrategy(string strategyKey)
+    {
+        var actId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var teamId = Guid.Parse("22222222-2222-2222-2222-222222222221");
+        var eventStart = new DateTimeOffset(2025, 2, 3, 9, 0, 0, TimeSpan.FromHours(-5));
+        var alwaysOnline = new WeeklyScheduleSnapshotDto { Sessions = [] };
+
+        var dto = new EventSnapshotDto
+        {
+            EventName = "Strategy Perf",
+            DurationSeconds = 86400,
+            UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = eventStart.ToString("o"),
+            Rows =
+            [
+                new RowSnapshotDto
+                {
+                    Index = 0,
+                    Tiles =
+                    [
+                        new TileSnapshotDto { Key = "t1", Name = "T1", Points = 1, RequiredCount = 1, AllowedActivities = [new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] }] },
+                        new TileSnapshotDto { Key = "t2", Name = "T2", Points = 2, RequiredCount = 1, AllowedActivities = [new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] }] },
+                        new TileSnapshotDto { Key = "t3", Name = "T3", Points = 3, RequiredCount = 1, AllowedActivities = [new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] }] },
+                        new TileSnapshotDto { Key = "t4", Name = "T4", Points = 4, RequiredCount = 1, AllowedActivities = [new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] }] }
+                    ]
+                }
+            ],
+            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>
+            {
+                [actId] = new ActivitySnapshotDto
+                {
+                    Id = actId,
+                    Key = "act",
+                    Attempts = [new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 10, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] }],
+                    GroupScalingBands = [],
+                    ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false }
+                }
+            },
+            Teams = [new TeamSnapshotDto { TeamId = teamId, TeamName = "Team", StrategyKey = strategyKey, ParamsJson = null, Players = [new PlayerSnapshotDto { PlayerId = Guid.Parse("33333333-3333-3333-3333-333333333331"), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }] }]
+        };
+
+        return JsonSerializer.Serialize(dto);
     }
 
     /// <summary>

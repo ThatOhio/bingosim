@@ -175,6 +175,71 @@ public class GreedyStrategyTests
         greedyTeam.Should().NotBeNull();
     }
 
+    [Fact]
+    public void SelectTargetTileForGrant_TieBreakByCompletionTime_SelectsFasterTile()
+    {
+        var strategy = new GreedyStrategy();
+        var (context, _) = BuildGrantContextWithTwo4PointTilesDifferentTimes();
+        strategy.SelectTargetTileForGrant(context).Should().Be("fast");
+    }
+
+    [Fact]
+    public void SelectTaskForPlayer_TieBreakByCompletionTime_SelectsFasterTile()
+    {
+        var strategy = new GreedyStrategy();
+        var (context, tileKeyToActivityId) = BuildTaskContextWithTwo4PointTilesDifferentTimes();
+        var result = strategy.SelectTaskForPlayer(context);
+        result.Should().NotBeNull();
+        var selectedKey = tileKeyToActivityId.FirstOrDefault(kv => kv.Value == result!.Value.activityId).Key;
+        selectedKey.Should().Be("fast");
+    }
+
+    [Fact]
+    public void SelectTaskForPlayer_TieBreakDeterminism_SameInputsSameOutput()
+    {
+        var strategy = new GreedyStrategy();
+        var (context, _) = BuildTaskContextWithTwo4PointTilesSameTime();
+        var r1 = strategy.SelectTaskForPlayer(context);
+        var r2 = strategy.SelectTaskForPlayer(context);
+        r1.Should().NotBeNull();
+        r2.Should().NotBeNull();
+        r1!.Value.activityId.Should().Be(r2!.Value.activityId);
+    }
+
+    [Fact]
+    public void SelectTaskForPlayer_CapabilityFiltering_SkipsRestrictedTiles()
+    {
+        var strategy = new GreedyStrategy();
+        var (context, unrestrictedActivityId) = BuildTaskContextWithCapabilityRestriction();
+
+        var result = strategy.SelectTaskForPlayer(context);
+
+        result.Should().NotBeNull();
+        result!.Value.activityId.Should().Be(unrestrictedActivityId);
+    }
+
+    [Fact]
+    public void SelectTaskForPlayer_NoValidTiles_ReturnsNull()
+    {
+        var strategy = new GreedyStrategy();
+        var context = BuildTaskContextPlayerLacksAllCapabilities();
+
+        strategy.SelectTaskForPlayer(context).Should().BeNull();
+    }
+
+    [Fact]
+    public void SelectTaskForPlayer_Points1To4_Selects4PointTile()
+    {
+        var strategy = new GreedyStrategy();
+        var (context, tileKeyToActivityId) = BuildTaskContextWithPoints1234();
+
+        var result = strategy.SelectTaskForPlayer(context);
+
+        result.Should().NotBeNull();
+        var selectedKey = tileKeyToActivityId.FirstOrDefault(kv => kv.Value == result!.Value.activityId).Key;
+        selectedKey.Should().Be("t4");
+    }
+
     private static EventSnapshotDto BuildMinimalEventSnapshot()
     {
         return new EventSnapshotDto
@@ -483,6 +548,280 @@ public class GreedyStrategyTests
             TileToRules = tileToRules
         };
 
+        return (context, tileKeyToActivityId);
+    }
+
+    private static (GrantAllocationContext context, IReadOnlyDictionary<string, Guid> _) BuildGrantContextWithTwo4PointTilesDifferentTimes()
+    {
+        var actFast = Guid.NewGuid();
+        var actSlow = Guid.NewGuid();
+        var ruleFast = new TileActivityRuleSnapshotDto { ActivityDefinitionId = actFast, ActivityKey = "fast", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+        var ruleSlow = new TileActivityRuleSnapshotDto { ActivityDefinitionId = actSlow, ActivityKey = "slow", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+
+        var attemptFast = new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] };
+        var attemptSlow = new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 120, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] };
+
+        var snapshot = new EventSnapshotDto
+        {
+            EventName = "Test",
+            DurationSeconds = 3600,
+            UnlockPointsRequiredPerRow = 5,
+            Rows =
+            [
+                new RowSnapshotDto
+                {
+                    Index = 0,
+                    Tiles =
+                    [
+                        new TileSnapshotDto { Key = "fast", Name = "Fast", Points = 4, RequiredCount = 1, AllowedActivities = [ruleFast] },
+                        new TileSnapshotDto { Key = "slow", Name = "Slow", Points = 4, RequiredCount = 1, AllowedActivities = [ruleSlow] }
+                    ]
+                }
+            ],
+            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>
+            {
+                [actFast] = new ActivitySnapshotDto { Id = actFast, Key = "fast", Attempts = [attemptFast], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } },
+                [actSlow] = new ActivitySnapshotDto { Id = actSlow, Key = "slow", Attempts = [attemptSlow], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } }
+            },
+            Teams = [],
+            EventStartTimeEt = "2025-02-04T09:00:00-05:00"
+        };
+
+        var context = new GrantAllocationContext
+        {
+            UnlockedRowIndices = new HashSet<int> { 0 },
+            TileProgress = new Dictionary<string, int>(),
+            TileRequiredCount = new Dictionary<string, int>(StringComparer.Ordinal) { ["fast"] = 1, ["slow"] = 1 },
+            TileRowIndex = new Dictionary<string, int>(StringComparer.Ordinal) { ["fast"] = 0, ["slow"] = 0 },
+            TilePoints = new Dictionary<string, int>(StringComparer.Ordinal) { ["fast"] = 4, ["slow"] = 4 },
+            EligibleTileKeys = ["fast", "slow"],
+            EventSnapshot = snapshot
+        };
+        return (context, new Dictionary<string, Guid>(StringComparer.Ordinal) { ["fast"] = actFast, ["slow"] = actSlow });
+    }
+
+    private static (TaskSelectionContext context, IReadOnlyDictionary<string, Guid> tileKeyToActivityId) BuildTaskContextWithTwo4PointTilesDifferentTimes()
+    {
+        var actFast = Guid.NewGuid();
+        var actSlow = Guid.NewGuid();
+        var ruleFast = new TileActivityRuleSnapshotDto { ActivityDefinitionId = actFast, ActivityKey = "fast", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+        var ruleSlow = new TileActivityRuleSnapshotDto { ActivityDefinitionId = actSlow, ActivityKey = "slow", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+
+        var attemptFast = new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] };
+        var attemptSlow = new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 120, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] };
+
+        var snapshot = new EventSnapshotDto
+        {
+            EventName = "Test",
+            DurationSeconds = 3600,
+            UnlockPointsRequiredPerRow = 5,
+            Rows =
+            [
+                new RowSnapshotDto
+                {
+                    Index = 0,
+                    Tiles =
+                    [
+                        new TileSnapshotDto { Key = "fast", Name = "Fast", Points = 4, RequiredCount = 1, AllowedActivities = [ruleFast] },
+                        new TileSnapshotDto { Key = "slow", Name = "Slow", Points = 4, RequiredCount = 1, AllowedActivities = [ruleSlow] }
+                    ]
+                }
+            ],
+            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>
+            {
+                [actFast] = new ActivitySnapshotDto { Id = actFast, Key = "fast", Attempts = [attemptFast], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } },
+                [actSlow] = new ActivitySnapshotDto { Id = actSlow, Key = "slow", Attempts = [attemptSlow], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } }
+            },
+            Teams = [],
+            EventStartTimeEt = "2025-02-04T09:00:00-05:00"
+        };
+
+        var team = new TeamSnapshotDto { TeamId = Guid.NewGuid(), TeamName = "Test", StrategyKey = StrategyCatalog.Greedy, Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = new WeeklyScheduleSnapshotDto { Sessions = [] } }] };
+        var tileKeyToActivityId = new Dictionary<string, Guid>(StringComparer.Ordinal) { ["fast"] = actFast, ["slow"] = actSlow };
+        var tileRowIndex = new Dictionary<string, int>(StringComparer.Ordinal) { ["fast"] = 0, ["slow"] = 0 };
+        var tilePoints = new Dictionary<string, int>(StringComparer.Ordinal) { ["fast"] = 4, ["slow"] = 4 };
+        var tileToRules = new Dictionary<string, IReadOnlyList<TileActivityRuleSnapshotDto>>(StringComparer.Ordinal) { ["fast"] = [ruleFast], ["slow"] = [ruleSlow] };
+
+        var context = new TaskSelectionContext
+        {
+            PlayerIndex = 0,
+            PlayerCapabilities = new HashSet<string>(StringComparer.Ordinal),
+            EventSnapshot = snapshot,
+            TeamSnapshot = team,
+            UnlockedRowIndices = new HashSet<int> { 0 },
+            TileProgress = new Dictionary<string, int>(),
+            TileRequiredCount = new Dictionary<string, int>(StringComparer.Ordinal) { ["fast"] = 1, ["slow"] = 1 },
+            CompletedTiles = new HashSet<string>(StringComparer.Ordinal),
+            TileRowIndex = tileRowIndex,
+            TilePoints = tilePoints,
+            TileToRules = tileToRules
+        };
+        return (context, tileKeyToActivityId);
+    }
+
+    private static (TaskSelectionContext context, IReadOnlyDictionary<string, Guid> tileKeyToActivityId) BuildTaskContextWithTwo4PointTilesSameTime()
+    {
+        var act1 = Guid.NewGuid();
+        var act2 = Guid.NewGuid();
+        var rule1 = new TileActivityRuleSnapshotDto { ActivityDefinitionId = act1, ActivityKey = "a1", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+        var rule2 = new TileActivityRuleSnapshotDto { ActivityDefinitionId = act2, ActivityKey = "a2", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+        var attempt = new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] };
+
+        var snapshot = new EventSnapshotDto
+        {
+            EventName = "Test",
+            DurationSeconds = 3600,
+            UnlockPointsRequiredPerRow = 5,
+            Rows = [new RowSnapshotDto { Index = 0, Tiles = [new TileSnapshotDto { Key = "t1", Name = "T1", Points = 4, RequiredCount = 1, AllowedActivities = [rule1] }, new TileSnapshotDto { Key = "t2", Name = "T2", Points = 4, RequiredCount = 1, AllowedActivities = [rule2] }] }],
+            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto> { [act1] = new ActivitySnapshotDto { Id = act1, Key = "a1", Attempts = [attempt], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } }, [act2] = new ActivitySnapshotDto { Id = act2, Key = "a2", Attempts = [attempt], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } } },
+            Teams = [],
+            EventStartTimeEt = "2025-02-04T09:00:00-05:00"
+        };
+
+        var team = new TeamSnapshotDto { TeamId = Guid.NewGuid(), TeamName = "Test", StrategyKey = StrategyCatalog.Greedy, Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = new WeeklyScheduleSnapshotDto { Sessions = [] } }] };
+        var tileKeyToActivityId = new Dictionary<string, Guid>(StringComparer.Ordinal) { ["t1"] = act1, ["t2"] = act2 };
+        var context = new TaskSelectionContext
+        {
+            PlayerIndex = 0,
+            PlayerCapabilities = new HashSet<string>(StringComparer.Ordinal),
+            EventSnapshot = snapshot,
+            TeamSnapshot = team,
+            UnlockedRowIndices = new HashSet<int> { 0 },
+            TileProgress = new Dictionary<string, int>(),
+            TileRequiredCount = new Dictionary<string, int>(StringComparer.Ordinal) { ["t1"] = 1, ["t2"] = 1 },
+            CompletedTiles = new HashSet<string>(StringComparer.Ordinal),
+            TileRowIndex = new Dictionary<string, int>(StringComparer.Ordinal) { ["t1"] = 0, ["t2"] = 0 },
+            TilePoints = new Dictionary<string, int>(StringComparer.Ordinal) { ["t1"] = 4, ["t2"] = 4 },
+            TileToRules = new Dictionary<string, IReadOnlyList<TileActivityRuleSnapshotDto>>(StringComparer.Ordinal) { ["t1"] = [rule1], ["t2"] = [rule2] }
+        };
+        return (context, tileKeyToActivityId);
+    }
+
+    private static (TaskSelectionContext context, Guid unrestrictedActivityId) BuildTaskContextWithCapabilityRestriction()
+    {
+        var act1 = Guid.NewGuid();
+        var act2 = Guid.NewGuid();
+        var rule1 = new TileActivityRuleSnapshotDto { ActivityDefinitionId = act1, ActivityKey = "a1", AcceptedDropKeys = ["drop"], RequirementKeys = ["cap1"], Modifiers = [] };
+        var rule2 = new TileActivityRuleSnapshotDto { ActivityDefinitionId = act2, ActivityKey = "a2", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+        var attempt = new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] };
+
+        var snapshot = new EventSnapshotDto
+        {
+            EventName = "Test",
+            DurationSeconds = 3600,
+            UnlockPointsRequiredPerRow = 5,
+            Rows =
+            [
+                new RowSnapshotDto
+                {
+                    Index = 0,
+                    Tiles =
+                    [
+                        new TileSnapshotDto { Key = "t1", Name = "T1", Points = 4, RequiredCount = 1, AllowedActivities = [rule1] },
+                        new TileSnapshotDto { Key = "t2", Name = "T2", Points = 2, RequiredCount = 1, AllowedActivities = [rule2] }
+                    ]
+                }
+            ],
+            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>
+            {
+                [act1] = new ActivitySnapshotDto { Id = act1, Key = "a1", Attempts = [attempt], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } },
+                [act2] = new ActivitySnapshotDto { Id = act2, Key = "a2", Attempts = [attempt], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } }
+            },
+            Teams = [],
+            EventStartTimeEt = "2025-02-04T09:00:00-05:00"
+        };
+
+        var team = new TeamSnapshotDto { TeamId = Guid.NewGuid(), TeamName = "Test", StrategyKey = StrategyCatalog.Greedy, Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = new WeeklyScheduleSnapshotDto { Sessions = [] } }] };
+        var context = new TaskSelectionContext
+        {
+            PlayerIndex = 0,
+            PlayerCapabilities = new HashSet<string>(StringComparer.Ordinal),
+            EventSnapshot = snapshot,
+            TeamSnapshot = team,
+            UnlockedRowIndices = new HashSet<int> { 0 },
+            TileProgress = new Dictionary<string, int>(),
+            TileRequiredCount = new Dictionary<string, int>(StringComparer.Ordinal) { ["t1"] = 1, ["t2"] = 1 },
+            CompletedTiles = new HashSet<string>(StringComparer.Ordinal),
+            TileRowIndex = new Dictionary<string, int>(StringComparer.Ordinal) { ["t1"] = 0, ["t2"] = 0 },
+            TilePoints = new Dictionary<string, int>(StringComparer.Ordinal) { ["t1"] = 4, ["t2"] = 2 },
+            TileToRules = new Dictionary<string, IReadOnlyList<TileActivityRuleSnapshotDto>>(StringComparer.Ordinal) { ["t1"] = [rule1], ["t2"] = [rule2] }
+        };
+        return (context, act2);
+    }
+
+    private static TaskSelectionContext BuildTaskContextPlayerLacksAllCapabilities()
+    {
+        var actId = Guid.NewGuid();
+        var rule = new TileActivityRuleSnapshotDto { ActivityDefinitionId = actId, ActivityKey = "act", AcceptedDropKeys = ["drop"], RequirementKeys = ["cap1"], Modifiers = [] };
+        var attempt = new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] };
+
+        var snapshot = new EventSnapshotDto
+        {
+            EventName = "Test",
+            DurationSeconds = 3600,
+            UnlockPointsRequiredPerRow = 5,
+            Rows = [new RowSnapshotDto { Index = 0, Tiles = [new TileSnapshotDto { Key = "t1", Name = "T1", Points = 4, RequiredCount = 1, AllowedActivities = [rule] }] }],
+            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto> { [actId] = new ActivitySnapshotDto { Id = actId, Key = "act", Attempts = [attempt], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } } },
+            Teams = [],
+            EventStartTimeEt = "2025-02-04T09:00:00-05:00"
+        };
+
+        var team = new TeamSnapshotDto { TeamId = Guid.NewGuid(), TeamName = "Test", StrategyKey = StrategyCatalog.Greedy, Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = new WeeklyScheduleSnapshotDto { Sessions = [] } }] };
+        return new TaskSelectionContext
+        {
+            PlayerIndex = 0,
+            PlayerCapabilities = new HashSet<string>(StringComparer.Ordinal),
+            EventSnapshot = snapshot,
+            TeamSnapshot = team,
+            UnlockedRowIndices = new HashSet<int> { 0 },
+            TileProgress = new Dictionary<string, int>(),
+            TileRequiredCount = new Dictionary<string, int>(StringComparer.Ordinal) { ["t1"] = 1 },
+            CompletedTiles = new HashSet<string>(StringComparer.Ordinal),
+            TileRowIndex = new Dictionary<string, int>(StringComparer.Ordinal) { ["t1"] = 0 },
+            TilePoints = new Dictionary<string, int>(StringComparer.Ordinal) { ["t1"] = 4 },
+            TileToRules = new Dictionary<string, IReadOnlyList<TileActivityRuleSnapshotDto>>(StringComparer.Ordinal) { ["t1"] = [rule] }
+        };
+    }
+
+    private static (TaskSelectionContext context, IReadOnlyDictionary<string, Guid> tileKeyToActivityId) BuildTaskContextWithPoints1234()
+    {
+        var act1 = Guid.NewGuid();
+        var act2 = Guid.NewGuid();
+        var act3 = Guid.NewGuid();
+        var act4 = Guid.NewGuid();
+        var rule1 = new TileActivityRuleSnapshotDto { ActivityDefinitionId = act1, ActivityKey = "a1", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+        var rule2 = new TileActivityRuleSnapshotDto { ActivityDefinitionId = act2, ActivityKey = "a2", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+        var rule3 = new TileActivityRuleSnapshotDto { ActivityDefinitionId = act3, ActivityKey = "a3", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+        var rule4 = new TileActivityRuleSnapshotDto { ActivityDefinitionId = act4, ActivityKey = "a4", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+        var attempt = new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] };
+
+        var snapshot = new EventSnapshotDto
+        {
+            EventName = "Test",
+            DurationSeconds = 3600,
+            UnlockPointsRequiredPerRow = 5,
+            Rows = [new RowSnapshotDto { Index = 0, Tiles = [new TileSnapshotDto { Key = "t1", Name = "T1", Points = 1, RequiredCount = 1, AllowedActivities = [rule1] }, new TileSnapshotDto { Key = "t2", Name = "T2", Points = 2, RequiredCount = 1, AllowedActivities = [rule2] }, new TileSnapshotDto { Key = "t3", Name = "T3", Points = 3, RequiredCount = 1, AllowedActivities = [rule3] }, new TileSnapshotDto { Key = "t4", Name = "T4", Points = 4, RequiredCount = 1, AllowedActivities = [rule4] }] }],
+            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto> { [act1] = new ActivitySnapshotDto { Id = act1, Key = "a1", Attempts = [attempt], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } }, [act2] = new ActivitySnapshotDto { Id = act2, Key = "a2", Attempts = [attempt], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } }, [act3] = new ActivitySnapshotDto { Id = act3, Key = "a3", Attempts = [attempt], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } }, [act4] = new ActivitySnapshotDto { Id = act4, Key = "a4", Attempts = [attempt], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } } },
+            Teams = [],
+            EventStartTimeEt = "2025-02-04T09:00:00-05:00"
+        };
+
+        var team = new TeamSnapshotDto { TeamId = Guid.NewGuid(), TeamName = "Test", StrategyKey = StrategyCatalog.Greedy, Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = new WeeklyScheduleSnapshotDto { Sessions = [] } }] };
+        var tileKeyToActivityId = new Dictionary<string, Guid>(StringComparer.Ordinal) { ["t1"] = act1, ["t2"] = act2, ["t3"] = act3, ["t4"] = act4 };
+        var context = new TaskSelectionContext
+        {
+            PlayerIndex = 0,
+            PlayerCapabilities = new HashSet<string>(StringComparer.Ordinal),
+            EventSnapshot = snapshot,
+            TeamSnapshot = team,
+            UnlockedRowIndices = new HashSet<int> { 0 },
+            TileProgress = new Dictionary<string, int>(),
+            TileRequiredCount = new Dictionary<string, int>(StringComparer.Ordinal) { ["t1"] = 1, ["t2"] = 1, ["t3"] = 1, ["t4"] = 1 },
+            CompletedTiles = new HashSet<string>(StringComparer.Ordinal),
+            TileRowIndex = new Dictionary<string, int>(StringComparer.Ordinal) { ["t1"] = 0, ["t2"] = 0, ["t3"] = 0, ["t4"] = 0 },
+            TilePoints = new Dictionary<string, int>(StringComparer.Ordinal) { ["t1"] = 1, ["t2"] = 2, ["t3"] = 3, ["t4"] = 4 },
+            TileToRules = new Dictionary<string, IReadOnlyList<TileActivityRuleSnapshotDto>>(StringComparer.Ordinal) { ["t1"] = [rule1], ["t2"] = [rule2], ["t3"] = [rule3], ["t4"] = [rule4] }
+        };
         return (context, tileKeyToActivityId);
     }
 
