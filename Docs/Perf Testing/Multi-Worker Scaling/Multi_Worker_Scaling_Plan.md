@@ -17,7 +17,40 @@
 
 **Conclusion:** No meaningful scaling benefit. At 50K, 3 workers are slightly slower than 1 worker.
 
-### 1.4 Phase 4A-4D Results (February 3, 2025)
+### 1.6 Phase 4F Results (February 3, 2025) - CRITICAL REGRESSION
+
+**Configuration Changes:** Added WorkerIndex partitioning, workers assigned indices 0-2
+
+| Scenario | 1 Worker | 3 Workers | Scaling Factor | vs Phase 4A-4D |
+|----------|----------|-----------|----------------|-----------------|
+| 100K runs | 37.2s (~2,688 runs/s) | 37.4s (~2,674 runs/s) | 0.99× | **⚠️ REGRESSION** |
+
+**CRITICAL FINDING - SIMULATION PERFORMANCE COLLAPSED:**
+
+Phase 4A-4D simulation times (per 10s window):
+- **sim: ~250-300ms** for 10K+ runs
+
+Phase 4F simulation times (per 10s window):
+- Single worker: **sim: 36,408ms** for 15K runs (first window)
+- 3 Workers: **sim: 10,000-12,000ms EACH** for 10K runs (steady state)
+
+**The simulation itself is 100× slower!** From ~0.02ms per run → ~1-2ms per run.
+
+**Analysis:**
+
+This is NOT a partitioning problem - this is a **simulation performance regression** introduced in Phase 4F implementation. The partitioning code is likely working correctly (each worker processes ~33K runs), but something changed that made the actual simulation execution dramatically slower.
+
+**Potential causes:**
+1. **Snapshot caching disabled/broken:** Notice all workers show "snapshot_load" times and "snapshot_cache_miss" - suggests snapshot is being deserialized repeatedly
+2. **New overhead in execution path:** ExecuteSimulationRunBatchConsumer or filter may be calling expensive operations per-run
+3. **Configuration issue:** `SimulationDelayMs` might have been inadvertently set to non-zero
+4. **Worker identity resolution:** WorkerIndexHostnameResolver or WorkerIndexFilter might be doing expensive operations per-message
+
+**Immediate next steps:**
+1. Verify `SimulationDelayMs = 0` in all worker configurations
+2. Check snapshot caching - cache should hit on all but first run per batch
+3. Profile the simulation execution path to find the regression
+4. Consider reverting Phase 4F changes to re-establish baseline
 
 **Configuration Changes:** BatchSize 10→20, PostgreSQL tuning, Persistence BatchSize 50→100, FlushInterval 500ms→1000ms, Connection pool sized to 50.
 
@@ -445,14 +478,25 @@ Phase 4A-4D achieved a **2.7× absolute speedup** but **no multi-worker scaling*
 ### Phase 4E: ⏭️ Skipped
 - Rationale: GetByIdAsync calls are not visible in performance metrics. Message enrichment would provide negligible benefit compared to Phase 4F.
 
-### Phase 4F: ✅ Completed (2025-02-03)
+### Phase 4F: ⚠️ Completed but CRITICAL REGRESSION (2025-02-03)
 - [x] Design partitioning strategy (Option A: Worker-Indexed Partitioning)
 - [x] Add WorkerIndex to ExecuteSimulationRunBatch message
 - [x] Implement worker index assignment in MassTransitRunWorkPublisher
 - [x] Add WORKER_INDEX and WORKER_COUNT environment variables
 - [x] Implement WorkerIndexFilter for message filtering
 - [x] Update ExecuteSimulationRunBatchConsumerDefinition
-- [x] Configure workers with stable identities (manual startup or orchestrator)
-- [ ] Test with 1 worker, then 3 workers
-- [ ] Validate ≥1.5× scaling factor
-- [x] Document results (see Phase_4F_Implementation.md)
+- [x] Configure workers with stable identities (hostname-derived indices)
+- [x] Test with 1 worker, then 3 workers
+- [ ] ~~Validate ≥1.5× scaling factor~~ - **FAILED: 0.99× scaling, but due to simulation regression not partitioning**
+- [x] Document results
+
+**CRITICAL ISSUE DISCOVERED:** Simulation performance regressed 100× (250ms → 36,000ms per 10K runs). This masks any partitioning benefits. Phase 4G must diagnose and fix this regression before re-testing partitioning.
+
+### Phase 4G: 🔥 URGENT - Diagnose Simulation Performance Regression
+- [ ] Verify SimulationDelayMs = 0 in all configurations
+- [ ] Check snapshot caching (should hit on all runs except first per batch)
+- [ ] Profile ExecuteSimulationRunBatchConsumer execution path
+- [ ] Identify code change causing 100× slowdown
+- [ ] Fix regression
+- [ ] Re-test Phase 4F partitioning with correct performance baseline
+- [ ] Document root cause and resolution
