@@ -22,7 +22,7 @@ using Testcontainers.PostgreSql;
 namespace BingoSim.Infrastructure.IntegrationTests.Simulation;
 
 /// <summary>
-/// Verifies that multiple ExecuteSimulationRun messages are processed concurrently when MaxConcurrentRuns > 1.
+/// Verifies that multiple ExecuteSimulationRunBatch messages are processed concurrently when MaxConcurrentRuns > 1.
 /// Uses IWorkerConcurrencyObserver to avoid flaky timing assertions.
 /// </summary>
 public class DistributedConcurrencyIntegrationTests : IAsyncLifetime
@@ -47,7 +47,8 @@ public class DistributedConcurrencyIntegrationTests : IAsyncLifetime
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = connectionString,
-                ["SimulationPersistence:BatchSize"] = "1"
+                ["SimulationPersistence:BatchSize"] = "1",
+                ["DistributedExecution:BatchSize"] = "10"
             })
             .Build();
 
@@ -66,7 +67,7 @@ public class DistributedConcurrencyIntegrationTests : IAsyncLifetime
         services.AddSingleton<IWorkerConcurrencyObserver>(_concurrencyObserver);
 
         services.AddMassTransitTestHarness(x =>
-            x.AddConsumer<ExecuteSimulationRunConsumer, ExecuteSimulationRunConsumerDefinition>());
+            x.AddConsumer<ExecuteSimulationRunBatchConsumer, ExecuteSimulationRunBatchConsumerDefinition>());
 
         _provider = services.BuildServiceProvider();
         _harness = _provider.GetRequiredService<ITestHarness>();
@@ -105,9 +106,10 @@ public class DistributedConcurrencyIntegrationTests : IAsyncLifetime
         }
         await runRepo.AddRangeAsync(runs);
 
+        // Publish 4 batch messages (1 run each) to exercise concurrent batch processing
         foreach (var run in runs)
         {
-            await _harness.Bus.Publish(new ExecuteSimulationRun { SimulationRunId = run.Id });
+            await _harness.Bus.Publish(new ExecuteSimulationRunBatch { SimulationRunIds = [run.Id] });
         }
 
         // Poll until we observe >= 2 concurrent in-progress, or all complete

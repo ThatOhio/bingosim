@@ -40,6 +40,16 @@ After Phase 2 (Shared Snapshot Cache + Claim Optimization):
 - **claim_avg** appears in worker throughput logs; claim total/count unchanged but DB contention may decrease.
 - **Distributed throughput** with 3 workers should improve vs. Phase 1 baseline (~990 runs/10s); target: 2–3× with shared cache reducing DB load.
 
+### Phase 3 Benchmark Expectations (Batch Claim)
+
+After Phase 3 (Batch Message Contract + ClaimBatchAsync):
+
+- **claim count** should drop from ~1000 per 10s to ~50–100 (batch size 10–20). One claim per batch message.
+- **runs_claimed** appears in worker throughput logs; count = runs successfully claimed per batch.
+- **claim total (ms)** should drop proportionally (fewer round-trips).
+- **Distributed throughput** with 3 workers should achieve ≥2× aggregate vs 1 worker.
+- **Validation checklist:** Run 10K with 1 worker, record runs/10s and claim count. Run 10K with 3 workers; aggregate runs/10s should be ≥2×.
+
 ### Distributed Scaling Benchmark (1 vs 3 workers)
 
 Validates that adding workers yields measurable throughput increase. Run 10K distributed with 1 worker, then 3 workers; compare elapsed time and runs/sec.
@@ -131,7 +141,7 @@ Phase totals (ms total, count):
 - **snapshot_cache_miss:** (Phase 2) Count of runs that loaded from DB. Should ≈ 1 per batch.
 - **sim:** Total ms in simulation execution. Count = runs completed.
 - **persist:** Total ms for DB writes. With immediate persist (BatchSize=1): per-run delete + add + update. With buffered persist: recorded per flush by BufferedRunResultPersister; total = sum of all flush times, count = runs persisted. The "Buffered persist" line shows flushes, rows, SaveChanges for batched mode.
-- **claim:** Total ms and count for atomic run claiming (Pending → Running). **Phase 2:** `claim_avg` (ms) emitted per 10s window in worker throughput logs.
+- **claim:** Total ms and count for atomic run claiming (Pending → Running). **Phase 2:** `claim_avg` (ms) emitted per 10s window in worker throughput logs. **Phase 3:** Count = batch claims (not per-run); `runs_claimed` = runs successfully claimed per batch.
 
 ### Throughput
 

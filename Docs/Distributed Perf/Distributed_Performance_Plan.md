@@ -1,7 +1,7 @@
 # Distributed Simulation Performance Plan
 
 **Date:** February 3, 2025  
-**Status:** Phase 1 Implemented; Phase 2 Implemented; Phase 3 Planned  
+**Status:** Phase 1 Implemented; Phase 2 Implemented; Phase 3 Implemented  
 **Context:** Running 10,000 simulations in distributed mode with 3 workers takes roughly the same time as with 1 worker. Phase 2 addresses snapshot cache and claim observability. CPU and RAM are underutilized. Goal: achieve measurable speedup when scaling workers (e.g., 3 workers ≈ 2–3× faster than 1 worker).
 
 ---
@@ -227,28 +227,24 @@ This plan identifies improvement areas. Phases 2+ are updated to address the dat
 
 ---
 
-### Phase 3: Claim Reduction + Persistence Tuning (Areas 4 + 5 + 6 + 7)
+### Phase 3: Claim Reduction + Persistence Tuning (Areas 4 + 5 + 6 + 7) — IMPLEMENTED
 
-Phase 2 proved that **claim round-trips** are the primary bottleneck. Phase 3 must reduce claim-related DB load. Incorporate the following:
+Phase 2 proved that **claim round-trips** are the primary bottleneck. Phase 3 reduces claim-related DB load via batch messaging (Option B).
 
-| Step | Task | Priority | Notes |
-|------|------|----------|-------|
-| 1 | **Batch claiming** — `ClaimBatchAsync` claims N runs in one round-trip | **Critical** | Reduces claim round-trips by factor of N (e.g. 10 → 100 round-trips/10s instead of 1000). Requires worker to claim before processing; message flow may need adjustment (e.g. worker fetches N run IDs, claims batch, processes). |
-| 2 | **Enrich message with BatchId + Seed** — Add to `ExecuteSimulationRun` so executor can skip `GetByIdAsync` | High | Saves 1 DB round-trip per run. Executor needs run.Seed and run.SimulationBatchId; if in message, skip load. Requires message contract change; backward-compat or versioned contract. |
-| 3 | **Connection pool tuning** — Document `Maximum Pool Size`; consider increasing if workers contend | Medium | 3 workers × 4 concurrent = 12 scoped DbContexts; plus BatchFinalizer, BufferedPersister. Default 100 may be fine; monitor for exhaustion. |
-| 4 | **Persistence BatchSize** — Add Worker override; consider 100 for distributed | Medium | Fewer flushes = fewer DB round-trips for persist. |
-| 5 | **PostgreSQL tuning** (if DB-hosted) — `synchronous_commit=off` for perf, `shared_buffers` | Low | Only if DB is confirmed bottleneck; measure before/after. |
-| 6 | **Optional chunking** for 50K+ publish | Low | `PublishRunWorkBatchAsync`; defer until scaling beyond 10K. |
+| Step | Task | Status |
+|------|------|--------|
+| 1 | **Batch claiming** — `ClaimBatchAsync` claims N runs in one round-trip | Done — `ExecuteSimulationRunBatch` message, `ExecuteSimulationRunBatchConsumer` |
+| 2 | **Enrich message with BatchId + Seed** | Deferred — Phase 3B candidate; measure first |
+| 3 | **Connection pool tuning** | See `PERF_NOTES.md` |
+| 4 | **Persistence BatchSize** | Existing config; consider 100 for distributed |
+| 5 | **PostgreSQL tuning** | Low priority |
+| 6 | **Optional chunking** for 50K+ publish | Deferred |
 
-**Batch claiming design options:**
-
-- **Option A (minimal):** Worker consumer receives one message, but before processing checks a "claim buffer." If buffer has capacity, add runId to buffer and return (no ack yet). A background loop claims buffer contents in batch, then processes and acks. Complex; acks become decoupled from processing.
-- **Option B (batch message):** New message type `ExecuteSimulationRunBatch { RunIds[] }`. Web publishes batches of N run IDs. Worker consumes batch, calls `ClaimBatchAsync`, processes claimed runs, acks. Simpler; changes message model.
-- **Option C (worker-pull):** Worker pulls N run IDs from a "pending" table/queue, claims in batch, processes. Requires different queue semantics.
-
-**Recommendation:** Option B is cleanest — one batch message per N runs, one claim round-trip per batch. Preserves message-per-run semantics at the batch level.
+**Implementation:** Option B — `ExecuteSimulationRunBatch { SimulationRunIds }`. Web chunks run IDs by `DistributedExecution:BatchSize` (default 10), publishes one batch message per chunk. Worker consumes batch, calls `ClaimBatchAsync`, processes claimed runs with `skipClaim: true`, acks. Retries publish `ExecuteSimulationRunBatch` with failed run IDs (batch of 1 valid).
 
 **Success criteria:** Claim round-trips drop (e.g. 1000 → 100 per 10s); 3 workers show 2–3× aggregate throughput vs 1 worker.
+
+**Results / Observations:** See [Phase 3 Implementation Summary](Phase_3_Implementation_Summary.md). Run benchmark per [PERF_NOTES.md](../PERF_NOTES.md) Phase 3 procedure to validate.
 
 ---
 
@@ -279,7 +275,7 @@ Snapshot load was **&lt;1%** of total time. Claim is **~90%**. Eliminating snaps
 ## 8. References
 
 - `BingoSim.Worker/Program.cs` — MassTransit and consumer registration
-- `BingoSim.Worker/Consumers/ExecuteSimulationRunConsumer.cs` — Single-message consumer
+- `BingoSim.Worker/Consumers/ExecuteSimulationRunBatchConsumer.cs` — Batch consumer (Phase 3)
 - `BingoSim.Web/Services/SimulationRunQueueHostedService.cs` — Local mode concurrency (MaxConcurrentRuns)
 - `Docs/04_Architecture.md` — Concurrency model (In-Process Parallelism)
 - `Docs/08_Feature_Audit_2025.md` — Worker MaxConcurrentRuns gap

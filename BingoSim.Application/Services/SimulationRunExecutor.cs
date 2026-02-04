@@ -33,7 +33,7 @@ public class SimulationRunExecutor(
     private const int MaxErrorLength = 500;
     private const int VerboseLogEveryNIterations = 1000;
 
-    public async Task ExecuteAsync(Guid runId, CancellationToken cancellationToken = default)
+    public async Task ExecuteAsync(Guid runId, CancellationToken cancellationToken = default, bool skipClaim = false)
     {
         var run = await runRepo.GetByIdAsync(runId, cancellationToken);
         if (run is null)
@@ -49,22 +49,25 @@ public class SimulationRunExecutor(
         }
 
         var startedAt = DateTimeOffset.UtcNow;
-        var claimSw = System.Diagnostics.Stopwatch.StartNew();
-        try
+        if (!skipClaim)
         {
-            if (!await runRepo.TryClaimAsync(runId, startedAt, cancellationToken))
+            var claimSw = System.Diagnostics.Stopwatch.StartNew();
+            try
             {
-                logger.LogDebug("Run {RunId} already claimed by another worker", runId);
-                return;
+                if (!await runRepo.TryClaimAsync(runId, startedAt, cancellationToken))
+                {
+                    logger.LogDebug("Run {RunId} already claimed by another worker", runId);
+                    return;
+                }
             }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "[ClaimDbError] TryClaimAsync failed for run {RunId}", runId);
+                throw;
+            }
+            claimSw.Stop();
+            perfRecorder?.Record("claim", claimSw.ElapsedMilliseconds, 1);
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "[ClaimDbError] TryClaimAsync failed for run {RunId}", runId);
-            throw;
-        }
-        claimSw.Stop();
-        perfRecorder?.Record("claim", claimSw.ElapsedMilliseconds, 1);
 
         run.MarkRunning(startedAt);
 

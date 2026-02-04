@@ -51,6 +51,7 @@ services:
       - RabbitMQ__Port=5672
       - RabbitMQ__Username=${RABBITMQ_USER:-guest}
       - RabbitMQ__Password=${RABBITMQ_PASS:-guest}
+      - DistributedExecution__BatchSize=${DISTRIBUTED_BATCH_SIZE:-10}
 
   bingosim.worker:
     image: bingosim.worker
@@ -73,6 +74,7 @@ services:
       - WorkerSimulation__SimulationDelayMs=${WORKER_SIMULATION_DELAY_MS:-0}
       - WorkerSimulation__MaxConcurrentRuns=${WORKER_MAX_CONCURRENT_RUNS:-0}
       - WorkerSimulation__PrefetchCount=${WORKER_PREFETCH_COUNT:-0}
+      - DistributedExecution__BatchSize=${DISTRIBUTED_BATCH_SIZE:-10}
 
 volumes:
   postgres_data:

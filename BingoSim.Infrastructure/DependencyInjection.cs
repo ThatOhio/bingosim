@@ -64,6 +64,8 @@ public static class DependencyInjection
 
         services.Configure<SimulationPersistenceOptions>(
             configuration.GetSection(SimulationPersistenceOptions.SectionName));
+        services.Configure<DistributedExecutionOptions>(
+            configuration.GetSection(DistributedExecutionOptions.SectionName));
         services.AddSingleton<ISimulationPersistenceConfig, SimulationPersistenceConfig>();
         services.AddSingleton<IBufferedRunResultPersister, BufferedRunResultPersister>();
         services.AddHostedService<Hosting.BufferedPersisterFlushHostedService>();

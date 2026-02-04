@@ -8,7 +8,10 @@ namespace BingoSim.Application.Interfaces;
 /// </summary>
 public interface ISimulationRunExecutor
 {
-    Task ExecuteAsync(Guid runId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Executes a run: load, claim, snapshot, simulate, persist. Use skipClaim=true when run was already claimed (batch consumer).
+    /// </summary>
+    Task ExecuteAsync(Guid runId, CancellationToken cancellationToken = default, bool skipClaim = false);
 
     /// <summary>
     /// Executes a run with preloaded run and snapshot. Skips DB fetch and claim; for local perf path only.

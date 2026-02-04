@@ -42,7 +42,8 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = connectionString,
-                ["SimulationPersistence:BatchSize"] = "1"
+                ["SimulationPersistence:BatchSize"] = "1",
+                ["DistributedExecution:BatchSize"] = "10"
             })
             .Build();
 
@@ -56,7 +57,7 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
         services.AddSingleton<IWorkerRunThroughputRecorder, WorkerRunThroughputRecorder>();
 
         services.AddMassTransitTestHarness(x =>
-            x.AddConsumer<ExecuteSimulationRunConsumer, ExecuteSimulationRunConsumerDefinition>());
+            x.AddConsumer<ExecuteSimulationRunBatchConsumer, ExecuteSimulationRunBatchConsumerDefinition>());
 
         _provider = services.BuildServiceProvider();
         _harness = _provider.GetRequiredService<ITestHarness>();
@@ -95,10 +96,7 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
         }
         await runRepo.AddRangeAsync(runs);
 
-        foreach (var run in runs)
-        {
-            await _harness.Bus.Publish(new ExecuteSimulationRun { SimulationRunId = run.Id });
-        }
+        await _harness.Bus.Publish(new ExecuteSimulationRunBatch { SimulationRunIds = runs.Select(r => r.Id).ToList() });
 
         // Poll for completion using fresh scopes to avoid EF Core caching
         for (var i = 0; i < 60; i++)
@@ -151,7 +149,7 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
         await runRepo.AddRangeAsync(runs);
 
         var runIds = runs.Select(r => r.Id).ToList();
-        await publisher.PublishRunWorkBatchAsync(runIds);
+        await publisher.PublishRunWorkBatchAsync(runIds); // Publishes ExecuteSimulationRunBatch (chunked by BatchSize)
 
         for (var i = 0; i < 60; i++)
         {
@@ -195,10 +193,7 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
         }
         await runRepo.AddRangeAsync(runs);
 
-        foreach (var run in runs)
-        {
-            await _harness.Bus.Publish(new ExecuteSimulationRun { SimulationRunId = run.Id });
-        }
+        await _harness.Bus.Publish(new ExecuteSimulationRunBatch { SimulationRunIds = runs.Select(r => r.Id).ToList() });
 
         for (var i = 0; i < 60; i++)
         {
@@ -242,10 +237,7 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
         }
         await runRepo.AddRangeAsync(runs);
 
-        foreach (var run in runs)
-        {
-            await _harness.Bus.Publish(new ExecuteSimulationRun { SimulationRunId = run.Id });
-        }
+        await _harness.Bus.Publish(new ExecuteSimulationRunBatch { SimulationRunIds = runs.Select(r => r.Id).ToList() });
 
         for (var i = 0; i < 60; i++)
         {
@@ -583,10 +575,7 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
         }
         await runRepo.AddRangeAsync(runs);
 
-        foreach (var run in runs)
-        {
-            await _harness.Bus.Publish(new ExecuteSimulationRun { SimulationRunId = run.Id });
-        }
+        await _harness.Bus.Publish(new ExecuteSimulationRunBatch { SimulationRunIds = runs.Select(r => r.Id).ToList() });
 
         for (var i = 0; i < 60; i++)
         {

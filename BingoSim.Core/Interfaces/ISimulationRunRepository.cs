@@ -18,6 +18,15 @@ public interface ISimulationRunRepository
     Task<bool> TryClaimAsync(Guid runId, DateTimeOffset startedAt, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Atomically transitions multiple runs from Pending to Running in one round-trip.
+    /// Returns IDs of runs that were successfully claimed (others may have been claimed by another worker).
+    /// </summary>
+    Task<IReadOnlyList<Guid>> ClaimBatchAsync(
+        IReadOnlyList<Guid> runIds,
+        DateTimeOffset startedAt,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Bulk transition runs from Running to Completed. Used by batched persist.
     /// </summary>
     Task<int> BulkMarkCompletedAsync(IReadOnlyList<Guid> runIds, DateTimeOffset completedAt, CancellationToken cancellationToken = default);

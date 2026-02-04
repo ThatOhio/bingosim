@@ -49,6 +49,37 @@ public class SimulationRunRepository(AppDbContext context) : ISimulationRunRepos
         return rowsAffected > 0;
     }
 
+    public async Task<IReadOnlyList<Guid>> ClaimBatchAsync(
+        IReadOnlyList<Guid> runIds,
+        DateTimeOffset startedAt,
+        CancellationToken cancellationToken = default)
+    {
+        if (runIds.Count == 0)
+            return [];
+
+        var ids = runIds.ToArray();
+        var pendingStatus = RunStatus.Pending.ToString();
+        var runningStatus = RunStatus.Running.ToString();
+
+        var claimedIds = await context.Database
+            .SqlQuery<Guid>($"""
+                UPDATE "SimulationRuns"
+                SET "Status" = {runningStatus}, "StartedAt" = {startedAt}, "LastAttemptAt" = {startedAt}
+                WHERE "Id" = ANY({ids}) AND "Status" = {pendingStatus}
+                RETURNING "Id"
+                """)
+            .ToListAsync(cancellationToken);
+
+        foreach (var runId in claimedIds)
+        {
+            var tracked = context.ChangeTracker.Entries<SimulationRun>().FirstOrDefault(e => e.Entity.Id == runId);
+            if (tracked is not null)
+                tracked.State = EntityState.Detached;
+        }
+
+        return claimedIds;
+    }
+
     public async Task<int> BulkMarkCompletedAsync(IReadOnlyList<Guid> runIds, DateTimeOffset completedAt, CancellationToken cancellationToken = default)
     {
         if (runIds.Count == 0)

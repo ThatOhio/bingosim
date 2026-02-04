@@ -31,7 +31,7 @@ class Program
 
         builder.Services.AddMassTransit(x =>
         {
-            x.AddConsumer<ExecuteSimulationRunConsumer, ExecuteSimulationRunConsumerDefinition>();
+            x.AddConsumer<ExecuteSimulationRunBatchConsumer, ExecuteSimulationRunBatchConsumerDefinition>();
             x.UsingRabbitMq((context, cfg) =>
             {
                 cfg.Host(rabbitUri);
