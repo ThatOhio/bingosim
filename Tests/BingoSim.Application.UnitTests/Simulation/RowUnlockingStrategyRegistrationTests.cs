@@ -43,7 +43,8 @@ public class RowUnlockingStrategyRegistrationTests
             TileRequiredCount = new Dictionary<string, int>(),
             TileRowIndex = new Dictionary<string, int>(),
             TilePoints = new Dictionary<string, int>(),
-            EligibleTileKeys = []
+            EligibleTileKeys = [],
+            EventSnapshot = BuildMinimalEventSnapshot()
         };
         strategy.SelectTargetTileForGrant(context).Should().BeNull();
     }
@@ -59,7 +60,8 @@ public class RowUnlockingStrategyRegistrationTests
             TileRequiredCount = new Dictionary<string, int> { ["a"] = 1, ["b"] = 1, ["c"] = 1 },
             TileRowIndex = new Dictionary<string, int> { ["a"] = 0, ["b"] = 1, ["c"] = 1 },
             TilePoints = new Dictionary<string, int> { ["a"] = 4, ["b"] = 2, ["c"] = 4 },
-            EligibleTileKeys = ["a", "b", "c"]
+            EligibleTileKeys = ["a", "b", "c"],
+            EventSnapshot = BuildMinimalEventSnapshot()
         };
         strategy.SelectTargetTileForGrant(context).Should().Be("c");
     }
@@ -75,7 +77,8 @@ public class RowUnlockingStrategyRegistrationTests
             TileRequiredCount = new Dictionary<string, int> { ["a"] = 1, ["b"] = 1 },
             TileRowIndex = new Dictionary<string, int> { ["a"] = 0, ["b"] = 0 },
             TilePoints = new Dictionary<string, int> { ["a"] = 1, ["b"] = 4 },
-            EligibleTileKeys = ["a", "b"]
+            EligibleTileKeys = ["a", "b"],
+            EventSnapshot = BuildMinimalEventSnapshot()
         };
         strategy.SelectTargetTileForGrant(context).Should().Be("b");
     }
@@ -91,7 +94,8 @@ public class RowUnlockingStrategyRegistrationTests
             TileRequiredCount = new Dictionary<string, int> { ["x"] = 1, ["a"] = 1 },
             TileRowIndex = new Dictionary<string, int> { ["x"] = 0, ["a"] = 0 },
             TilePoints = new Dictionary<string, int> { ["x"] = 4, ["a"] = 4 },
-            EligibleTileKeys = ["x", "a"]
+            EligibleTileKeys = ["x", "a"],
+            EventSnapshot = BuildMinimalEventSnapshot()
         };
         strategy.SelectTargetTileForGrant(context).Should().Be("a");
     }
@@ -350,6 +354,20 @@ public class RowUnlockingStrategyRegistrationTests
             TileRowIndex = new Dictionary<string, int>(),
             TilePoints = new Dictionary<string, int>(),
             TileToRules = new Dictionary<string, IReadOnlyList<TileActivityRuleSnapshotDto>>(StringComparer.Ordinal)
+        };
+    }
+
+    private static EventSnapshotDto BuildMinimalEventSnapshot()
+    {
+        return new EventSnapshotDto
+        {
+            EventName = "Test",
+            DurationSeconds = 3600,
+            UnlockPointsRequiredPerRow = 5,
+            Rows = [],
+            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>(),
+            Teams = [],
+            EventStartTimeEt = "2025-02-04T09:00:00-05:00"
         };
     }
 }

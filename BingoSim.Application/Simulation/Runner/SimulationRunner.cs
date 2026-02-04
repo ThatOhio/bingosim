@@ -211,7 +211,8 @@ public class SimulationRunner(ITeamStrategyFactory strategyFactory, ILogger<Simu
                     TileRequiredCount = tileRequiredCount,
                     TileRowIndex = tileRowIndex,
                     TilePoints = tilePoints,
-                    EligibleTileKeys = eligible
+                    EligibleTileKeys = eligible,
+                    EventSnapshot = snapshot
                 };
                 var target = strategy.SelectTargetTileForGrant(context);
                 if (target is null)

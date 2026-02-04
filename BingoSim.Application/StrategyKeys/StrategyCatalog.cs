@@ -9,7 +9,10 @@ public static class StrategyCatalog
     /// <summary>Strategy focused on unlocking the next row as quickly as possible.</summary>
     public const string RowUnlocking = "RowUnlocking";
 
-    private static readonly string[] AllKeys = [RowUnlocking];
+    /// <summary>Strategy that always selects the highest point value tiles, using completion time as tie-breaker.</summary>
+    public const string Greedy = "Greedy";
+
+    private static readonly string[] AllKeys = [RowUnlocking, Greedy];
 
     /// <summary>Returns all supported strategy keys for dropdown/validation.</summary>
     public static IReadOnlyList<string> GetSupportedKeys() => AllKeys;

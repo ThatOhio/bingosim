@@ -1,3 +1,5 @@
+using BingoSim.Application.Simulation.Snapshot;
+
 namespace BingoSim.Application.Simulation.Allocation;
 
 /// <summary>
@@ -23,4 +25,7 @@ public sealed class GrantAllocationContext
 
     /// <summary>Eligible tile keys: in unlocked row, accept DropKey, not yet completed.</summary>
     public required IReadOnlyList<string> EligibleTileKeys { get; init; }
+
+    /// <summary>Event snapshot for tile lookup and completion time estimation.</summary>
+    public required EventSnapshotDto EventSnapshot { get; init; }
 }
