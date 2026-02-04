@@ -19,4 +19,11 @@ public class DistributedExecutionOptions
     /// Override via appsettings DistributedExecution:WorkerCount or env DISTRIBUTED_WORKER_COUNT.
     /// </summary>
     public int WorkerCount { get; set; } = 3;
+
+    /// <summary>
+    /// Number of batches to publish in parallel. Default 100.
+    /// Higher values increase throughput but may overwhelm RabbitMQ. Tune based on broker capacity.
+    /// Override via appsettings DistributedExecution:PublishChunkSize or env DISTRIBUTED_PUBLISH_CHUNK_SIZE.
+    /// </summary>
+    public int PublishChunkSize { get; set; } = 100;
 }

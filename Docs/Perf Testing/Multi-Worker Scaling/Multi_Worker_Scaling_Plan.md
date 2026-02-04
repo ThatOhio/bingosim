@@ -85,7 +85,7 @@ The data reveals a **message broker (RabbitMQ) bottleneck**:
 
 Worker partitioning successfully eliminated database contention and enabled perfect load distribution. However, **the message broker cannot deliver messages fast enough** to saturate multiple workers. The current architecture publishes batches sequentially, creating a throughput ceiling of ~3,000 runs/s regardless of worker count.
 
-**Next Steps:** Phase 4I will investigate RabbitMQ bottleneck and explore parallel batch publishing strategies.
+**Next Steps:** Phase 4I implemented parallel batch publishing. See Phase_4I_Message_Broker_Optimization.md for validation results.
 
 **Investigation:** Phase 4F appeared to have 100× regression, but was actually measured in Debug mode. After switching to Release mode, discovered the real issue.
 
@@ -638,13 +638,13 @@ Phase 4A-4D achieved a **2.7× absolute speedup** but **no multi-worker scaling*
 
 **Results:** Partitioning works perfectly (even load, no contention), but RabbitMQ delivers messages at ~3,000 runs/s ceiling regardless of worker count. Adding workers doesn't increase throughput because message delivery rate is the constraint.
 
-### Phase 4I: 🎯 Next Priority - Message Broker Optimization
-- [ ] Profile batch publishing in Web application
-- [ ] Measure time to publish 25,000 batch messages (500K runs / 20 per batch)
-- [ ] Investigate parallel batch publishing strategies
-- [ ] Test: Publish batches in parallel chunks (e.g., 10 batches at a time)
-- [ ] Test: Pre-publish all batches before simulation starts (bulk publish)
-- [ ] Measure improvement in message delivery rate
-- [ ] Re-test 3 workers to validate scaling with higher message throughput
+### Phase 4I: ✅ Implementation Complete - Message Broker Optimization (2025-02-03)
+- [x] Profile batch publishing in Web application (instrumentation added)
+- [x] Implement parallel batch publishing (Option B: chunked Task.WhenAll)
+- [x] Add PublishChunkSize config (default 100) for tuning
+- [x] Add publish timing log: `Published X batches (Y runs) in Zms [CHUNKED PARALLEL]`
+- [ ] Validate: Run 500K test, check Web logs for publish time
+- [ ] Validate: Re-test 3 workers for scaling factor
 - [ ] Target: Increase message delivery to ≥10,000 runs/s to saturate 3 workers
-- [ ] Document findings and determine if further optimization is worthwhile
+
+**Implementation:** See Phase_4I_Message_Broker_Optimization.md. MassTransitRunWorkPublisher now publishes batches in parallel chunks of 100 (configurable). Validation pending.

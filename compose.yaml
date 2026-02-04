@@ -63,6 +63,7 @@ services:
       - RabbitMQ__Password=${RABBITMQ_PASS:-guest}
       - DistributedExecution__BatchSize=${DISTRIBUTED_BATCH_SIZE:-20}
       - DistributedExecution__WorkerCount=${DISTRIBUTED_WORKER_COUNT:-3}
+      - DistributedExecution__PublishChunkSize=${DISTRIBUTED_PUBLISH_CHUNK_SIZE:-100}
 
   bingosim.worker:
     image: bingosim.worker
