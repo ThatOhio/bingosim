@@ -191,6 +191,101 @@ public class ComboUnlockingStrategyTests
         comboTeam.Should().NotBeNull();
     }
 
+    [Fact]
+    public void Simulation_WithComboUnlocking_MultiRowUnlock_CacheInvalidationWorks()
+    {
+        var snapshotJson = BuildSnapshotWithMultiRowComboUnlocking();
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
+
+        var results = runner.Execute(snapshotJson, "multi-row-combo_0", CancellationToken.None);
+        results.Should().NotBeEmpty();
+        var comboTeam = results.First(r => r.StrategyKey == StrategyCatalog.ComboUnlocking);
+        comboTeam.Should().NotBeNull();
+        comboTeam.RowReached.Should().BeGreaterThan(0, "ComboUnlocking should unlock row 1 when cache invalidation is wired; RowReached > 0 indicates row unlock occurred");
+    }
+
+    private static string BuildSnapshotWithMultiRowComboUnlocking()
+    {
+        var actId = Guid.NewGuid();
+        var teamId = Guid.NewGuid();
+        var alwaysOnline = new WeeklyScheduleSnapshotDto { Sessions = [] };
+
+        var rule = new TileActivityRuleSnapshotDto
+        {
+            ActivityDefinitionId = actId,
+            ActivityKey = "act",
+            AcceptedDropKeys = ["drop"],
+            RequirementKeys = [],
+            Modifiers = []
+        };
+
+        var dto = new EventSnapshotDto
+        {
+            EventName = "Multi-Row ComboUnlocking Test",
+            DurationSeconds = 3600,
+            UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = new DateTimeOffset(2025, 2, 4, 9, 0, 0, TimeSpan.FromHours(-5)).ToString("o"),
+            Rows =
+            [
+                new RowSnapshotDto
+                {
+                    Index = 0,
+                    Tiles =
+                    [
+                        new TileSnapshotDto { Key = "r0a", Name = "R0A", Points = 2, RequiredCount = 1, AllowedActivities = [rule] },
+                        new TileSnapshotDto { Key = "r0b", Name = "R0B", Points = 2, RequiredCount = 1, AllowedActivities = [rule] },
+                        new TileSnapshotDto { Key = "r0c", Name = "R0C", Points = 2, RequiredCount = 1, AllowedActivities = [rule] }
+                    ]
+                },
+                new RowSnapshotDto
+                {
+                    Index = 1,
+                    Tiles =
+                    [
+                        new TileSnapshotDto { Key = "r1a", Name = "R1A", Points = 4, RequiredCount = 1, AllowedActivities = [rule] }
+                    ]
+                }
+            ],
+            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>
+            {
+                [actId] = new ActivitySnapshotDto
+                {
+                    Id = actId,
+                    Key = "act",
+                    Attempts =
+                    [
+                        new AttemptSnapshotDto
+                        {
+                            Key = "main",
+                            RollScope = 0,
+                            BaselineTimeSeconds = 60,
+                            VarianceSeconds = 0,
+                            Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }]
+                        }
+                    ],
+                    GroupScalingBands = [],
+                    ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false }
+                }
+            },
+            Teams =
+            [
+                new TeamSnapshotDto
+                {
+                    TeamId = teamId,
+                    TeamName = "ComboUnlocking Team",
+                    StrategyKey = StrategyCatalog.ComboUnlocking,
+                    Players =
+                    [
+                        new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }
+                    ]
+                }
+            ]
+        };
+
+        return JsonSerializer.Serialize(dto);
+    }
+
     private static EventSnapshotDto BuildEventSnapshotWithThreeRows()
     {
         var actId = Guid.NewGuid();

@@ -116,9 +116,9 @@ The following logic is shared/copied from `RowUnlockingStrategy`:
   - A tile on the row completes
 - **`InvalidateAllPenalizedCache()`** – Clears the entire penalized cache. Call when any row unlocks, since all rows' penalties depend on unlocked state.
 
-### Wiring (Follow-up Task)
+### Wiring
 
-Cache invalidation is not yet wired into `SimulationRunner`. When a tile completes or a row unlocks, the runner should call the appropriate invalidation method on the strategy. Strategies are obtained per-team from the factory; each strategy instance has its own cache. For single-run simulations, cache staleness is limited since the run is short-lived.
+Cache invalidation is wired into `SimulationRunner`. When a row unlocks (detected by comparing `UnlockedRowIndices` before and after `AddProgress`), the runner calls `NotifyStrategyOfRowUnlock`, which invokes `InvalidateCacheForRow` on ComboUnlockingStrategy and RowUnlockingStrategy. See `Docs/Strategies/cache-invalidation-implementation.md` for details.
 
 ## Testing Recommendations
 

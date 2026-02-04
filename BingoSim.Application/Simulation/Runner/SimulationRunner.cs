@@ -3,6 +3,7 @@ using System.Text.Json;
 using BingoSim.Application.Simulation.Allocation;
 using BingoSim.Application.Simulation.Schedule;
 using BingoSim.Application.Simulation.Snapshot;
+using BingoSim.Application.Simulation.Strategies;
 using Microsoft.Extensions.Logging;
 
 namespace BingoSim.Application.Simulation.Runner;
@@ -217,7 +218,14 @@ public class SimulationRunner(ITeamStrategyFactory strategyFactory, ILogger<Simu
                 var target = strategy.SelectTargetTileForGrant(context);
                 if (target is null)
                     continue;
+
+                var prevUnlockedRows = new HashSet<int>(state.UnlockedRowIndices);
                 state.AddProgress(target, grant.Units, simTime, tileRequiredCount[target], tileRowIndex[target], tilePoints[target]);
+                var newlyUnlockedRows = state.UnlockedRowIndices.Except(prevUnlockedRows).ToList();
+                foreach (var rowIndex in newlyUnlockedRows)
+                {
+                    NotifyStrategyOfRowUnlock(strategy, rowIndex);
+                }
             }
 
             ScheduleEventsForPlayers(snapshot, team, ti, playerIndices, state, playerCapabilitySets, scheduleWindows, groupCapsBuffer, tileRowIndex, tilePoints, tileRequiredCount, tileToRules, eventQueue, simTime, durationSeconds, rng, eventStartEt, cancellationToken);
@@ -610,6 +618,22 @@ public class SimulationRunner(ITeamStrategyFactory strategyFactory, ILogger<Simu
         var maxBaseline = activity.Attempts.Max(a => a.BaselineTimeSeconds);
         var maxVariance = activity.Attempts.Max(a => a.VarianceSeconds);
         return (maxBaseline, maxVariance);
+    }
+
+    /// <summary>
+    /// Notifies strategies that support cache invalidation when a row unlocks.
+    /// Uses type checking to avoid requiring all strategies to implement invalidation.
+    /// </summary>
+    private static void NotifyStrategyOfRowUnlock(ITeamStrategy strategy, int rowIndex)
+    {
+        if (strategy is ComboUnlockingStrategy comboStrategy)
+        {
+            comboStrategy.InvalidateCacheForRow(rowIndex);
+        }
+        if (strategy is RowUnlockingStrategy rowStrategy)
+        {
+            rowStrategy.InvalidateCacheForRow(rowIndex);
+        }
     }
 
     private sealed class SimEvent

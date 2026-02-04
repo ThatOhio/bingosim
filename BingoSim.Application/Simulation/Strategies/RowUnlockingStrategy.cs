@@ -201,6 +201,14 @@ public sealed class RowUnlockingStrategy : ITeamStrategy
     }
 
     /// <summary>
+    /// Invalidates cached combinations for a row. Called by SimulationRunner when a row unlocks.
+    /// </summary>
+    public void InvalidateCacheForRow(int rowIndex)
+    {
+        _combinationCache.Remove(rowIndex);
+    }
+
+    /// <summary>
     /// Gets tile combinations for a row that meet the unlock threshold.
     /// Results are cached per row index since row structure is static during a simulation run.
     /// Combinations are enriched with estimated completion times.
