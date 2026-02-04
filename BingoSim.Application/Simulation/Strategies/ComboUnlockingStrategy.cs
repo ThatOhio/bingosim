@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using BingoSim.Application.Simulation.Allocation;
 using BingoSim.Application.Simulation.Snapshot;
 
@@ -21,8 +22,8 @@ namespace BingoSim.Application.Simulation.Strategies;
 /// </remarks>
 public sealed class ComboUnlockingStrategy : ITeamStrategy
 {
-    private readonly Dictionary<int, List<TileCombination>> _combinationCache = new();
-    private readonly Dictionary<int, List<TileCombination>> _penalizedCombinationCache = new();
+    private readonly ConcurrentDictionary<int, List<TileCombination>> _combinationCache = new();
+    private readonly ConcurrentDictionary<int, List<TileCombination>> _penalizedCombinationCache = new();
 
     /// <summary>
     /// Selects which activity/tile a player should work on next.
@@ -160,8 +161,8 @@ public sealed class ComboUnlockingStrategy : ITeamStrategy
     /// </summary>
     public void InvalidateCacheForRow(int rowIndex)
     {
-        _combinationCache.Remove(rowIndex);
-        _penalizedCombinationCache.Remove(rowIndex);
+        _combinationCache.TryRemove(rowIndex, out _);
+        _penalizedCombinationCache.TryRemove(rowIndex, out _);
     }
 
     /// <summary>
