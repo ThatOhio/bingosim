@@ -33,13 +33,13 @@ public class TeamServiceTests
         var eventId = Guid.NewGuid();
         _eventRepository.ExistsAsync(eventId, Arg.Any<CancellationToken>()).Returns(true);
 
-        var request = new CreateTeamRequest(eventId, "Team Alpha", [], StrategyCatalog.RowRush, null);
+        var request = new CreateTeamRequest(eventId, "Team Alpha", [], StrategyCatalog.RowUnlocking, null);
         var id = await _service.CreateAsync(request);
 
         id.Should().NotBe(Guid.Empty);
         await _teamRepository.Received(1).AddAsync(
             Arg.Is<Team>(t => t.Name == "Team Alpha" && t.EventId == eventId),
-            Arg.Is<StrategyConfig>(s => s.StrategyKey == StrategyCatalog.RowRush),
+            Arg.Is<StrategyConfig>(s => s.StrategyKey == StrategyCatalog.RowUnlocking),
             Arg.Any<IEnumerable<TeamPlayer>>());
     }
 
@@ -49,7 +49,7 @@ public class TeamServiceTests
         var eventId = Guid.NewGuid();
         _eventRepository.ExistsAsync(eventId, Arg.Any<CancellationToken>()).Returns(false);
 
-        var request = new CreateTeamRequest(eventId, "Team A", [], StrategyCatalog.RowRush, null);
+        var request = new CreateTeamRequest(eventId, "Team A", [], StrategyCatalog.RowUnlocking, null);
         var act = async () => await _service.CreateAsync(request);
 
         await act.Should().ThrowAsync<EventNotFoundException>();
@@ -64,7 +64,7 @@ public class TeamServiceTests
         _eventRepository.ExistsAsync(eventId, Arg.Any<CancellationToken>()).Returns(true);
         _playerProfileRepository.ExistsAsync(playerId, Arg.Any<CancellationToken>()).Returns(false);
 
-        var request = new CreateTeamRequest(eventId, "Team A", [playerId], StrategyCatalog.RowRush, null);
+        var request = new CreateTeamRequest(eventId, "Team A", [playerId], StrategyCatalog.RowUnlocking, null);
         var act = async () => await _service.CreateAsync(request);
 
         await act.Should().ThrowAsync<PlayerProfileNotFoundException>();
@@ -137,15 +137,15 @@ public class TeamServiceTests
     {
         var eventId = Guid.NewGuid();
         var team = new Team(eventId, "Original");
-        var strategy = new StrategyConfig(team.Id, StrategyCatalog.RowRush, null);
+        var strategy = new StrategyConfig(team.Id, StrategyCatalog.RowUnlocking, null);
         SetStrategyConfigOnTeam(team, strategy);
         _teamRepository.GetByIdAsync(team.Id, Arg.Any<CancellationToken>()).Returns(team);
 
-        var request = new UpdateTeamRequest("Updated Name", [], StrategyCatalog.GreedyPoints, "{}");
+        var request = new UpdateTeamRequest("Updated Name", [], StrategyCatalog.RowUnlocking, "{}");
         await _service.UpdateAsync(team.Id, request);
 
         team.Name.Should().Be("Updated Name");
-        strategy.StrategyKey.Should().Be(StrategyCatalog.GreedyPoints);
+        strategy.StrategyKey.Should().Be(StrategyCatalog.RowUnlocking);
         await _teamRepository.Received(1).UpdateAsync(team, strategy, Arg.Any<IReadOnlyList<TeamPlayer>>(), Arg.Any<CancellationToken>());
     }
 
@@ -155,7 +155,7 @@ public class TeamServiceTests
         var id = Guid.NewGuid();
         _teamRepository.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns((Team?)null);
 
-        var request = new UpdateTeamRequest("Name", [], StrategyCatalog.RowRush, null);
+        var request = new UpdateTeamRequest("Name", [], StrategyCatalog.RowUnlocking, null);
         var act = async () => await _service.UpdateAsync(id, request);
 
         await act.Should().ThrowAsync<TeamNotFoundException>();

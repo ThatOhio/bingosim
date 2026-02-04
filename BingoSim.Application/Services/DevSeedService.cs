@@ -472,8 +472,8 @@ public class DevSeedService(
 
             if (teamAlpha is not null)
             {
-                var strategyConfig = teamAlpha.StrategyConfig ?? new StrategyConfig(teamAlpha.Id, BingoSim.Application.StrategyKeys.StrategyCatalog.RowRush, "{}");
-                strategyConfig.Update(BingoSim.Application.StrategyKeys.StrategyCatalog.RowRush, "{}");
+                var strategyConfig = teamAlpha.StrategyConfig ?? new StrategyConfig(teamAlpha.Id, BingoSim.Application.StrategyKeys.StrategyCatalog.RowUnlocking, "{}");
+                strategyConfig.Update(BingoSim.Application.StrategyKeys.StrategyCatalog.RowUnlocking, "{}");
                 var teamPlayers = playerIdsAlpha.Select(pid => new TeamPlayer(teamAlpha.Id, pid)).ToList();
                 await teamRepo.UpdateAsync(teamAlpha, strategyConfig, teamPlayers, cancellationToken);
                 logger.LogInformation("Dev seed: updated team 'Team Alpha' for event '{EventName}'", eventName);
@@ -481,7 +481,7 @@ public class DevSeedService(
             else
             {
                 var team = new Team(evt.Id, "Team Alpha");
-                var config = new StrategyConfig(team.Id, BingoSim.Application.StrategyKeys.StrategyCatalog.RowRush, "{}");
+                var config = new StrategyConfig(team.Id, BingoSim.Application.StrategyKeys.StrategyCatalog.RowUnlocking, "{}");
                 var teamPlayers = playerIdsAlpha.Select(pid => new TeamPlayer(team.Id, pid)).ToList();
                 await teamRepo.AddAsync(team, config, teamPlayers, cancellationToken);
                 logger.LogInformation("Dev seed: created team 'Team Alpha' for event '{EventName}'", eventName);
@@ -489,8 +489,8 @@ public class DevSeedService(
 
             if (teamBeta is not null)
             {
-                var strategyConfig = teamBeta.StrategyConfig ?? new StrategyConfig(teamBeta.Id, BingoSim.Application.StrategyKeys.StrategyCatalog.GreedyPoints, "{}");
-                strategyConfig.Update(BingoSim.Application.StrategyKeys.StrategyCatalog.GreedyPoints, "{}");
+                var strategyConfig = teamBeta.StrategyConfig ?? new StrategyConfig(teamBeta.Id, BingoSim.Application.StrategyKeys.StrategyCatalog.RowUnlocking, "{}");
+                strategyConfig.Update(BingoSim.Application.StrategyKeys.StrategyCatalog.RowUnlocking, "{}");
                 var teamPlayers = playerIdsBeta.Select(pid => new TeamPlayer(teamBeta.Id, pid)).ToList();
                 await teamRepo.UpdateAsync(teamBeta, strategyConfig, teamPlayers, cancellationToken);
                 logger.LogInformation("Dev seed: updated team 'Team Beta' for event '{EventName}'", eventName);
@@ -498,7 +498,7 @@ public class DevSeedService(
             else
             {
                 var team = new Team(evt.Id, "Team Beta");
-                var config = new StrategyConfig(team.Id, BingoSim.Application.StrategyKeys.StrategyCatalog.GreedyPoints, "{}");
+                var config = new StrategyConfig(team.Id, BingoSim.Application.StrategyKeys.StrategyCatalog.RowUnlocking, "{}");
                 var teamPlayers = playerIdsBeta.Select(pid => new TeamPlayer(team.Id, pid)).ToList();
                 await teamRepo.AddAsync(team, config, teamPlayers, cancellationToken);
                 logger.LogInformation("Dev seed: created team 'Team Beta' for event '{EventName}'", eventName);

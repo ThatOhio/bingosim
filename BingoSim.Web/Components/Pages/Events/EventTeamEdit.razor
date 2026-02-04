@@ -179,7 +179,7 @@ else
     {
         public string Name { get; set; } = string.Empty;
         public List<Guid> SelectedPlayerIds { get; set; } = [];
-        public string StrategyKey { get; set; } = StrategyCatalog.RowRush;
+        public string StrategyKey { get; set; } = StrategyCatalog.RowUnlocking;
         public string? ParamsJson { get; set; }
 
         public UpdateTeamRequest ToUpdateRequest() =>

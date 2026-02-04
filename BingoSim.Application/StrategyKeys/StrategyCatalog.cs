@@ -6,16 +6,10 @@ namespace BingoSim.Application.StrategyKeys;
 /// </summary>
 public static class StrategyCatalog
 {
-    /// <summary>Baseline strategy: complete rows in order.</summary>
-    public const string RowRush = "RowRush";
-
-    /// <summary>Alternative strategy: maximize points first.</summary>
-    public const string GreedyPoints = "GreedyPoints";
-
     /// <summary>Strategy focused on unlocking the next row as quickly as possible.</summary>
     public const string RowUnlocking = "RowUnlocking";
 
-    private static readonly string[] AllKeys = [RowRush, GreedyPoints, RowUnlocking];
+    private static readonly string[] AllKeys = [RowUnlocking];
 
     /// <summary>Returns all supported strategy keys for dropdown/validation.</summary>
     public static IReadOnlyList<string> GetSupportedKeys() => AllKeys;

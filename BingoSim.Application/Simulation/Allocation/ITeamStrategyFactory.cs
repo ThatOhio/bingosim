@@ -1,7 +1,7 @@
 namespace BingoSim.Application.Simulation.Allocation;
 
 /// <summary>
-/// Factory that returns ITeamStrategy by strategy key (RowRush, GreedyPoints).
+/// Factory that returns ITeamStrategy by strategy key (RowUnlocking).
 /// </summary>
 public interface ITeamStrategyFactory
 {

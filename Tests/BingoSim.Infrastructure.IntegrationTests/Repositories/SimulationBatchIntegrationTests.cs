@@ -69,13 +69,13 @@ public class SimulationBatchIntegrationTests : IAsyncLifetime
         var teamId = Guid.NewGuid();
         var results = new List<TeamRunResult>
         {
-            new(runs[0].Id, teamId, "Team A", "RowRush", null, 10, 5, 2, true, "{\"0\":0,\"1\":100}", "{\"t1\":50}")
+            new(runs[0].Id, teamId, "Team A", "RowUnlocking", null, 10, 5, 2, true, "{\"0\":0,\"1\":100}", "{\"t1\":50}")
         };
         await _resultRepo.AddRangeAsync(results);
 
         var aggregates = new List<BatchTeamAggregate>
         {
-            new(batch.Id, teamId, "Team A", "RowRush", 10, 10, 10, 5, 5, 5, 2, 2, 2, 1.0, 1)
+            new(batch.Id, teamId, "Team A", "RowUnlocking", 10, 10, 10, 5, 5, 5, 2, 2, 2, 1.0, 1)
         };
         await _aggregateRepo.AddRangeAsync(aggregates);
 

@@ -43,7 +43,7 @@ public class TeamRepositoryTests : IAsyncLifetime
         var (eventId, player1Id, player2Id) = await SeedEventAndPlayersAsync();
 
         var team = new Team(eventId, "Team Alpha");
-        var strategy = new StrategyConfig(team.Id, "RowRush", "{\"key\":\"value\"}");
+        var strategy = new StrategyConfig(team.Id, "RowUnlocking", "{\"key\":\"value\"}");
         var teamPlayers = new List<TeamPlayer>
         {
             new(team.Id, player1Id),
@@ -62,7 +62,7 @@ public class TeamRepositoryTests : IAsyncLifetime
         retrieved!.Name.Should().Be("Team Alpha");
         retrieved.EventId.Should().Be(eventId);
         retrieved.StrategyConfig.Should().NotBeNull();
-        retrieved.StrategyConfig!.StrategyKey.Should().Be("RowRush");
+        retrieved.StrategyConfig!.StrategyKey.Should().Be("RowUnlocking");
         retrieved.StrategyConfig.ParamsJson.Should().Be("{\"key\":\"value\"}");
         retrieved.TeamPlayers.Should().HaveCount(2);
         retrieved.TeamPlayers.Select(tp => tp.PlayerProfileId).Should().Contain([player1Id, player2Id]);
@@ -73,12 +73,12 @@ public class TeamRepositoryTests : IAsyncLifetime
     {
         var (eventId, player1Id, player2Id) = await SeedEventAndPlayersAsync();
         var team = new Team(eventId, "Original");
-        var strategy = new StrategyConfig(team.Id, "RowRush", null);
+        var strategy = new StrategyConfig(team.Id, "RowUnlocking", null);
         var teamPlayers = new List<TeamPlayer> { new(team.Id, player1Id) };
         await _repository.AddAsync(team, strategy, teamPlayers);
 
         team.UpdateName("Updated Name");
-        strategy.Update("GreedyPoints", "{\"x\":1}");
+        strategy.Update("RowUnlocking", "{\"x\":1}");
         var newRoster = new List<TeamPlayer>
         {
             new(team.Id, player1Id),
@@ -95,7 +95,7 @@ public class TeamRepositoryTests : IAsyncLifetime
 
         retrieved.Should().NotBeNull();
         retrieved!.Name.Should().Be("Updated Name");
-        retrieved.StrategyConfig!.StrategyKey.Should().Be("GreedyPoints");
+        retrieved.StrategyConfig!.StrategyKey.Should().Be("RowUnlocking");
         retrieved.StrategyConfig.ParamsJson.Should().Be("{\"x\":1}");
         retrieved.TeamPlayers.Should().HaveCount(2);
     }
@@ -105,7 +105,7 @@ public class TeamRepositoryTests : IAsyncLifetime
     {
         var (eventId, player1Id, _) = await SeedEventAndPlayersAsync();
         var team = new Team(eventId, "To Delete");
-        var strategy = new StrategyConfig(team.Id, "RowRush", null);
+        var strategy = new StrategyConfig(team.Id, "RowUnlocking", null);
         var teamPlayers = new List<TeamPlayer> { new(team.Id, player1Id) };
         await _repository.AddAsync(team, strategy, teamPlayers);
 
@@ -127,7 +127,7 @@ public class TeamRepositoryTests : IAsyncLifetime
     {
         var (eventId, player1Id, _) = await SeedEventAndPlayersAsync();
         var team1 = new Team(eventId, "Team One");
-        var strategy1 = new StrategyConfig(team1.Id, "RowRush", null);
+        var strategy1 = new StrategyConfig(team1.Id, "RowUnlocking", null);
         await _repository.AddAsync(team1, strategy1, []);
 
         var evt2 = new Event("Other Event", TimeSpan.FromHours(12), 5);
@@ -136,7 +136,7 @@ public class TeamRepositoryTests : IAsyncLifetime
         await _context.SaveChangesAsync();
 
         var team2 = new Team(evt2.Id, "Team Two");
-        var strategy2 = new StrategyConfig(team2.Id, "GreedyPoints", null);
+        var strategy2 = new StrategyConfig(team2.Id, "RowUnlocking", null);
         await _repository.AddAsync(team2, strategy2, []);
 
         var teams = await _repository.GetByEventIdAsync(eventId);
@@ -154,12 +154,12 @@ public class TeamRepositoryTests : IAsyncLifetime
         var (eventId, player1Id, player2Id) = await SeedEventAndPlayersAsync();
 
         var team1 = new Team(eventId, "Team Alpha");
-        var strategy1 = new StrategyConfig(team1.Id, "RowRush", "{\"baseline\":true}");
+        var strategy1 = new StrategyConfig(team1.Id, "RowUnlocking", "{\"baseline\":true}");
         var team1Players = new List<TeamPlayer> { new(team1.Id, player1Id), new(team1.Id, player2Id) };
         await _repository.AddAsync(team1, strategy1, team1Players);
 
         var team2 = new Team(eventId, "Team Beta");
-        var strategy2 = new StrategyConfig(team2.Id, "GreedyPoints", "{\"alt\":1}");
+        var strategy2 = new StrategyConfig(team2.Id, "RowUnlocking", "{\"alt\":1}");
         var team2Players = new List<TeamPlayer> { new(team2.Id, player1Id) };
         await _repository.AddAsync(team2, strategy2, team2Players);
 
@@ -173,10 +173,10 @@ public class TeamRepositoryTests : IAsyncLifetime
         var beta = teams.FirstOrDefault(t => t.Name == "Team Beta");
         alpha.Should().NotBeNull();
         beta.Should().NotBeNull();
-        alpha!.StrategyConfig!.StrategyKey.Should().Be("RowRush");
+        alpha!.StrategyConfig!.StrategyKey.Should().Be("RowUnlocking");
         alpha.StrategyConfig.ParamsJson.Should().Be("{\"baseline\":true}");
         alpha.TeamPlayers.Should().HaveCount(2);
-        beta!.StrategyConfig!.StrategyKey.Should().Be("GreedyPoints");
+        beta!.StrategyConfig!.StrategyKey.Should().Be("RowUnlocking");
         beta.StrategyConfig.ParamsJson.Should().Be("{\"alt\":1}");
         beta.TeamPlayers.Should().HaveCount(1);
     }

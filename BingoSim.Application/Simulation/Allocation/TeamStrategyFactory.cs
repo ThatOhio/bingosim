@@ -4,7 +4,7 @@ using BingoSim.Application.StrategyKeys;
 namespace BingoSim.Application.Simulation.Allocation;
 
 /// <summary>
-/// Returns RowRush, GreedyPoints, or RowUnlocking strategy by strategy key; defaults to RowRush for unknown keys.
+/// Returns RowUnlocking strategy by strategy key; defaults to RowUnlocking for unknown keys.
 /// </summary>
 public sealed class TeamStrategyFactory : ITeamStrategyFactory
 {
@@ -14,8 +14,6 @@ public sealed class TeamStrategyFactory : ITeamStrategyFactory
     {
         _strategies = new Dictionary<string, ITeamStrategy>(StringComparer.Ordinal)
         {
-            [StrategyCatalog.RowRush] = new RowRushAllocator(),
-            [StrategyCatalog.GreedyPoints] = new GreedyPointsAllocator(),
             [StrategyCatalog.RowUnlocking] = new RowUnlockingStrategy()
         };
     }
@@ -24,6 +22,6 @@ public sealed class TeamStrategyFactory : ITeamStrategyFactory
     {
         if (!string.IsNullOrWhiteSpace(strategyKey) && _strategies.TryGetValue(strategyKey.Trim(), out var strategy))
             return strategy;
-        return _strategies[StrategyCatalog.RowRush];
+        return _strategies[StrategyCatalog.RowUnlocking];
     }
 }

@@ -128,7 +128,7 @@ public class GroupPlaySimulationTests
                 {
                     TeamId = soloTeamId,
                     TeamName = "Solo Fast",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = fastPlayerId, Name = "Fast", SkillTimeMultiplier = 0.8m, CapabilityKeys = [], Schedule = alwaysOnline }]
                 },
@@ -136,7 +136,7 @@ public class GroupPlaySimulationTests
                 {
                     TeamId = groupTeamId,
                     TeamName = "Group Mixed",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players =
                     [
@@ -220,7 +220,7 @@ public class GroupPlaySimulationTests
                 {
                     TeamId = teamId,
                     TeamName = "Team A",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players =
                     [

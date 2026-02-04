@@ -384,7 +384,7 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
                 {
                     TeamId = teamId,
                     TeamName = "Team A",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = playerId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }]
                 }
@@ -459,7 +459,7 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
                 {
                     TeamId = teamId,
                     TeamName = "Team A",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = playerId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = ["quest.ds2"], Schedule = alwaysOnline }]
                 }
@@ -539,7 +539,7 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
                 {
                     TeamId = teamId,
                     TeamName = "Team A",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players =
                     [
@@ -667,7 +667,7 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
                 {
                     TeamId = teamId,
                     TeamName = "Team",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = playerId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = schedule }]
                 }

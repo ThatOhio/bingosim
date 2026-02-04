@@ -154,7 +154,7 @@ public class ScheduleSimulationIntegrationTests
                 {
                     TeamId = Guid.NewGuid(),
                     TeamName = "Always Online",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "Always", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = new WeeklyScheduleSnapshotDto { Sessions = [] } }]
                 },
@@ -162,7 +162,7 @@ public class ScheduleSimulationIntegrationTests
                 {
                     TeamId = Guid.NewGuid(),
                     TeamName = "Tight Window",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "Tight", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = oneMinSchedule }]
                 }
@@ -241,7 +241,7 @@ public class ScheduleSimulationIntegrationTests
                 {
                     TeamId = Guid.NewGuid(),
                     TeamName = "Always Online",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = alwaysOnlinePlayer, Name = "Always", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = new WeeklyScheduleSnapshotDto { Sessions = [] } }]
                 },
@@ -249,7 +249,7 @@ public class ScheduleSimulationIntegrationTests
                 {
                     TeamId = Guid.NewGuid(),
                     TeamName = "1h/day",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = scheduledPlayer, Name = "Scheduled", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = fifteenMinSchedule }]
                 }
@@ -329,7 +329,7 @@ public class ScheduleSimulationIntegrationTests
                 {
                     TeamId = Guid.NewGuid(),
                     TeamName = "Team",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = schedule }]
                 }
@@ -412,7 +412,7 @@ public class ScheduleSimulationIntegrationTests
                 {
                     TeamId = Guid.NewGuid(),
                     TeamName = "Team",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players =
                     [

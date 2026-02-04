@@ -153,7 +153,7 @@ public class GroupPlayIntegrationTests
                 {
                     TeamId = teamId,
                     TeamName = "Team 8 Players",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = players.Select((id, i) => new PlayerSnapshotDto { PlayerId = id, Name = $"P{i + 1}", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnlineSchedule }).ToList()
                 }
@@ -249,7 +249,7 @@ public class GroupPlayIntegrationTests
                 {
                     TeamId = teamId,
                     TeamName = "Team A",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players =
                     [
@@ -333,7 +333,7 @@ public class GroupPlayIntegrationTests
                 {
                     TeamId = team1Id,
                     TeamName = "Team 1 Player",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = players[0], Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }]
                 },
@@ -341,7 +341,7 @@ public class GroupPlayIntegrationTests
                 {
                     TeamId = team4Id,
                     TeamName = "Team 4 Players",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = players.Select((id, i) => new PlayerSnapshotDto { PlayerId = id, Name = $"P{i + 1}", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }).ToList()
                 }
@@ -421,7 +421,7 @@ public class GroupPlayIntegrationTests
                 {
                     TeamId = teamId,
                     TeamName = "Team A",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players =
                     [

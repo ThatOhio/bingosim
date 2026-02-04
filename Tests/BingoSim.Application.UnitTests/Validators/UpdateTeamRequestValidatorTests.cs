@@ -10,7 +10,7 @@ public class UpdateTeamRequestValidatorTests
     private readonly UpdateTeamRequestValidator _validator = new();
 
     private static UpdateTeamRequest ValidRequest() =>
-        new("Team Alpha", [], StrategyCatalog.RowRush, null);
+        new("Team Alpha", [], StrategyCatalog.RowUnlocking, null);
 
     [Fact]
     public async Task Validate_ValidRequest_Passes()

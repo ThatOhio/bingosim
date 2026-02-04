@@ -203,7 +203,7 @@ public class ScheduleEvaluatorTests
                 {
                     TeamId = Guid.NewGuid(),
                     TeamName = "T1",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players =
                     [

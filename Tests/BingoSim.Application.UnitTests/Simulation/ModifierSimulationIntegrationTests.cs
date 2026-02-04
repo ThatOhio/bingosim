@@ -132,7 +132,7 @@ public class ModifierSimulationIntegrationTests
                 {
                     TeamId = teamAId,
                     TeamName = "Team With Capability",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = playerAId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = ["quest.ds2"], Schedule = alwaysOnline }]
                 },
@@ -140,7 +140,7 @@ public class ModifierSimulationIntegrationTests
                 {
                     TeamId = teamBId,
                     TeamName = "Team Without Capability",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = playerBId, Name = "P2", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }]
                 }
@@ -215,7 +215,7 @@ public class ModifierSimulationIntegrationTests
                 {
                     TeamId = teamId,
                     TeamName = "Team A",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players = [new PlayerSnapshotDto { PlayerId = playerId, Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = ["quest.ds2"], Schedule = alwaysOnline }]
                 }

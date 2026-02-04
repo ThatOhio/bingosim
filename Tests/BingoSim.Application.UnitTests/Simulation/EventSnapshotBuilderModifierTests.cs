@@ -118,7 +118,7 @@ public class EventSnapshotBuilderModifierTests
     {
         var team = new Team(eventId, "Team A");
         SetPrivateId(team, teamId);
-        var strategy = new StrategyConfig(teamId, "RowRush", "{}");
+        var strategy = new StrategyConfig(teamId, "RowUnlocking", "{}");
         SetStrategyConfig(team, strategy);
         var tp = new TeamPlayer(teamId, playerId);
         SetTeamPlayers(team, [tp]);

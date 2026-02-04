@@ -68,7 +68,7 @@ public static class PerfScenarioSnapshot
                 {
                     TeamId = team1Id,
                     TeamName = "Team Alpha",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players =
                     [
@@ -82,7 +82,7 @@ public static class PerfScenarioSnapshot
                 {
                     TeamId = team2Id,
                     TeamName = "Team Beta",
-                    StrategyKey = "GreedyPoints",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players =
                     [

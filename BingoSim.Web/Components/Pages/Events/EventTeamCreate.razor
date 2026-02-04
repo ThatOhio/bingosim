@@ -98,7 +98,7 @@
     {
         var list = await PlayerProfileService.GetAllAsync();
         _players = list.ToList();
-        _model.StrategyKey = StrategyCatalog.RowRush;
+        _model.StrategyKey = StrategyCatalog.RowUnlocking;
     }
 
     private void TogglePlayer(Guid id, bool selected)
@@ -143,7 +143,7 @@
     {
         public string Name { get; set; } = string.Empty;
         public List<Guid> SelectedPlayerIds { get; set; } = [];
-        public string StrategyKey { get; set; } = StrategyCatalog.RowRush;
+        public string StrategyKey { get; set; } = StrategyCatalog.RowUnlocking;
         public string? ParamsJson { get; set; }
 
         public CreateTeamRequest ToCreateRequest(Guid eventId) =>

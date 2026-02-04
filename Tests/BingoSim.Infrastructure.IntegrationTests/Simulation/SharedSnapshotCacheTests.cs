@@ -160,7 +160,7 @@ public class SharedSnapshotCacheTests
                 {
                     TeamId = teamId,
                     TeamName = "Team A",
-                    StrategyKey = "RowRush",
+                    StrategyKey = "RowUnlocking",
                     ParamsJson = null,
                     Players =
                     [

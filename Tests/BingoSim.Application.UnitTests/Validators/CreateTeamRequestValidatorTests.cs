@@ -10,7 +10,7 @@ public class CreateTeamRequestValidatorTests
     private readonly CreateTeamRequestValidator _validator = new();
 
     private static CreateTeamRequest ValidRequest() =>
-        new(Guid.NewGuid(), "Team Alpha", [], StrategyCatalog.RowRush, null);
+        new(Guid.NewGuid(), "Team Alpha", [], StrategyCatalog.RowUnlocking, null);
 
     [Fact]
     public async Task Validate_ValidRequest_Passes()
@@ -57,12 +57,10 @@ public class CreateTeamRequestValidatorTests
         result.Errors.Should().Contain(e => e.PropertyName == "StrategyKey");
     }
 
-    [Theory]
-    [InlineData(StrategyCatalog.RowRush)]
-    [InlineData(StrategyCatalog.GreedyPoints)]
-    public async Task Validate_SupportedStrategyKey_Passes(string key)
+    [Fact]
+    public async Task Validate_SupportedStrategyKey_Passes()
     {
-        var request = ValidRequest() with { StrategyKey = key };
+        var request = ValidRequest() with { StrategyKey = StrategyCatalog.RowUnlocking };
         var result = await _validator.ValidateAsync(request);
         result.IsValid.Should().BeTrue();
     }

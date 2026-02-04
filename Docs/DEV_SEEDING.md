@@ -71,7 +71,7 @@ To seed from inside the Docker network (e.g. in a custom init script), use `Host
 3. **Players**: 8 seed players (Alice, Bob, Carol, Dave, Eve, Frank, Grace, Henry) with varied skill multipliers, capabilities, and weekly schedules
 4. **Activities**: 6 activities (Zulrah, Vorkath, Runecraft, Mining, CoX, ToA) with multiple loot lines, PerPlayer/PerGroup roll scopes, and group scaling bands
 5. **Events**: 2 events (Winter Bingo 2025, Spring League Bingo) with 3+ rows, 4 tiles per row, and TileActivityRules referencing activities
-6. **Teams (Slice 4)**: For each seed event, 2 teams — **Team Alpha** (RowRush, first 4 players) and **Team Beta** (GreedyPoints, next 4 players). Visible under **Events → Draft teams** and on **Run Simulations** when an event is selected.
+6. **Teams (Slice 4)**: For each seed event, 2 teams — **Team Alpha** and **Team Beta** (both RowUnlocking, first 4 and next 4 players respectively). Visible under **Events → Draft teams** and on **Run Simulations** when an event is selected.
 
 ## Idempotency
 
@@ -104,7 +104,7 @@ Simulation snapshots require all fields to be present. There is no backward comp
 
 Seed data for **Teams** and **StrategyConfig** is included so that Run Simulations can be used with seeded events without manual team drafting:
 
-- **SeedTeamsAsync**: For each seed event ("Winter Bingo 2025", "Spring League Bingo"), creates or updates **Team Alpha** (strategy RowRush, first 4 seed players) and **Team Beta** (strategy GreedyPoints, next 4 seed players). StrategyConfig uses sample `ParamsJson` `"{}"`.
+- **SeedTeamsAsync**: For each seed event ("Winter Bingo 2025", "Spring League Bingo"), creates or updates **Team Alpha** and **Team Beta** (both strategy RowUnlocking, first 4 and next 4 seed players respectively). StrategyConfig uses sample `ParamsJson` `"{}"`.
 - **Reset order**: On `--reset`, teams for each seed event are deleted first (via `DeleteAllByEventIdAsync`), then that event, then all seed activities, then all seed players. This order is correct for foreign keys (teams reference events; events reference activities via tiles).
 
 ## Updating Seed Content

@@ -212,7 +212,7 @@ public class SimulationBatchServiceTests
     {
         var team = new Team(eventId, "Team A");
         SetPrivateId(team, teamId);
-        var strategy = new StrategyConfig(teamId, "RowRush", "{}");
+        var strategy = new StrategyConfig(teamId, "RowUnlocking", "{}");
         typeof(Team).GetProperty("StrategyConfig", BindingFlags.Public | BindingFlags.Instance)!.SetValue(team, strategy);
         var tp = new TeamPlayer(teamId, playerId);
         var field = typeof(Team).GetField("_teamPlayers", BindingFlags.NonPublic | BindingFlags.Instance);
