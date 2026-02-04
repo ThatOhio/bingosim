@@ -18,8 +18,8 @@ public class ModifierSimulationIntegrationTests
     public void Execute_PlayerWithModifierCapability_OutperformsOrMatchesPlayerWithout()
     {
         var snapshotJson = BuildSnapshotWithAndWithoutCapability();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var teamAPoints = new List<int>();
         var teamBPoints = new List<int>();
@@ -44,8 +44,8 @@ public class ModifierSimulationIntegrationTests
     public void Execute_SameSeedWithModifiers_ProducesDeterministicResults()
     {
         var snapshotJson = BuildSnapshotWithModifiers();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var run1 = runner.Execute(snapshotJson, "determinism-mod-seed", CancellationToken.None);
         var run2 = runner.Execute(snapshotJson, "determinism-mod-seed", CancellationToken.None);

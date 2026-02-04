@@ -22,8 +22,8 @@ public class SimulationPerfScenarioTests
     public void EngineOnly_10000Runs_CompletesWithinReasonableTime()
     {
         var snapshotJson = PerfScenarioSnapshot.BuildJson();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var completed = 0;
@@ -67,8 +67,8 @@ public class SimulationPerfScenarioTests
     public void EngineOnly_SameSeed_Deterministic()
     {
         var snapshotJson = PerfScenarioSnapshot.BuildJson();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var r1 = runner.Execute(snapshotJson, "perf-baseline-2025_0", CancellationToken.None);
         var r2 = runner.Execute(snapshotJson, "perf-baseline-2025_0", CancellationToken.None);
@@ -91,8 +91,8 @@ public class SimulationPerfScenarioTests
         var snapshotJson = PerfScenarioSnapshot.BuildJson();
         var snapshot = EventSnapshotBuilder.Deserialize(snapshotJson);
         snapshot.Should().NotBeNull();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var viaJson = runner.Execute(snapshotJson!, "perf-baseline-2025_42", CancellationToken.None);
         var viaDto = runner.Execute(snapshot!, "perf-baseline-2025_42", CancellationToken.None);

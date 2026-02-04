@@ -49,7 +49,7 @@ public static class DependencyInjection
 
         // Simulation (Application)
         services.AddSingleton<ISnapshotCache, SharedSnapshotCache>();
-        services.AddSingleton<IProgressAllocatorFactory, ProgressAllocatorFactory>();
+        services.AddSingleton<ITeamStrategyFactory, TeamStrategyFactory>();
         services.AddScoped<EventSnapshotBuilder>();
         services.AddScoped<SimulationRunner>();
         services.AddSingleton<ISimulationMetrics, InMemorySimulationMetrics>();

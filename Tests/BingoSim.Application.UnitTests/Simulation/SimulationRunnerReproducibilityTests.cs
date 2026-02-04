@@ -13,8 +13,8 @@ public class SimulationRunnerReproducibilityTests
     public void Execute_SameSeed_Twice_ProducesIdenticalResults()
     {
         var snapshotJson = BuildMinimalSnapshotJson();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var run1 = runner.Execute(snapshotJson, "repro-seed-42", CancellationToken.None);
         var run2 = runner.Execute(snapshotJson, "repro-seed-42", CancellationToken.None);
@@ -35,8 +35,8 @@ public class SimulationRunnerReproducibilityTests
     public void Execute_DifferentSeed_ProducesDeterministicResults()
     {
         var snapshotJson = BuildMinimalSnapshotJson();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var run1 = runner.Execute(snapshotJson, "seed-a", CancellationToken.None);
         var run2 = runner.Execute(snapshotJson, "seed-b", CancellationToken.None);

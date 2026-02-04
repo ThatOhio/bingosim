@@ -17,8 +17,8 @@ public class GroupPlayIntegrationTests
     public void GroupPlay_ActivityWithPerPlayerAndPerGroup_SameSeed_Reproducible()
     {
         var snapshotJson = BuildSnapshotWithPerPlayerAndPerGroup();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var run1 = runner.Execute(snapshotJson, "group-repro-seed", CancellationToken.None);
         var run2 = runner.Execute(snapshotJson, "group-repro-seed", CancellationToken.None);
@@ -35,8 +35,8 @@ public class GroupPlayIntegrationTests
     public void GroupPlay_Team1PlayerVsTeam4Players_OutcomesDiffer()
     {
         var snapshotJson = BuildSnapshotOneVsFourPlayers();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var team1Points = new List<int>();
         var team4Points = new List<int>();
@@ -61,8 +61,8 @@ public class GroupPlayIntegrationTests
     public void GroupPlay_GroupScalingBands_AppliedToTimeAndProbability()
     {
         var snapshotJson = BuildSnapshotWithScalingBands();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var results = runner.Execute(snapshotJson, "scaling-test", CancellationToken.None);
 
@@ -74,8 +74,8 @@ public class GroupPlayIntegrationTests
     public void GroupPlay_EightPlayersMaxFourPerGroup_FormsMultipleConcurrentGroups()
     {
         var snapshotJson = BuildSnapshotEightPlayersMaxFour();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var results = runner.Execute(snapshotJson, "multi-group-seed", CancellationToken.None);
 

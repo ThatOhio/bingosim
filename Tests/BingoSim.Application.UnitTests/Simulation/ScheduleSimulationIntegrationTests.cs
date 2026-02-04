@@ -17,8 +17,8 @@ public class ScheduleSimulationIntegrationTests
     public void PlayerWithOneHourPerDay_ProgressesLessThanAlwaysOnline()
     {
         var snapshotJson = BuildSnapshotAlwaysOnlineVsOneHourPerDay();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var alwaysOnlinePoints = new List<int>();
         var scheduledPoints = new List<int>();
@@ -42,8 +42,8 @@ public class ScheduleSimulationIntegrationTests
     public void Determinism_SameSeedAndSchedule_SameOutcomes()
     {
         var snapshotJson = BuildSnapshotWithSchedule();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var run1 = runner.Execute(snapshotJson, "schedule-determinism-seed", CancellationToken.None);
         var run2 = runner.Execute(snapshotJson, "schedule-determinism-seed", CancellationToken.None);
@@ -61,8 +61,8 @@ public class ScheduleSimulationIntegrationTests
     public void GroupActivity_OnlyOneEligiblePlayerOnline_DoesNotStartGroup()
     {
         var snapshotJson = BuildSnapshotGroupRequiresTwo_OneOnline();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var results = runner.Execute(snapshotJson, "group-schedule-seed", CancellationToken.None);
 
@@ -75,8 +75,8 @@ public class ScheduleSimulationIntegrationTests
     public void AttemptEndPolicy_AttemptWouldEndAtOrPastSessionEnd_Skipped()
     {
         var snapshotJson = BuildSnapshotAttemptEndBoundary();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var run1 = runner.Execute(snapshotJson, "boundary-seed", CancellationToken.None);
         var run2 = runner.Execute(snapshotJson, "boundary-seed", CancellationToken.None);

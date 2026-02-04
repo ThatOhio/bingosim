@@ -46,8 +46,8 @@ public class SimulationNoProgressGuardTests
     public void Execute_AlwaysOnlineSnapshot_CompletesWithoutNoProgressException()
     {
         var snapshotJson = PerfScenarioSnapshot.BuildJson();
-        var allocatorFactory = new BingoSim.Application.Simulation.Allocation.ProgressAllocatorFactory();
-        var runner = new BingoSim.Application.Simulation.Runner.SimulationRunner(allocatorFactory);
+        var strategyFactory = new BingoSim.Application.Simulation.Allocation.TeamStrategyFactory();
+        var runner = new BingoSim.Application.Simulation.Runner.SimulationRunner(strategyFactory);
 
         var results = runner.Execute(snapshotJson, "perf-baseline-2025_0", CancellationToken.None);
 
@@ -58,8 +58,8 @@ public class SimulationNoProgressGuardTests
     public void Execute_CancelledToken_ThrowsOperationCanceledException()
     {
         var snapshotJson = PerfScenarioSnapshot.BuildJson();
-        var allocatorFactory = new BingoSim.Application.Simulation.Allocation.ProgressAllocatorFactory();
-        var runner = new BingoSim.Application.Simulation.Runner.SimulationRunner(allocatorFactory);
+        var strategyFactory = new BingoSim.Application.Simulation.Allocation.TeamStrategyFactory();
+        var runner = new BingoSim.Application.Simulation.Runner.SimulationRunner(strategyFactory);
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 

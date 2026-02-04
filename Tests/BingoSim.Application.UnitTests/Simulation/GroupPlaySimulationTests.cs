@@ -17,8 +17,8 @@ public class GroupPlaySimulationTests
     public void GroupSkillMultiplier_SlowestMemberDominates_GroupTakesLongerThanFastestSolo()
     {
         var snapshotJson = BuildSnapshotWithMixedSkillGroup();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var soloFastPoints = new List<int>();
         var groupMixedPoints = new List<int>();
@@ -43,8 +43,8 @@ public class GroupPlaySimulationTests
     public void GroupFormation_SamePlayersSameOrder_SameResultsWithSameSeed()
     {
         var snapshotJson = BuildSnapshotWithGroupActivity();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var run1 = runner.Execute(snapshotJson, "determinism-group-seed", CancellationToken.None);
         var run2 = runner.Execute(snapshotJson, "determinism-group-seed", CancellationToken.None);

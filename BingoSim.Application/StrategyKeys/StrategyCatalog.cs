@@ -2,13 +2,14 @@ namespace BingoSim.Application.StrategyKeys;
 
 /// <summary>
 /// Catalog of supported strategy keys for team configuration. Used by UI dropdown and validators.
+/// Strategies control grant allocation and task selection for simulation runs.
 /// </summary>
 public static class StrategyCatalog
 {
-    /// <summary>Baseline strategy.</summary>
+    /// <summary>Baseline strategy: complete rows in order.</summary>
     public const string RowRush = "RowRush";
 
-    /// <summary>Alternative strategy.</summary>
+    /// <summary>Alternative strategy: maximize points first.</summary>
     public const string GreedyPoints = "GreedyPoints";
 
     private static readonly string[] AllKeys = [RowRush, GreedyPoints];

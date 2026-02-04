@@ -12,7 +12,7 @@ namespace BingoSim.Application.Simulation.Runner;
 /// Uses deterministic RNG from run seed string for reproducibility.
 /// Supports group formation for group-capable activities, PerGroup/PerPlayer roll scopes, and GroupScalingBands.
 /// </summary>
-public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogger<SimulationRunner>? logger = null)
+public class SimulationRunner(ITeamStrategyFactory strategyFactory, ILogger<SimulationRunner>? logger = null)
 {
     private const int PerPlayerRollScope = 0;
     private const int PerGroupRollScope = 1;
@@ -197,7 +197,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
             grantsBuffer.Clear();
             CollectGrantsFromAttempts(activity, rule, playerIndices, groupSize, ti, playerCapabilitySets, grantsBuffer, groupCapsBuffer, rng, cancellationToken);
 
-            var allocator = allocatorFactory.GetAllocator(team.StrategyKey);
+            var strategy = strategyFactory.GetStrategy(team.StrategyKey);
             foreach (var grant in grantsBuffer)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -213,7 +213,7 @@ public class SimulationRunner(IProgressAllocatorFactory allocatorFactory, ILogge
                     TilePoints = tilePoints,
                     EligibleTileKeys = eligible
                 };
-                var target = allocator.SelectTargetTileForGrant(context);
+                var target = strategy.SelectTargetTileForGrant(context);
                 if (target is null)
                     continue;
                 state.AddProgress(target, grant.Units, simTime, tileRequiredCount[target], tileRowIndex[target], tilePoints[target]);

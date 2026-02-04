@@ -372,8 +372,8 @@ public static class Program
     private static int RunPerfRegressionGuard(int runCount, int minRunsPerSec)
     {
         var snapshotJson = PerfScenarioSnapshot.BuildJson();
-        var allocatorFactory = new ProgressAllocatorFactory();
-        var runner = new SimulationRunner(allocatorFactory);
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         for (var i = 0; i < runCount; i++)
