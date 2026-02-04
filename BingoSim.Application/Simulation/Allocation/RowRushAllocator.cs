@@ -23,7 +23,25 @@ public sealed class RowRushAllocator : ITeamStrategy
     /// <inheritdoc />
     public (Guid? activityId, TileActivityRuleSnapshotDto? rule)? SelectTaskForPlayer(TaskSelectionContext context)
     {
-        // TODO: Remove this placeholder - strategy will be deleted
+        foreach (var row in context.EventSnapshot.Rows.OrderBy(r => r.Index))
+        {
+            if (!context.UnlockedRowIndices.Contains(row.Index))
+                continue;
+            foreach (var tile in row.Tiles.OrderBy(t => t.Points))
+            {
+                if (context.CompletedTiles.Contains(tile.Key))
+                    continue;
+                foreach (var rule in tile.AllowedActivities)
+                {
+                    if (rule.RequirementKeys.Count > 0 && !rule.RequirementKeys.All(context.PlayerCapabilities.Contains))
+                        continue;
+                    var activity = context.EventSnapshot.ActivitiesById.GetValueOrDefault(rule.ActivityDefinitionId);
+                    if (activity is null || activity.Attempts.Count == 0)
+                        continue;
+                    return (rule.ActivityDefinitionId, rule);
+                }
+            }
+        }
         return null;
     }
 }

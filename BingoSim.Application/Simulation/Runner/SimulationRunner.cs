@@ -339,11 +339,12 @@ public class SimulationRunner(ITeamStrategyFactory strategyFactory, ILogger<Simu
             .OrderBy(pi => team.Players[pi].PlayerId)
             .ToList();
 
+        var strategy = strategyFactory.GetStrategy(team.StrategyKey);
         var assignments = new List<(int pi, Guid activityId, TileActivityRuleSnapshotDto rule)>();
         foreach (var pi in sortedPlayers)
         {
             var caps = playerCapabilitySets[teamIndex][pi];
-            var (activityId, rule) = GetFirstEligibleActivity(snapshot, team, pi, state.UnlockedRowIndices, state.CompletedTiles, caps);
+            var (activityId, rule) = GetTaskForPlayer(strategy, snapshot, team, pi, state, caps, tileRowIndex, tilePoints, tileRequiredCount, tileToRules);
             if (activityId is null || rule is null)
                 continue;
             assignments.Add((pi, activityId.Value, rule));
@@ -468,34 +469,53 @@ public class SimulationRunner(ITeamStrategyFactory strategyFactory, ILogger<Simu
         return result;
     }
 
-    private static (Guid? activityId, TileActivityRuleSnapshotDto? rule) GetFirstEligibleActivity(
+    private static (Guid? activityId, TileActivityRuleSnapshotDto? rule) GetTaskForPlayer(
+        ITeamStrategy strategy,
         EventSnapshotDto snapshot,
         TeamSnapshotDto team,
         int playerIndex,
-        IReadOnlySet<int> unlockedRows,
-        IReadOnlySet<string> completedTiles,
-        HashSet<string> playerCaps)
+        TeamRunState state,
+        HashSet<string> playerCapabilities,
+        IReadOnlyDictionary<string, int> tileRowIndex,
+        IReadOnlyDictionary<string, int> tilePoints,
+        IReadOnlyDictionary<string, int> tileRequiredCount,
+        IReadOnlyDictionary<string, List<TileActivityRuleSnapshotDto>> tileToRules)
     {
-        foreach (var row in snapshot.Rows.OrderBy(r => r.Index))
+        var context = BuildTaskSelectionContext(snapshot, team, playerIndex, state, playerCapabilities, tileRowIndex, tilePoints, tileRequiredCount, tileToRules);
+        var result = strategy.SelectTaskForPlayer(context);
+        return result is { } r ? (r.activityId, r.rule) : (null, null);
+    }
+
+    private static TaskSelectionContext BuildTaskSelectionContext(
+        EventSnapshotDto snapshot,
+        TeamSnapshotDto team,
+        int playerIndex,
+        TeamRunState state,
+        HashSet<string> playerCapabilities,
+        IReadOnlyDictionary<string, int> tileRowIndex,
+        IReadOnlyDictionary<string, int> tilePoints,
+        IReadOnlyDictionary<string, int> tileRequiredCount,
+        IReadOnlyDictionary<string, List<TileActivityRuleSnapshotDto>> tileToRules)
+    {
+        var tileToRulesReadOnly = tileToRules.ToDictionary(
+            kv => kv.Key,
+            kv => (IReadOnlyList<TileActivityRuleSnapshotDto>)kv.Value,
+            StringComparer.Ordinal);
+
+        return new TaskSelectionContext
         {
-            if (!unlockedRows.Contains(row.Index))
-                continue;
-            foreach (var tile in row.Tiles.OrderBy(t => t.Points))
-            {
-                if (completedTiles.Contains(tile.Key))
-                    continue;
-                foreach (var rule in tile.AllowedActivities)
-                {
-                    if (rule.RequirementKeys.Count > 0 && !rule.RequirementKeys.All(playerCaps.Contains))
-                        continue;
-                    var activity = snapshot.ActivitiesById.GetValueOrDefault(rule.ActivityDefinitionId);
-                    if (activity is null || activity.Attempts.Count == 0)
-                        continue;
-                    return (rule.ActivityDefinitionId, rule);
-                }
-            }
-        }
-        return (null, null);
+            PlayerIndex = playerIndex,
+            PlayerCapabilities = playerCapabilities,
+            EventSnapshot = snapshot,
+            TeamSnapshot = team,
+            UnlockedRowIndices = state.UnlockedRowIndices,
+            TileProgress = state.TileProgress,
+            TileRequiredCount = tileRequiredCount,
+            CompletedTiles = state.CompletedTiles,
+            TileRowIndex = tileRowIndex,
+            TilePoints = tilePoints,
+            TileToRules = tileToRulesReadOnly
+        };
     }
 
     private static List<string> GetEligibleTileKeys(
