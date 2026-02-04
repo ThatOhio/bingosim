@@ -1,0 +1,55 @@
+I have executed two runs to test Phase 4A-4D, one at 50000 runs which ran a bit too fast for good data, and one at 100000 runs to try to get some more data.
+
+Here is the log data from a single worker for both 50000 and 100000:
+50000 run in 19.3 s
+
+Single worker logs:
+      Worker throughput: 10550 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(10554); sim=27707ms(10557); snapshot_load=88ms(8); claim=928ms(530), claim_avg=1ms; runs_claimed=0ms(10600); persist=2854ms(10459); snapshot_cache_miss=0ms(8)
+      Worker throughput: 39450 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(39434); sim=18681ms(39442); claim=354ms(1970), claim_avg=0ms; runs_claimed=0ms(39400); persist=8292ms(39490)
+
+100000 run in 35.9 s
+
+Single worker logs:
+      Worker throughput: 13176 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(13179); sim=35153ms(13182); snapshot_load=88ms(8); claim=1248ms(664), claim_avg=1ms; runs_claimed=0ms(13280); persist=3579ms(13018); snapshot_cache_miss=0ms(8)
+      Worker throughput: 43174 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(43160); sim=16061ms(43167); claim=420ms(2154), claim_avg=0ms; runs_claimed=0ms(43080); persist=8604ms(43139)
+      Worker throughput: 31589 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(31592); sim=1694ms(31590); claim=86ms(1580), claim_avg=0ms; runs_claimed=0ms(31600); persist=4752ms(31566)
+      Worker throughput: 12061 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(12058); sim=618ms(12060); claim=61ms(602), claim_avg=0ms; runs_claimed=0ms(12040); persist=1856ms(12177)
+
+
+And here is the data for 3 workers at both 50000 and 100000
+50000 run in 18.5 s
+
+Worker 1:
+      Worker throughput: 5433 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(5430); sim=15136ms(5437); snapshot_load=88ms(8); claim=818ms(274), claim_avg=2ms; runs_claimed=0ms(5480); persist=1710ms(5325); snapshot_cache_miss=0ms(8)
+      Worker throughput: 11079 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(11072); sim=5634ms(11075); claim=119ms(552), claim_avg=0ms; runs_claimed=0ms(11040); persist=2268ms(11140)
+      Worker throughput: 68 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(68); sim=1ms(68); claim=1ms(3), claim_avg=0ms; runs_claimed=0ms(60); persist=15ms(115)
+
+Worker 2:
+      Worker throughput: 5557 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(5553); sim=14144ms(5559); snapshot_load=64ms(8); claim=820ms(280), claim_avg=2ms; runs_claimed=0ms(5600); persist=1845ms(5434); snapshot_cache_miss=0ms(8)
+      Worker throughput: 11076 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(11072); sim=6779ms(11075); claim=112ms(551), claim_avg=0ms; runs_claimed=0ms(11020); persist=2363ms(11100)
+      Worker throughput: 287 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(286); sim=5ms(286); claim=1ms(14), claim_avg=0ms; runs_claimed=0ms(280); persist=58ms(386)
+
+Worker 3:
+      Worker throughput: 4907 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(4905); sim=13883ms(4911); snapshot_load=80ms(8); claim=864ms(248), claim_avg=3ms; runs_claimed=0ms(4960); persist=1610ms(4779); snapshot_cache_miss=0ms(8)
+      Worker throughput: 11093 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(11084); sim=8223ms(11088); claim=137ms(552), claim_avg=0ms; runs_claimed=0ms(11040); persist=2470ms(11168)
+      Worker throughput: 500 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(500); sim=15ms(500); claim=0ms(25), claim_avg=0ms; runs_claimed=0ms(500); persist=75ms(553)
+
+
+100000 run in 35.7 s
+
+Worker 1:
+      Worker throughput: 1382 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(1382); sim=26ms(1383); snapshot_load=0ms(1); claim=9ms(70), claim_avg=0ms; runs_claimed=0ms(1400); persist=193ms(1273); snapshot_cache_miss=0ms(1)
+      Worker throughput: 11398 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(11397); sim=254ms(11397); claim=32ms(569), claim_avg=0ms; runs_claimed=0ms(11380); persist=1675ms(11410)
+      Worker throughput: 10967 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(10968); sim=238ms(10967); claim=18ms(549), claim_avg=0ms; runs_claimed=0ms(10980); persist=1673ms(11010)
+      Worker throughput: 9573 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(9572); sim=225ms(9573); claim=14ms(478), claim_avg=0ms; runs_claimed=0ms(9560); persist=1439ms(9627)
+
+Worker 2:
+      Worker throughput: 1174 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(1175); sim=112ms(1174); snapshot_load=0ms(1); claim=15ms(59), claim_avg=0ms; runs_claimed=0ms(1180); persist=177ms(1142); snapshot_cache_miss=0ms(1)
+      Worker throughput: 11394 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(11392); sim=282ms(11394); claim=26ms(570), claim_avg=0ms; runs_claimed=0ms(11400); persist=1748ms(11329)
+      Worker throughput: 10956 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(10957); sim=296ms(10956); claim=49ms(548), claim_avg=0ms; runs_claimed=0ms(10960); persist=1727ms(11029)
+      Worker throughput: 9816 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(9815); sim=227ms(9815); claim=16ms(490), claim_avg=0ms; runs_claimed=0ms(9800); persist=1497ms(9840)
+
+Worker 3:
+      Worker throughput: 11398 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(11397); sim=303ms(11398); claim=18ms(570), claim_avg=0ms; runs_claimed=0ms(11400); persist=1747ms(11447)
+      Worker throughput: 10966 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(10965); sim=294ms(10966); claim=21ms(548), claim_avg=0ms; runs_claimed=0ms(10960); persist=1676ms(10981)
+      Worker throughput: 10034 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(10034); sim=231ms(10034); claim=25ms(501), claim_avg=0ms; runs_claimed=0ms(10020); persist=1502ms(10021)
