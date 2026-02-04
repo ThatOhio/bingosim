@@ -1,18 +1,32 @@
 # Strategy Comparison Guide
 
-This guide helps you choose between **Row Unlocking** and **Greedy** strategies when configuring teams for BingoSim simulations.
+This guide helps you choose between **Row Unlocking**, **Greedy**, and **ComboUnlocking** strategies when configuring teams for BingoSim simulations.
 
 ---
 
 ## Quick Reference
 
-| Aspect | Row Unlocking | Greedy |
-|--------|---------------|--------|
-| **Primary goal** | Unlock next row as quickly as possible | Maximize points immediately |
-| **Task selection** | Optimal combination for row unlock → furthest row → fallback | Highest points → fastest completion → key |
-| **Grant allocation** | Highest point on furthest row → fallback | Highest points → fastest completion → key |
-| **Complexity** | Higher (combination calculation, caching) | Lower (sort and pick) |
-| **Predictability** | Depends on board structure | Simple, deterministic |
+| Aspect | Row Unlocking | Greedy | ComboUnlocking |
+|--------|---------------|--------|----------------|
+| **Primary goal** | Unlock next row quickly | Maximize points immediately | Unlock rows + maximize activity reuse |
+| **Task selection** | Optimal combination → furthest row → fallback | Highest points → fastest → key | Phase 1: Penalized combinations → fallback; Phase 2: Virtual score (points + shared bonus) |
+| **Grant allocation** | Highest point on furthest row → fallback | Highest points → fastest → key | Phase 1: Same as RowUnlocking; Phase 2: Highest points anywhere |
+| **Complexity** | Medium (caching) | Low (sort and pick) | High (two-phase, penalties, shared bonus) |
+| **Predictability** | Depends on board structure | Simple, deterministic | Depends on activity overlap |
+
+---
+
+## When to Use ComboUnlocking
+
+Choose **ComboUnlocking** when:
+
+1. **Board has significant activity overlap** — The same activities appear on multiple rows. ComboUnlocking avoids "burning" activities early that you'll need for locked tiles.
+
+2. **Long-term efficiency matters** — You want to maximize value from each activity. Completing a tile that helps progress multiple other tiles is more efficient.
+
+3. **Row progression + activity reuse** — You care about unlocking rows and want to avoid activity conflicts that slow you down later.
+
+4. **Team can handle strategic assignment** — Players may be assigned to lower-point tiles initially to preserve activities for locked rows.
 
 ---
 
@@ -60,34 +74,52 @@ Choose **Greedy** when:
 - **Pros:** Simple; predictable; typically faster per simulation; lower memory; maximizes immediate points.
 - **Cons:** May unlock rows slower if high-point tiles are slow; does not optimize for row progression.
 
+### ComboUnlocking
+
+- **Pros:** May unlock rows faster while avoiding activity conflicts; maximizes activity reuse in Phase 2; best for boards with activity overlap.
+- **Cons:** Most complex; highest memory usage; slower than Greedy; may deprioritize high-point tiles initially.
+
+---
+
+## Trade-off Matrix
+
+| Strategy      | Complexity | Row Unlock Speed | Point Efficiency | Activity Reuse |
+|---------------|------------|------------------|------------------|----------------|
+| RowUnlocking  | Medium     | High             | Medium           | None           |
+| Greedy        | Low        | Low              | High (short term)| None           |
+| ComboUnlocking| High       | High             | High (long term) | Maximized      |
+
 ---
 
 ## Decision Flowchart
 
 ```
-Do you care more about row progression or total points?
-├── Row progression (unlock rows fast)
-│   └── Use Row Unlocking
-└── Total points (maximize score)
-    └── Are high-point tiles fast to complete?
-        ├── Yes → Use Greedy
-        └── No  → Consider Row Unlocking (may unlock faster)
+Does the board have significant activity overlap across rows?
+├── Yes → Use ComboUnlocking (avoids burning activities, maximizes reuse)
+└── No  → Do you care more about row progression or total points?
+          ├── Row progression (unlock rows fast)
+          │   └── Use Row Unlocking
+          └── Total points (maximize score)
+              └── Are high-point tiles fast to complete?
+                  ├── Yes → Use Greedy
+                  └── No  → Consider Row Unlocking (may unlock faster)
 ```
 
 ---
 
 ## API Usage
 
-Both strategies are registered in `StrategyCatalog` and `TeamStrategyFactory`:
+All strategies are registered in `StrategyCatalog` and `TeamStrategyFactory`:
 
 ```csharp
 // Strategy keys
-StrategyCatalog.RowUnlocking  // "RowUnlocking"
-StrategyCatalog.Greedy       // "Greedy"
+StrategyCatalog.RowUnlocking   // "RowUnlocking"
+StrategyCatalog.Greedy        // "Greedy"
+StrategyCatalog.ComboUnlocking // "ComboUnlocking"
 
 // Get strategy from factory
 var factory = new TeamStrategyFactory();
-var strategy = factory.GetStrategy(StrategyCatalog.Greedy);
+var strategy = factory.GetStrategy(StrategyCatalog.ComboUnlocking);
 ```
 
 When creating or editing teams, set `StrategyKey` to one of these values. The UI dropdown lists all supported keys via `StrategyCatalog.GetSupportedKeys()`.
@@ -98,3 +130,6 @@ When creating or editing teams, set `StrategyKey` to one of these values. The UI
 
 - [Greedy Strategy Implementation](greedy-strategy-implementation.md) — Implementation details and code
 - [Greedy Strategy Testing Results](greedy-strategy-testing-results.md) — Test results, benchmarks, and validation
+- [ComboUnlocking Guide](combo-unlocking-guide.md) — When and how to use ComboUnlocking
+- [ComboUnlocking Implementation](combo-unlocking-implementation.md) — Implementation details
+- [ComboUnlocking Testing Results](combo-unlocking-testing-results.md) — Test results and benchmarks

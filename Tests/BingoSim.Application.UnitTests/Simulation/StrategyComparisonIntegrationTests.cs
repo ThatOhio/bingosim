@@ -104,6 +104,26 @@ public class StrategyComparisonIntegrationTests
         }
     }
 
+    [Fact]
+    public void ThreeWay_RowUnlocking_Greedy_ComboUnlocking_AllComplete()
+    {
+        var snapshotJson = BuildThreeWayComparisonSnapshot();
+        var strategyFactory = new TeamStrategyFactory();
+        var runner = new SimulationRunner(strategyFactory);
+
+        var results = runner.Execute(snapshotJson, "three-way_0", CancellationToken.None);
+
+        results.Should().HaveCount(3);
+        results.Select(r => r.StrategyKey).Should().Contain(StrategyCatalog.RowUnlocking);
+        results.Select(r => r.StrategyKey).Should().Contain(StrategyCatalog.Greedy);
+        results.Select(r => r.StrategyKey).Should().Contain(StrategyCatalog.ComboUnlocking);
+        foreach (var r in results)
+        {
+            r.TotalPoints.Should().BeGreaterThan(0);
+            r.TilesCompletedCount.Should().BeGreaterThan(0);
+        }
+    }
+
     private static string BuildComparisonSnapshot()
     {
         var actId = Guid.NewGuid();
@@ -279,6 +299,51 @@ public class StrategyComparisonIntegrationTests
             ]
         };
 
+        return JsonSerializer.Serialize(dto);
+    }
+
+    private static string BuildThreeWayComparisonSnapshot()
+    {
+        var actId = Guid.NewGuid();
+        var rule = new TileActivityRuleSnapshotDto
+        {
+            ActivityDefinitionId = actId,
+            ActivityKey = "act",
+            AcceptedDropKeys = ["drop"],
+            RequirementKeys = [],
+            Modifiers = []
+        };
+        var alwaysOnline = new WeeklyScheduleSnapshotDto { Sessions = [] };
+
+        var dto = new EventSnapshotDto
+        {
+            EventName = "Three-Way Comparison",
+            DurationSeconds = 7200,
+            UnlockPointsRequiredPerRow = 5,
+            EventStartTimeEt = new DateTimeOffset(2025, 2, 4, 9, 0, 0, TimeSpan.FromHours(-5)).ToString("o"),
+            Rows =
+            [
+                new RowSnapshotDto { Index = 0, Tiles = [new TileSnapshotDto { Key = "r0a", Name = "R0A", Points = 2, RequiredCount = 1, AllowedActivities = [rule] }, new TileSnapshotDto { Key = "r0b", Name = "R0B", Points = 3, RequiredCount = 1, AllowedActivities = [rule] }] },
+                new RowSnapshotDto { Index = 1, Tiles = [new TileSnapshotDto { Key = "r1a", Name = "R1A", Points = 4, RequiredCount = 1, AllowedActivities = [rule] }] }
+            ],
+            ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>
+            {
+                [actId] = new ActivitySnapshotDto
+                {
+                    Id = actId,
+                    Key = "act",
+                    Attempts = [new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 5, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] }],
+                    GroupScalingBands = [],
+                    ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false }
+                }
+            },
+            Teams =
+            [
+                new TeamSnapshotDto { TeamId = Guid.NewGuid(), TeamName = "RowUnlocking", StrategyKey = StrategyCatalog.RowUnlocking, Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }] },
+                new TeamSnapshotDto { TeamId = Guid.NewGuid(), TeamName = "Greedy", StrategyKey = StrategyCatalog.Greedy, Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }] },
+                new TeamSnapshotDto { TeamId = Guid.NewGuid(), TeamName = "ComboUnlocking", StrategyKey = StrategyCatalog.ComboUnlocking, Players = [new PlayerSnapshotDto { PlayerId = Guid.NewGuid(), Name = "P1", SkillTimeMultiplier = 1.0m, CapabilityKeys = [], Schedule = alwaysOnline }] }
+            ]
+        };
         return JsonSerializer.Serialize(dto);
     }
 }
