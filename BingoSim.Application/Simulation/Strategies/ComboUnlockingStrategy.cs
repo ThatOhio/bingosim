@@ -333,11 +333,33 @@ public sealed class ComboUnlockingStrategy : ITeamStrategy
         if (row is null)
             return [];
 
-        var tiles = row.Tiles.ToDictionary(t => t.Key, t => t.Points);
-        var combinations = RowCombinationCalculator.CalculateCombinations(tiles, threshold);
-        EnrichCombinationsWithTimeEstimates(combinations, snapshot, rowIndex);
-        _combinationCache[rowIndex] = combinations;
-        return combinations;
+        if (row.Tiles is not { Count: > 0 })
+            return [];
+
+        if (threshold <= 0)
+            return [];
+
+        Dictionary<string, int> tiles;
+        try
+        {
+            tiles = row.Tiles.ToDictionary(t => t.Key, t => t.Points);
+        }
+        catch (ArgumentException)
+        {
+            return [];
+        }
+
+        try
+        {
+            var combinations = RowCombinationCalculator.CalculateCombinations(tiles, threshold);
+            EnrichCombinationsWithTimeEstimates(combinations, snapshot, rowIndex);
+            _combinationCache[rowIndex] = combinations;
+            return combinations;
+        }
+        catch (IndexOutOfRangeException)
+        {
+            return [];
+        }
     }
 
     private static void EnrichCombinationsWithTimeEstimates(

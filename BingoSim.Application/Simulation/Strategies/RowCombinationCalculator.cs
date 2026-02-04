@@ -49,7 +49,7 @@ public static class RowCombinationCalculator
         int currentSum,
         List<TileCombination> results)
     {
-        if (currentIndex >= tiles.Count || currentCombination.Count >= MaxTilesPerCombination)
+        if (currentIndex < 0 || currentIndex >= tiles.Count || currentCombination.Count >= MaxTilesPerCombination)
             return;
 
         var (key, points) = tiles[currentIndex];

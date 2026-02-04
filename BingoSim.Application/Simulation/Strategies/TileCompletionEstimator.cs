@@ -58,7 +58,7 @@ public static class TileCompletionEstimator
         TileActivityRuleSnapshotDto rule)
     {
         var acceptedKeys = rule.AcceptedDropKeys;
-        if (acceptedKeys.Count == 0)
+        if (acceptedKeys is null || acceptedKeys.Count == 0)
             return 0.0;
 
         double totalExpected = 0.0;
@@ -75,7 +75,10 @@ public static class TileCompletionEstimator
             foreach (var outcome in attempt.Outcomes)
             {
                 var prob = (double)outcome.WeightNumerator / totalWeight;
-                var progressFromOutcome = outcome.Grants
+                var grants = outcome.Grants;
+                if (grants is null)
+                    continue;
+                var progressFromOutcome = grants
                     .Where(g => acceptedKeys.Contains(g.DropKey, StringComparer.Ordinal))
                     .Sum(g => g.Units);
                 totalExpected += prob * progressFromOutcome;
