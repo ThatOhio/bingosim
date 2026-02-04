@@ -7,4 +7,10 @@ namespace BingoSim.Shared.Messages;
 public record ExecuteSimulationRunBatch
 {
     public required IReadOnlyList<Guid> SimulationRunIds { get; init; }
+
+    /// <summary>
+    /// Worker index assigned to this batch (0-based). Used for work partitioning.
+    /// Null indicates no partitioning (any worker can process).
+    /// </summary>
+    public int? WorkerIndex { get; init; }
 }

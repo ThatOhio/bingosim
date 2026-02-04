@@ -17,8 +17,9 @@ public sealed class MassTransitRunWorkPublisher(
 
     public async ValueTask PublishRunWorkAsync(Guid runId, CancellationToken cancellationToken = default)
     {
+        // Retries: no WorkerIndex so any worker can process (fault tolerance)
         await publishEndpoint.Publish(
-            new ExecuteSimulationRunBatch { SimulationRunIds = [runId] },
+            new ExecuteSimulationRunBatch { SimulationRunIds = [runId], WorkerIndex = null },
             cancellationToken);
     }
 
@@ -27,11 +28,15 @@ public sealed class MassTransitRunWorkPublisher(
         if (runIds.Count == 0)
             return;
 
-        for (var i = 0; i < runIds.Count; i += _batchSize)
+        var batches = runIds.Chunk(_batchSize).ToList();
+        var workerCount = options.Value.WorkerCount;
+
+        for (var i = 0; i < batches.Count; i++)
         {
-            var chunk = runIds.Skip(i).Take(_batchSize).ToList();
+            var batch = batches[i];
+            var workerIndex = workerCount > 1 ? i % workerCount : (int?)null;
             await publishEndpoint.Publish(
-                new ExecuteSimulationRunBatch { SimulationRunIds = chunk },
+                new ExecuteSimulationRunBatch { SimulationRunIds = batch.ToList(), WorkerIndex = workerIndex },
                 cancellationToken);
         }
     }

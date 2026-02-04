@@ -445,14 +445,14 @@ Phase 4A-4D achieved a **2.7× absolute speedup** but **no multi-worker scaling*
 ### Phase 4E: ⏭️ Skipped
 - Rationale: GetByIdAsync calls are not visible in performance metrics. Message enrichment would provide negligible benefit compared to Phase 4F.
 
-### Phase 4F: 🎯 In Progress
-- [ ] Design partitioning strategy (Option A: Worker-Indexed Partitioning)
-- [ ] Add WorkerIndex to ExecuteSimulationRunBatch message
-- [ ] Implement worker index assignment in MassTransitRunWorkPublisher
-- [ ] Add WORKER_INDEX and WORKER_COUNT environment variables
-- [ ] Implement WorkerIndexFilter for message filtering
-- [ ] Update ExecuteSimulationRunBatchConsumerDefinition
-- [ ] Configure workers with stable identities (manual startup or orchestrator)
+### Phase 4F: ✅ Completed (2025-02-03)
+- [x] Design partitioning strategy (Option A: Worker-Indexed Partitioning)
+- [x] Add WorkerIndex to ExecuteSimulationRunBatch message
+- [x] Implement worker index assignment in MassTransitRunWorkPublisher
+- [x] Add WORKER_INDEX and WORKER_COUNT environment variables
+- [x] Implement WorkerIndexFilter for message filtering
+- [x] Update ExecuteSimulationRunBatchConsumerDefinition
+- [x] Configure workers with stable identities (manual startup or orchestrator)
 - [ ] Test with 1 worker, then 3 workers
 - [ ] Validate ≥1.5× scaling factor
-- [ ] Document results and final performance metrics
+- [x] Document results (see Phase_4F_Implementation.md)

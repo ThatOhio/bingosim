@@ -74,4 +74,18 @@ public class WorkerSimulationOptions
     /// Override via appsettings WorkerSimulation:PrefetchCount or env WORKER_PREFETCH_COUNT.
     /// </summary>
     public int PrefetchCount { get; set; } = 0;
+
+    /// <summary>
+    /// This worker's assigned index (0-based). Used for message filtering in partitioned mode.
+    /// If null or -1, worker processes all messages (no filtering).
+    /// Override via appsettings WorkerSimulation:WorkerIndex or env WORKER_INDEX.
+    /// </summary>
+    public int? WorkerIndex { get; set; }
+
+    /// <summary>
+    /// Total number of workers in the cluster. Used to validate WorkerIndex.
+    /// Must match DistributedExecution:WorkerCount on the publisher side.
+    /// Override via appsettings WorkerSimulation:WorkerCount or env WORKER_COUNT.
+    /// </summary>
+    public int WorkerCount { get; set; } = 3;
 }

@@ -70,6 +70,29 @@ dotnet run --project BingoSim.Worker
 
 Run additional workers in separate terminals to scale horizontally.
 
+### Running Workers with Partitioning (Phase 4F)
+
+To enable worker partitioning for multi-worker scaling, run workers manually with unique indices:
+
+**Terminal 1:**
+```bash
+WORKER_INDEX=0 WORKER_COUNT=3 dotnet run --project BingoSim.Worker
+```
+
+**Terminal 2:**
+```bash
+WORKER_INDEX=1 WORKER_COUNT=3 dotnet run --project BingoSim.Worker
+```
+
+**Terminal 3:**
+```bash
+WORKER_INDEX=2 WORKER_COUNT=3 dotnet run --project BingoSim.Worker
+```
+
+Ensure `DISTRIBUTED_WORKER_COUNT=3` is set in the Web application's environment.
+
+**Note:** Docker Compose `replicas` cannot assign unique environment variables to each replica. For production deployment, use an orchestrator that supports pod indices (e.g., Kubernetes StatefulSets).
+
 ## Full Stack with Docker Compose
 
 To run everything in containers:
