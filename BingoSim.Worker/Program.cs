@@ -1,8 +1,10 @@
 using BingoSim.Application.Interfaces;
 using BingoSim.Infrastructure;
+using Microsoft.Extensions.Options;
 using BingoSim.Infrastructure.Hosting;
 using BingoSim.Infrastructure.Persistence;
 using BingoSim.Infrastructure.Simulation;
+using BingoSim.Worker.Configuration;
 using BingoSim.Worker.Consumers;
 using BingoSim.Worker.Services;
 using MassTransit;
@@ -45,6 +47,7 @@ class Program
 
         builder.Services.Configure<WorkerSimulationOptions>(
             builder.Configuration.GetSection(WorkerSimulationOptions.SectionName));
+        builder.Services.AddSingleton<IPostConfigureOptions<WorkerSimulationOptions>, WorkerIndexHostnameResolver>();
 
         builder.Services.AddSingleton<IPerfRecorder, PerfRecorder>();
         builder.Services.AddSingleton<IWorkerRunThroughputRecorder, WorkerRunThroughputRecorder>();

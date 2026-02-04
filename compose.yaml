@@ -85,8 +85,9 @@ services:
       - WorkerSimulation__SimulationDelayMs=${WORKER_SIMULATION_DELAY_MS:-0}
       - WorkerSimulation__MaxConcurrentRuns=${WORKER_MAX_CONCURRENT_RUNS:-0}
       - WorkerSimulation__PrefetchCount=${WORKER_PREFETCH_COUNT:-0}
-      - WorkerSimulation__WorkerIndex=${WORKER_INDEX:-}
-      - WorkerSimulation__WorkerCount=${WORKER_COUNT:-3}
+      # WorkerIndex derived from HOSTNAME when unset (e.g. bingosim_bingosim.worker_1 → index 0)
+      # WorkerCount = replica count; set DISTRIBUTED_WORKER_COUNT on Web to match when scaling
+      - WorkerSimulation__WorkerCount=${WORKER_REPLICAS:-3}
       - DistributedExecution__BatchSize=${DISTRIBUTED_BATCH_SIZE:-20}
       - DistributedExecution__WorkerCount=${DISTRIBUTED_WORKER_COUNT:-3}
       - SimulationPersistence__BatchSize=${PERSISTENCE_BATCH_SIZE:-100}

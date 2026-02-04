@@ -91,7 +91,11 @@ WORKER_INDEX=2 WORKER_COUNT=3 dotnet run --project BingoSim.Worker
 
 Ensure `DISTRIBUTED_WORKER_COUNT=3` is set in the Web application's environment.
 
-**Note:** Docker Compose `replicas` cannot assign unique environment variables to each replica. For production deployment, use an orchestrator that supports pod indices (e.g., Kubernetes StatefulSets).
+**Docker Compose:** Worker partitioning works with `docker compose up` and replicas. Each container gets a unique hostname (e.g. `bingosim_bingosim.worker_1`), and the worker derives its index from the trailing number. Ensure `DISTRIBUTED_WORKER_COUNT` matches `WORKER_REPLICAS` when scaling:
+
+```bash
+WORKER_REPLICAS=5 DISTRIBUTED_WORKER_COUNT=5 docker compose up -d
+```
 
 ## Full Stack with Docker Compose
 

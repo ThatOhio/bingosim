@@ -152,7 +152,7 @@ Leave `WORKER_INDEX` unset. Worker processes all messages. Publisher still assig
 
 - **WorkerCount mismatch:** Ensure Web `DistributedExecution:WorkerCount` matches Worker `WorkerSimulation:WorkerCount` and the actual number of workers
 - **WorkerIndex not set:** Each worker must have a unique `WORKER_INDEX` (0, 1, 2, ...)
-- **Docker Compose replicas:** Compose cannot assign unique env vars per replica; use manual worker startup for testing
+- **Docker Compose:** Worker partitioning works with replicas via hostname-derived indices (see §7)
 
 ### Messages going to skipped queue
 
@@ -164,15 +164,23 @@ Leave `WORKER_INDEX` unset. Worker processes all messages. Publisher still assig
 
 ---
 
-## 7. Limitations
+## 7. Docker Compose Support
 
-- **Docker Compose replicas:** All replicas receive the same environment variables. Partitioning requires unique `WORKER_INDEX` per worker. Use Kubernetes StatefulSets or manual startup for production.
+Worker partitioning works with Docker Compose replicas. Each container receives a unique hostname (e.g. `bingosim_bingosim.worker_1`, `bingosim_bingosim.worker_2`). The `WorkerIndexHostnameResolver` derives `WorkerIndex` from the trailing number when `WORKER_INDEX` is not explicitly set. No per-replica env vars required.
+
+When scaling workers, set both `WORKER_REPLICAS` and `DISTRIBUTED_WORKER_COUNT` to match:
+```bash
+WORKER_REPLICAS=5 DISTRIBUTED_WORKER_COUNT=5 docker compose up -d
+```
+
+## 8. Limitations
+- **Hostname format:** Hostname derivation expects a trailing `_N` or `-N` (e.g. `service_1`). Custom hostnames may not parse; set `WORKER_INDEX` explicitly in that case.
 - **Skipped messages:** When a worker receives a message for another worker's index, it uses `NotifyConsumed` to avoid the skipped queue. The message is acknowledged and removed—it is not requeued for the correct worker. With stable round-robin delivery, this should be rare.
 - **Retries:** `PublishRunWorkAsync` (retry path) uses `WorkerIndex = null` so any worker can process. Retries are not partitioned.
 
 ---
 
-## 8. Architecture Constraints
+## 9. Architecture Constraints
 
 - All changes in Infrastructure and Worker layers (Clean Architecture respected)
 - No changes to Core domain logic

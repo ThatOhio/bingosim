@@ -17,6 +17,7 @@
     <ItemGroup>
       <PackageReference Include="MassTransit.RabbitMQ" Version="8.2.5" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.0" />
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
       <ProjectReference Include="..\BingoSim.Application\BingoSim.Application.csproj" />
       <ProjectReference Include="..\BingoSim.Core\BingoSim.Core.csproj" />
