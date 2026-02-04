@@ -84,6 +84,27 @@ docker compose up -d
 
 The Web and Worker services run in the same network as Postgres and RabbitMQ. To access the Web UI from your host, add `ports: - "8080:8080"` under `bingosim.web` in `compose.yaml`.
 
+## Performance Tuning (Multi-Worker Scaling)
+
+When running distributed simulations with multiple workers, PostgreSQL and connection pool tuning can improve throughput.
+
+### PostgreSQL Tuning (Docker Compose)
+
+The `compose.yaml` postgres service applies performance-oriented settings for write-heavy simulation workloads:
+
+| Setting | Value | Effect |
+|---------|-------|--------|
+| `synchronous_commit` | off | Reduces fsync latency; trades durability for throughput |
+| `shared_buffers` | 256MB | More cache, fewer disk reads |
+| `work_mem` | 16MB | Better for sorts/joins in aggregates |
+| `max_connections` | 200 | Supports more concurrent worker connections |
+
+**Durability tradeoff:** `synchronous_commit=off` means up to a few seconds of data may be lost on a crash before it is fsync'd to disk. This is acceptable for simulation workloads because batches are re-runnable and results can be regenerated. For production with strict durability requirements, coordinate with your DBA and consider keeping `synchronous_commit=on`.
+
+### Connection Pool Sizing
+
+Connection strings include `Maximum Pool Size=50` to support 3 workers × concurrent operations (claim + persist). If you see "connection pool exhausted" errors when scaling workers, increase this value or reduce `WorkerSimulation:MaxConcurrentRuns` per worker.
+
 ## Upgrading / Database Wipe
 
 When upgrading BingoSim, **a full database reset is expected** if snapshot schema or validation rules have changed. Snapshot fields are required; there is no backward compatibility with older snapshots.

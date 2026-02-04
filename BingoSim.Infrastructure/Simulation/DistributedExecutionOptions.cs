@@ -8,8 +8,8 @@ public class DistributedExecutionOptions
     public const string SectionName = "DistributedExecution";
 
     /// <summary>
-    /// Number of run IDs per ExecuteSimulationRunBatch message. Default 10.
+    /// Number of run IDs per ExecuteSimulationRunBatch message. Default 20.
     /// Override via appsettings DistributedExecution:BatchSize or env DISTRIBUTED_BATCH_SIZE.
     /// </summary>
-    public int BatchSize { get; set; } = 10;
+    public int BatchSize { get; set; } = 20;
 }

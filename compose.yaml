@@ -2,6 +2,16 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: bingosim-postgres
+    command:
+      - "postgres"
+      - "-c"
+      - "synchronous_commit=off"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "max_connections=200"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -46,12 +56,12 @@ services:
     ports: 
       - "8080:8080"
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres;Timeout=30
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres;Timeout=30;Maximum Pool Size=50
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Port=5672
       - RabbitMQ__Username=${RABBITMQ_USER:-guest}
       - RabbitMQ__Password=${RABBITMQ_PASS:-guest}
-      - DistributedExecution__BatchSize=${DISTRIBUTED_BATCH_SIZE:-10}
+      - DistributedExecution__BatchSize=${DISTRIBUTED_BATCH_SIZE:-20}
 
   bingosim.worker:
     image: bingosim.worker
@@ -66,7 +76,7 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres;Timeout=30
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=bingosim;Username=postgres;Password=postgres;Timeout=30;Maximum Pool Size=50
       - RabbitMQ__Host=rabbitmq
       - RabbitMQ__Port=5672
       - RabbitMQ__Username=${RABBITMQ_USER:-guest}
@@ -74,7 +84,9 @@ services:
       - WorkerSimulation__SimulationDelayMs=${WORKER_SIMULATION_DELAY_MS:-0}
       - WorkerSimulation__MaxConcurrentRuns=${WORKER_MAX_CONCURRENT_RUNS:-0}
       - WorkerSimulation__PrefetchCount=${WORKER_PREFETCH_COUNT:-0}
-      - DistributedExecution__BatchSize=${DISTRIBUTED_BATCH_SIZE:-10}
+      - DistributedExecution__BatchSize=${DISTRIBUTED_BATCH_SIZE:-20}
+      - SimulationPersistence__BatchSize=${PERSISTENCE_BATCH_SIZE:-100}
+      - SimulationPersistence__FlushIntervalMs=${PERSISTENCE_FLUSH_INTERVAL_MS:-1000}
 
 volumes:
   postgres_data:
