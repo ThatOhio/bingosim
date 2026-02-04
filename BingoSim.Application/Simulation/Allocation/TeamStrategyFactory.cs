@@ -15,7 +15,8 @@ public sealed class TeamStrategyFactory : ITeamStrategyFactory
         _strategies = new Dictionary<string, ITeamStrategy>(StringComparer.Ordinal)
         {
             [StrategyCatalog.RowUnlocking] = new RowUnlockingStrategy(),
-            [StrategyCatalog.Greedy] = new GreedyStrategy()
+            [StrategyCatalog.Greedy] = new GreedyStrategy(),
+            [StrategyCatalog.ComboUnlocking] = new ComboUnlockingStrategy()
         };
     }
 
