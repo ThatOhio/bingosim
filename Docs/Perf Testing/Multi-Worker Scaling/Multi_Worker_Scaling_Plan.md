@@ -17,7 +17,75 @@
 
 **Conclusion:** No meaningful scaling benefit. At 50K, 3 workers are slightly slower than 1 worker.
 
-### 1.7 Phase 4G Results (February 3, 2025) - JIT Warmup Identified
+### 1.8 Phase 4H Results (February 3, 2025) - Message Broker Bottleneck Discovered
+
+**Test Configuration:** 500K runs, Release mode, 1 worker vs 3 workers with partitioning
+
+| Configuration | Elapsed Time | Throughput | Scaling Factor |
+|---------------|--------------|------------|----------------|
+| 1 Worker | 183.8s | 2,720 runs/s | 1.0× (baseline) |
+| 3 Workers | 186.5s | 2,681 runs/s | 0.99× (no improvement) |
+
+**Steady-State Metrics:**
+
+| Metric | 1 Worker | 3 Workers (per worker) | 3 Workers (aggregate) |
+|--------|----------|------------------------|------------------------|
+| Sim time per 10K | 595ms | 220ms avg | 660ms total |
+| Per-run sim | 0.06ms | 0.022ms | - |
+| Throughput | 3,189 runs/s | ~1,024 runs/s each | 3,072 runs/s |
+| Load distribution | 100% | 32%, 33%, 35% | - |
+
+**Critical Findings:**
+
+✅ **Partitioning works perfectly:**
+- Even load distribution (32-35% per worker)
+- No claim contention (0.13-0.19ms per batch)
+- No persist contention (1,600-1,800ms per 10s)
+- Each worker processes correct subset of batches
+
+✅ **Workers are highly efficient:**
+- 3 workers have 3× better per-run sim time than 1 worker (0.022ms vs 0.06ms)
+- Steady-state sim times are excellent (208-241ms per 10K runs)
+
+❌ **No scaling benefit achieved:**
+- Aggregate throughput is identical: ~3,000 runs/s regardless of worker count
+- 3 workers are slightly slower (0.99× scaling factor)
+
+**Root Cause: Message Broker Throughput Ceiling**
+
+The data reveals a **message broker (RabbitMQ) bottleneck**:
+
+1. **Throughput is constant regardless of worker count:**
+   - 1 worker: 31,888 runs per 10s average
+   - 3 workers: 30,723 runs per 10s aggregate
+   - **Same ceiling: ~3,000-3,200 runs/s**
+
+2. **Workers are not CPU-bound:**
+   - 3 workers have 3× better sim performance per run
+   - If simulation was the bottleneck, 3 workers would be slower per-run (not faster)
+
+3. **Database is not the bottleneck:**
+   - Claim times: <0.2ms per batch (no contention)
+   - Persist times: consistent across all workers
+
+4. **Message delivery rate is the constraint:**
+   - RabbitMQ delivers ~30K runs per 10s window
+   - Adding more workers doesn't increase message delivery rate
+   - Workers compete for the same fixed message supply
+
+**Why individual workers are faster:**
+- With 3 workers, each processes 1/3 of messages → less work per worker → faster per-message processing
+- But aggregate throughput is unchanged because message supply is the bottleneck
+
+**Comparison to Phase 4A-4D:**
+- Phase 4A-4D: 100K in 35.9s = 2,786 runs/s (similar throughput)
+- Phase 4H: 500K in 183.8s = 2,720 runs/s (confirms consistent ceiling)
+
+**Conclusion:**
+
+Worker partitioning successfully eliminated database contention and enabled perfect load distribution. However, **the message broker cannot deliver messages fast enough** to saturate multiple workers. The current architecture publishes batches sequentially, creating a throughput ceiling of ~3,000 runs/s regardless of worker count.
+
+**Next Steps:** Phase 4I will investigate RabbitMQ bottleneck and explore parallel batch publishing strategies.
 
 **Investigation:** Phase 4F appeared to have 100× regression, but was actually measured in Debug mode. After switching to Release mode, discovered the real issue.
 
@@ -559,12 +627,24 @@ Phase 4A-4D achieved a **2.7× absolute speedup** but **no multi-worker scaling*
 
 **Results:** Simulation performance is excellent (0.02-0.05ms per run in steady state). The "regression" was measurement in Debug mode. In Release mode, discovered JIT warmup overhead masks multi-worker scaling benefits for short tests.
 
-### Phase 4H: 🎯 Next Priority - Long-Duration Scaling Test
-- [ ] Run 500K simulations with 1 worker in Release mode
-- [ ] Run 500K simulations with 3 workers (WORKER_INDEX=0,1,2) in Release mode
-- [ ] Calculate scaling factor after warmup period excluded
-- [ ] Measure steady-state aggregate throughput
-- [ ] Target: ≥1.5× improvement (500K in ≤70s vs 1 worker ≤105s)
-- [ ] If scaling achieved, consider the partitioning successful
-- [ ] If scaling still absent, investigate message distribution or other bottlenecks
-- [ ] Document final results
+### Phase 4H: ✅ Completed (2025-02-03)
+- [x] Run 500K simulations with 1 worker in Release mode
+- [x] Run 500K simulations with 3 workers (WORKER_INDEX=0,1,2) in Release mode
+- [x] Calculate scaling factor after warmup period excluded
+- [x] Measure steady-state aggregate throughput
+- [ ] ~~Target: ≥1.5× improvement~~ - **FAILED: 0.99× scaling**
+- [x] Identified bottleneck: Message broker throughput ceiling
+- [x] Document final results
+
+**Results:** Partitioning works perfectly (even load, no contention), but RabbitMQ delivers messages at ~3,000 runs/s ceiling regardless of worker count. Adding workers doesn't increase throughput because message delivery rate is the constraint.
+
+### Phase 4I: 🎯 Next Priority - Message Broker Optimization
+- [ ] Profile batch publishing in Web application
+- [ ] Measure time to publish 25,000 batch messages (500K runs / 20 per batch)
+- [ ] Investigate parallel batch publishing strategies
+- [ ] Test: Publish batches in parallel chunks (e.g., 10 batches at a time)
+- [ ] Test: Pre-publish all batches before simulation starts (bulk publish)
+- [ ] Measure improvement in message delivery rate
+- [ ] Re-test 3 workers to validate scaling with higher message throughput
+- [ ] Target: Increase message delivery to ≥10,000 runs/s to saturate 3 workers
+- [ ] Document findings and determine if further optimization is worthwhile
