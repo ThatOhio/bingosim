@@ -1,5 +1,6 @@
 using BingoSim.Application.Interfaces;
 using BingoSim.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using BingoSim.Infrastructure.Hosting;
 using BingoSim.Infrastructure.Persistence;
@@ -20,6 +21,13 @@ class Program
     static async Task Main(string[] args)
     {
         var builder = Host.CreateApplicationBuilder(args);
+
+        // Load appsettings.json from application directory (not CWD).
+        // Console apps using dotnet run have CWD = solution root, but appsettings.json
+        // is in the output dir (bin/Release/net10.0). AppContext.BaseDirectory points there.
+        var appSettingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        if (File.Exists(appSettingsPath))
+            builder.Configuration.AddJsonFile(appSettingsPath, optional: false, reloadOnChange: false);
 
         builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
 

@@ -1,0 +1,43 @@
+Phase 4G Regression Fix - Testing Results
+
+Root cause: Debug build configuration (dotnet run defaults to Debug)
+Fix: Use -c Release for all performance testing
+
+PREREQUISITE - Start infrastructure and Web (without worker):
+   docker compose up -d --build postgres rabbitmq bingosim.web
+
+   This starts Postgres, RabbitMQ, and the Web app. Workers are run manually
+   with dotnet run -c Release for performance testing.
+
+Build (from solution root, when needed after code changes):
+   dotnet build BingoSim.Worker/BingoSim.Worker.csproj -c Release
+
+1. Single worker (100K runs):
+   dotnet run --project BingoSim.Worker -c Release
+   Expected: ~35s total, sim ~250-300ms per 10K runs
+   Actual: 35.5 s, logs:
+      Worker throughput: 6962 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(6969); sim=13925ms(6970); snapshot_load=80ms(8); claim=805ms(353), claim_avg=2ms; runs_claimed=0ms(7060); persist=2263ms(6821); snapshot_cache_miss=0ms(8)
+      Worker throughput: 37762 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(37748); sim=22551ms(37752); claim=334ms(1884), claim_avg=0ms; runs_claimed=0ms(37680); persist=7697ms(37815)
+      Worker throughput: 34379 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(34381); sim=1646ms(34380); claim=121ms(1720), claim_avg=0ms; runs_claimed=0ms(34400); persist=4944ms(34347)
+      Worker throughput: 20897 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(20893); sim=987ms(20896); claim=73ms(1043), claim_avg=0ms; runs_claimed=0ms(20860); persist=3047ms(21017)
+
+2. Three workers (100K runs):
+   WORKER_INDEX=0 WORKER_COUNT=3 dotnet run --project BingoSim.Worker -c Release
+   (and similarly for 1, 2)
+   Expected: Target ≤24s (≥1.5× improvement over single worker)
+   Actual: 34.2 s
+   Logs:
+   Worker 1:
+      Worker throughput: 9960 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(9953); sim=14967ms(9961); snapshot_load=88ms(8); claim=730ms(499), claim_avg=1ms; runs_claimed=0ms(9980); persist=2789ms(9877); snapshot_cache_miss=0ms(8)
+      Worker throughput: 11656 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(11654); sim=246ms(11653); claim=17ms(582), claim_avg=0ms; runs_claimed=0ms(11640); persist=1700ms(11643)
+      Worker throughput: 11196 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(11196); sim=223ms(11196); claim=24ms(560), claim_avg=0ms; runs_claimed=0ms(11200); persist=1648ms(11248)
+      Worker throughput: 408 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(407); sim=9ms(408); claim=0ms(20), claim_avg=0ms; runs_claimed=0ms(400); persist=64ms(452)
+   Worker 2:
+      Worker throughput: 5096 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(5092); sim=12675ms(5099); snapshot_load=142ms(8); claim=717ms(257), claim_avg=2ms; runs_claimed=0ms(5140); persist=1772ms(4986); snapshot_cache_miss=0ms(8)
+      Worker throughput: 11638 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(11634); sim=2494ms(11635); claim=45ms(580), claim_avg=0ms; runs_claimed=0ms(11600); persist=2103ms(11650)
+      Worker throughput: 11766 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(11765); sim=304ms(11765); claim=31ms(588), claim_avg=0ms; runs_claimed=0ms(11760); persist=1688ms(11793)
+      Worker throughput: 4820 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(4820); sim=77ms(4820); claim=4ms(241), claim_avg=0ms; runs_claimed=0ms(4820); persist=700ms(4891)
+   Worker 3:
+      Worker throughput: 11160 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(11156); sim=14308ms(11165); snapshot_load=96ms(8); claim=769ms(559), claim_avg=1ms; runs_claimed=0ms(11180); persist=2964ms(11098); snapshot_cache_miss=0ms(8)
+      Worker throughput: 11740 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(11733); sim=230ms(11733); claim=29ms(586), claim_avg=0ms; runs_claimed=0ms(11720); persist=1710ms(11740)
+      Worker throughput: 10560 runs in last 10s. Phase totals (ms, count): snapshot_cache_hit=0ms(10560); sim=235ms(10560); claim=23ms(528), claim_avg=0ms; runs_claimed=0ms(10560); persist=1614ms(10611)

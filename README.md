@@ -74,19 +74,21 @@ Run additional workers in separate terminals to scale horizontally.
 
 To enable worker partitioning for multi-worker scaling, run workers manually with unique indices:
 
+**Performance testing:** Use `-c Release` for throughput measurements (Debug can be 10–100× slower).
+
 **Terminal 1:**
 ```bash
-WORKER_INDEX=0 WORKER_COUNT=3 dotnet run --project BingoSim.Worker
+WORKER_INDEX=0 WORKER_COUNT=3 dotnet run --project BingoSim.Worker -c Release
 ```
 
 **Terminal 2:**
 ```bash
-WORKER_INDEX=1 WORKER_COUNT=3 dotnet run --project BingoSim.Worker
+WORKER_INDEX=1 WORKER_COUNT=3 dotnet run --project BingoSim.Worker -c Release
 ```
 
 **Terminal 3:**
 ```bash
-WORKER_INDEX=2 WORKER_COUNT=3 dotnet run --project BingoSim.Worker
+WORKER_INDEX=2 WORKER_COUNT=3 dotnet run --project BingoSim.Worker -c Release
 ```
 
 Ensure `DISTRIBUTED_WORKER_COUNT=3` is set in the Web application's environment.

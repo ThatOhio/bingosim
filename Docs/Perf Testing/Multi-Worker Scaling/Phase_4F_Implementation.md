@@ -128,13 +128,15 @@ Leave `WORKER_INDEX` unset. Worker processes all messages. Publisher still assig
 
 ## 5. Testing Procedure
 
+**IMPORTANT:** Always use `-c Release` for performance testing. Debug builds can be 10–100× slower (see Phase_4G_Regression_Diagnosis.md).
+
 1. **Baseline (1 worker, no partitioning):**
-   - Start 1 worker without `WORKER_INDEX` set
+   - Start 1 worker without `WORKER_INDEX` set: `dotnet run --project BingoSim.Worker -c Release`
    - Run 100K simulations
    - Record elapsed time and throughput
 
 2. **Partitioned (3 workers):**
-   - Start 3 workers with `WORKER_INDEX=0,1,2` and `WORKER_COUNT=3`
+   - Start 3 workers with `WORKER_INDEX=0,1,2` and `WORKER_COUNT=3`: `WORKER_INDEX=0 WORKER_COUNT=3 dotnet run --project BingoSim.Worker -c Release` (and similarly for 1, 2)
    - Ensure Web has `DISTRIBUTED_WORKER_COUNT=3`
    - Run 100K simulations
    - Record elapsed time and throughput
