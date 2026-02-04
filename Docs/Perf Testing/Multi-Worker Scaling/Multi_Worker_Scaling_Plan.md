@@ -17,7 +17,52 @@
 
 **Conclusion:** No meaningful scaling benefit. At 50K, 3 workers are slightly slower than 1 worker.
 
-### 1.6 Phase 4F Results (February 3, 2025) - RESOLVED (Phase 4G)
+### 1.7 Phase 4G Results (February 3, 2025) - JIT Warmup Identified
+
+**Investigation:** Phase 4F appeared to have 100× regression, but was actually measured in Debug mode. After switching to Release mode, discovered the real issue.
+
+**Root Cause:** JIT warmup overhead dominates short test runs (100K runs in ~35s)
+
+| Phase | First 10s Sim | Steady State Sim | Per-run (steady) |
+|-------|---------------|------------------|------------------|
+| 1 worker | 13,925ms + 22,551ms | 1,646ms + 987ms | **0.045ms** ✅ |
+| 3 workers (aggregate) | ~42,000ms | ~700ms | **0.022ms** ✅ |
+
+**Key Findings:**
+
+✅ **Simulation performance is excellent:** Steady-state shows 0.02-0.05ms per run (better than Phase 4A-4D target!)
+
+✅ **Partitioning works correctly:** Each worker processes ~1/3 of batches with expected sim times in steady state
+
+❌ **Multi-worker scaling masked by JIT warmup:** For 100K runs (35s total), JIT warmup takes 14-23s per worker in the first two windows
+
+**Analysis:**
+
+**Single worker warmup overhead:**
+- Windows 1-2: 36,476ms of simulation time for 44,722 runs
+- Windows 3-4: 2,633ms of simulation time for 55,276 runs
+- Warmup cost: ~34 seconds
+
+**Three workers warmup overhead (aggregate):**
+- Each worker independently JIT compiles simulation code
+- Worker 1 window 1: 14,967ms
+- Worker 2 window 1: 12,675ms
+- Worker 3 window 1: 14,308ms
+- Total: ~42 seconds of warmup across all workers (occurs in parallel, ~14s wall time)
+
+**After warmup, workers are fast:**
+- Worker 1 steady state: 246ms per 10K runs
+- Worker 2 steady state: 304ms per 10K runs
+- Worker 3 steady state: 230ms per 10K runs
+
+**Why 3 workers = 34.2s vs 1 worker = 35.5s (only 4% faster):**
+- 1 worker: 34s warmup + 1s productive work
+- 3 workers: 14s warmup (parallel) + 20s productive work
+- Benefit: (35.5 - 34.2) / 35.5 = 3.7% improvement
+
+For warmup to become negligible, need test duration >> 35s. Recommend 500K-1M runs where warmup is <10% of total time.
+
+**Next Steps:** Phase 4H will test with 500K runs to properly measure multi-worker scaling after warmup cost becomes negligible.
 
 **Configuration Changes:** Added WorkerIndex partitioning, workers assigned indices 0-2
 
@@ -25,23 +70,32 @@
 |----------|----------|-----------|----------------|-----------------|
 | 100K runs | 37.2s (~2,688 runs/s) | 37.4s (~2,674 runs/s) | 0.99× | **⚠️ REGRESSION** |
 
-**CRITICAL FINDING - SIMULATION PERFORMANCE COLLAPSED (Debug build):**
+**CRITICAL FINDING - SIMULATION PERFORMANCE COLLAPSED:**
 
-Phase 4A-4D simulation times (per 10s window, Release):
+Phase 4A-4D simulation times (per 10s window):
 - **sim: ~250-300ms** for 10K+ runs
 
-Phase 4F simulation times (per 10s window, Debug):
+Phase 4F simulation times (per 10s window):
 - Single worker: **sim: 36,408ms** for 15K runs (first window)
 - 3 Workers: **sim: 10,000-12,000ms EACH** for 10K runs (steady state)
 
-**Root cause (Phase 4G diagnosis):** The regression was caused by running in **Debug** build configuration. `dotnet run` defaults to Debug, which disables JIT optimizations and can cause 10–100× slowdown for CPU-intensive simulation code. Phase 4A-4D may have been run via Docker (Release) or with `-c Release`.
+**The simulation itself is 100× slower!** From ~0.02ms per run → ~1-2ms per run.
 
-**Fix:** Use `-c Release` for all performance testing:
-```bash
-dotnet run --project BingoSim.Worker -c Release
-```
+**Analysis:**
 
-**Phase 4F partitioning code is correct.** Snapshot caching, WorkerIndexFilter, and execution path were all verified. Re-test partitioning with Release to validate scaling benefits.
+This is NOT a partitioning problem - this is a **simulation performance regression** introduced in Phase 4F implementation. The partitioning code is likely working correctly (each worker processes ~33K runs), but something changed that made the actual simulation execution dramatically slower.
+
+**Potential causes:**
+1. **Snapshot caching disabled/broken:** Notice all workers show "snapshot_load" times and "snapshot_cache_miss" - suggests snapshot is being deserialized repeatedly
+2. **New overhead in execution path:** ExecuteSimulationRunBatchConsumer or filter may be calling expensive operations per-run
+3. **Configuration issue:** `SimulationDelayMs` might have been inadvertently set to non-zero
+4. **Worker identity resolution:** WorkerIndexHostnameResolver or WorkerIndexFilter might be doing expensive operations per-message
+
+**Immediate next steps:**
+1. Verify `SimulationDelayMs = 0` in all worker configurations
+2. Check snapshot caching - cache should hit on all but first run per batch
+3. Profile the simulation execution path to find the regression
+4. Consider reverting Phase 4F changes to re-establish baseline
 
 **Configuration Changes:** BatchSize 10→20, PostgreSQL tuning, Persistence BatchSize 50→100, FlushInterval 500ms→1000ms, Connection pool sized to 50.
 
@@ -394,13 +448,24 @@ Phase 4A-4D achieved a **2.7× absolute speedup** but **no multi-worker scaling*
 ✅ **Absolute performance goal exceeded:** 50K runs in 19.3s (target was ≤35s)
 ❌ **Multi-worker scaling goal not met:** 1.04× actual vs 1.5× target
 
-### Phase 4F Target
-| Metric | Current (3 workers, 100K) | Target |
-|--------|---------------------------|--------|
-| Elapsed time | 35.7s | ≤24s (1.5× improvement) |
-| Peak throughput | ~2,801 runs/s | ≥4,000 runs/s |
-| Scaling factor (3 vs 1 worker) | 1.01× | ≥1.5× |
-| Claim contention | Workers compete for same queue | Workers have exclusive ranges |
+### Phase 4G Discovered (100K runs, Release mode)
+| Metric | 1 Worker | 3 Workers |
+|--------|----------|-----------|
+| Elapsed time | 35.5s | 34.2s |
+| Steady-state sim time | 0.045ms/run | 0.022ms/run |
+| JIT warmup overhead | ~34s total | ~14s (parallel) |
+| Scaling factor | 1.0× | 1.04× |
+
+**Discovery:** JIT warmup dominates 100K test runs. Partitioning works, but benefit is masked by warmup cost.
+
+### Phase 4H Target (500K runs - warmup amortized)
+| Metric | Current (3 workers, 100K) | Target (3 workers, 500K) |
+|--------|---------------------------|--------------------------|
+| Elapsed time | 34.2s | ≤70s (vs ~105s for 1 worker) |
+| Warmup as % of total | ~41% (14s / 34s) | ~13% (14s / 105s) |
+| Steady-state throughput | ~3,000 runs/s | ≥4,500 runs/s |
+| Scaling factor (3 vs 1 worker) | 1.04× | **≥1.5×** |
+| Workers fully utilized | ❌ (warmup dominates) | ✅ (warmup negligible) |
 
 ---
 
@@ -469,7 +534,7 @@ Phase 4A-4D achieved a **2.7× absolute speedup** but **no multi-worker scaling*
 ### Phase 4E: ⏭️ Skipped
 - Rationale: GetByIdAsync calls are not visible in performance metrics. Message enrichment would provide negligible benefit compared to Phase 4F.
 
-### Phase 4F: ✅ Completed - Re-test with Release (2025-02-03)
+### Phase 4F: ⚠️ Completed but CRITICAL REGRESSION (2025-02-03)
 - [x] Design partitioning strategy (Option A: Worker-Indexed Partitioning)
 - [x] Add WorkerIndex to ExecuteSimulationRunBatch message
 - [x] Implement worker index assignment in MassTransitRunWorkPublisher
@@ -478,16 +543,28 @@ Phase 4A-4D achieved a **2.7× absolute speedup** but **no multi-worker scaling*
 - [x] Update ExecuteSimulationRunBatchConsumerDefinition
 - [x] Configure workers with stable identities (hostname-derived indices)
 - [x] Test with 1 worker, then 3 workers
-- [ ] Validate ≥1.5× scaling factor - **Re-test with `-c Release`** (Phase 4G fix)
+- [ ] ~~Validate ≥1.5× scaling factor~~ - **FAILED: 0.99× scaling, but due to simulation regression not partitioning**
 - [x] Document results
 
-**Phase 4G RESOLVED:** Root cause was Debug build configuration. Use `-c Release` for all perf testing. Partitioning code is correct; re-test to validate scaling.
+**CRITICAL ISSUE DISCOVERED:** Simulation performance regressed 100× (250ms → 36,000ms per 10K runs). This masks any partitioning benefits. Phase 4G must diagnose and fix this regression before re-testing partitioning.
 
-### Phase 4G: ✅ Completed (2025-02-03) - Regression Diagnosis
+### Phase 4G: ✅ Completed (2025-02-03)
 - [x] Verify SimulationDelayMs = 0 in all configurations
-- [x] Check snapshot caching (should hit on all runs except first per batch)
+- [x] Check snapshot caching (working correctly)
 - [x] Profile ExecuteSimulationRunBatchConsumer execution path
-- [x] Identify root cause: **Debug build configuration** (10–100× slower than Release)
-- [x] Fix: Use `-c Release` for all performance testing
-- [ ] Re-test Phase 4F partitioning with Release (pending)
-- [x] Document root cause and resolution (Phase_4G_Regression_Diagnosis.md)
+- [x] Identify cause of apparent slowdown (Debug build vs Release build)
+- [x] Switch to Release mode for all testing
+- [x] Discover real issue: JIT warmup dominates short test runs
+- [x] Document findings
+
+**Results:** Simulation performance is excellent (0.02-0.05ms per run in steady state). The "regression" was measurement in Debug mode. In Release mode, discovered JIT warmup overhead masks multi-worker scaling benefits for short tests.
+
+### Phase 4H: 🎯 Next Priority - Long-Duration Scaling Test
+- [ ] Run 500K simulations with 1 worker in Release mode
+- [ ] Run 500K simulations with 3 workers (WORKER_INDEX=0,1,2) in Release mode
+- [ ] Calculate scaling factor after warmup period excluded
+- [ ] Measure steady-state aggregate throughput
+- [ ] Target: ≥1.5× improvement (500K in ≤70s vs 1 worker ≤105s)
+- [ ] If scaling achieved, consider the partitioning successful
+- [ ] If scaling still absent, investigate message distribution or other bottlenecks
+- [ ] Document final results
