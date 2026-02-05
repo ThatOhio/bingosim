@@ -100,13 +100,17 @@ public class RealEventSeedService(
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
 
-            // Shellbane gryphon: 1/256 Belle's folly, ~91s per kill
+            // Shellbane gryphon: 1/256 Belle's folly, 1/3000 pet (counts as 1 folly), ~91s per kill
             new ActivitySeedDef(
                 "boss.shellbane_gryphon", "Shellbane Gryphon",
                 new ActivityModeSupport(true, false, null, null),
                 [
                     new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(91, TimeDistribution.Uniform, 15),
-                        [new ActivityOutcomeDefinition("common", 255, 256, []), new ActivityOutcomeDefinition("rare", 1, 256, [new ProgressGrant(dropBellesFolly, 1)])]),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 191186, 192000, []),
+                            new ActivityOutcomeDefinition("folly", 750, 192000, [new ProgressGrant(dropBellesFolly, 1)]),
+                            new ActivityOutcomeDefinition("pet", 64, 192000, [new ProgressGrant(dropBellesFolly, 1)]),
+                        ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
 
@@ -121,17 +125,18 @@ public class RealEventSeedService(
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
 
             // Chambers of Xeric: dragon arrows. 30 min per raid, PerPlayer rolls.
-            // Purple 1/20 → 250 arrows; no purple: 2 rolls at 1/33 each → 30-200 or 60-400 arrows. Solo purple 1/30 approximated via group band.
+            // Purple 1/20: 52/53 → 250 arrows; 1/53 → pet (additional 250) = 500 total. No purple: 2 rolls at 1/33 each → 30-200 or 60-400.
             new ActivitySeedDef(
                 "raid.cox", "Chambers of Xeric",
                 new ActivityModeSupport(true, true, 1, 8),
                 [
                     new ActivityAttemptDefinition("completion", RollScope.PerPlayer, new AttemptTimeModel(1800, TimeDistribution.Uniform, 300),
                         [
-                            new ActivityOutcomeDefinition("purple", 1089, 21780, [new ProgressGrant(dropDragonArrows, 250)]),
-                            new ActivityOutcomeDefinition("zero_arrows", 19456, 21780, []),
-                            new ActivityOutcomeDefinition("one_roll", 1216, 21780, [new ProgressGrant(dropDragonArrows, 30, 200)]),
-                            new ActivityOutcomeDefinition("two_rolls", 19, 21780, [new ProgressGrant(dropDragonArrows, 60, 400)]),
+                            new ActivityOutcomeDefinition("purple_no_pet", 56628, 1154340, [new ProgressGrant(dropDragonArrows, 250)]),
+                            new ActivityOutcomeDefinition("purple_with_pet", 1089, 1154340, [new ProgressGrant(dropDragonArrows, 500)]),
+                            new ActivityOutcomeDefinition("zero_arrows", 1031168, 1154340, []),
+                            new ActivityOutcomeDefinition("one_roll", 64448, 1154340, [new ProgressGrant(dropDragonArrows, 30, 200)]),
+                            new ActivityOutcomeDefinition("two_rolls", 1007, 1154340, [new ProgressGrant(dropDragonArrows, 60, 400)]),
                         ]),
                 ],
                 [
