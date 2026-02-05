@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Row 0");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–1");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -87,6 +87,10 @@ public class RealEventSeedService(
         const string dropBellesFolly = "item.belles_folly";
         const string dropDragonWarhammer = "item.dragon_warhammer";
         const string dropDragonArrows = "loot.dragon_arrows";
+        const string dropDkRing = "item.dk_ring";
+        const string dropTdUnique = "item.td_unique";
+        const string dropCerberusUnique = "item.cerberus_unique";
+        const string dropVorkathItem = "item.vorkath_item";
 
         return
         [
@@ -142,6 +146,62 @@ public class RealEventSeedService(
                 [
                     new GroupSizeBand(1, 8, 1.0m, 1.0m), // 1/20 purple for all; solo 1/30 approximated as 1/20 for simplicity
                 ]),
+
+            // Dagannoth Kings: 1/128 ring, 1/5000 pet (counts as 3 rings), ~40s per kill, solo
+            new ActivitySeedDef(
+                "boss.dagannoth_kings", "Dagannoth Kings",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(40, TimeDistribution.Uniform, 8),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 158718, 160000, []),
+                            new ActivityOutcomeDefinition("ring", 1250, 160000, [new ProgressGrant(dropDkRing, 1)]),
+                            new ActivityOutcomeDefinition("pet", 32, 160000, [new ProgressGrant(dropDkRing, 3)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Tormented Demons: 1/500 Synapse OR 1/501 Claw per kill (mutually exclusive), ~60s per kill, solo
+            new ActivitySeedDef(
+                "monster.tormented_demons", "Tormented Demons",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(60, TimeDistribution.Uniform, 12),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 249499, 250500, []),
+                            new ActivityOutcomeDefinition("synapse", 501, 250500, [new ProgressGrant(dropTdUnique, 1)]),
+                            new ActivityOutcomeDefinition("claw", 500, 250500, [new ProgressGrant(dropTdUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Cerberus: 4 uniques at 1/520 each (4/520 combined), pet 1/3000 (counts as 1 unique), ~69s per kill, solo
+            new ActivitySeedDef(
+                "boss.cerberus", "Cerberus",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(69, TimeDistribution.Uniform, 12),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 38687, 39000, []),
+                            new ActivityOutcomeDefinition("unique", 300, 39000, [new ProgressGrant(dropCerberusUnique, 1)]),
+                            new ActivityOutcomeDefinition("pet", 13, 39000, [new ProgressGrant(dropCerberusUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Vorkath: 2 rolls per kill. Qualifying items: head 1/50, necklace 1/1000, jar 1/3000, pet 1/3000, draconic 1/5000, skeletal 1/5000. ~132s per kill, solo.
+            new ActivitySeedDef(
+                "boss.vorkath", "Vorkath",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(132, TimeDistribution.Uniform, 25),
+                        [
+                            new ActivityOutcomeDefinition("zero", 215179561, 225000000, []),
+                            new ActivityOutcomeDefinition("one", 9710878, 225000000, [new ProgressGrant(dropVorkathItem, 1)]),
+                            new ActivityOutcomeDefinition("two", 109561, 225000000, [new ProgressGrant(dropVorkathItem, 2)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -159,6 +219,14 @@ public class RealEventSeedService(
         var gryphonKey = "boss.shellbane_gryphon";
         var shamanId = activityIdsByKey["monster.lizardman_shaman"];
         var shamanKey = "monster.lizardman_shaman";
+        var dkId = activityIdsByKey["boss.dagannoth_kings"];
+        var dkKey = "boss.dagannoth_kings";
+        var tdId = activityIdsByKey["monster.tormented_demons"];
+        var tdKey = "monster.tormented_demons";
+        var cerberusId = activityIdsByKey["boss.cerberus"];
+        var cerberusKey = "boss.cerberus";
+        var vorkathId = activityIdsByKey["boss.vorkath"];
+        var vorkathKey = "boss.vorkath";
 
         var row0 = new Row(0,
         [
@@ -172,20 +240,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(coxId, coxKey, ["loot.dragon_arrows"], [], [])]),
         ]);
 
+        var row1 = new Row(1,
+        [
+            new Tile("t1-r1", "6x DK Ring", 1, 6,
+                [new TileActivityRule(dkId, dkKey, ["item.dk_ring"], [], [])]),
+            new Tile("t2-r1", "3x TD Unique", 2, 3,
+                [new TileActivityRule(tdId, tdKey, ["item.td_unique"], [], [])]),
+            new Tile("t3-r1", "5x Cerberus Unique", 3, 5,
+                [new TileActivityRule(cerberusId, cerberusKey, ["item.cerberus_unique"], [], [])]),
+            new Tile("t4-r1", "12x Vorkath Item", 4, 12,
+                [new TileActivityRule(vorkathId, vorkathKey, ["item.vorkath_item"], [], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0]);
+            existing.SetRows([row0, row1]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0]);
+            evt.SetRows([row0, row1]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
