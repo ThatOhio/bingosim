@@ -228,16 +228,23 @@ public class RealEventSeedService(
         var vorkathId = activityIdsByKey["boss.vorkath"];
         var vorkathKey = "boss.vorkath";
 
+        // Capabilities for tile requirements (players must have these to attempt)
+        var slayer51 = new Capability("slayer.51", "Slayer 51");
+        var raidCox = new Capability("raid.cox", "Chambers of Xeric");
+        var questWgs = new Capability("quest.wgs", "While Guthix Sleeps");
+        var slayer91 = new Capability("slayer.91", "Slayer 91");
+        var questDs2 = new Capability("quest.ds2", "Dragon Slayer II");
+
         var row0 = new Row(0,
         [
             new Tile("t1-r0", "3x Merfolk Trident", 1, 3,
                 [new TileActivityRule(underwaterId, underwaterKey, ["item.merfolk_trident"], [], [])]),
             new Tile("t2-r0", "2x Belle's Folly", 2, 2,
-                [new TileActivityRule(gryphonId, gryphonKey, ["item.belles_folly"], [], [])]),
+                [new TileActivityRule(gryphonId, gryphonKey, ["item.belles_folly"], [slayer51], [])]),
             new Tile("t3-r0", "1x Dragon Warhammer", 3, 1,
                 [new TileActivityRule(shamanId, shamanKey, ["item.dragon_warhammer"], [], [])]),
             new Tile("t4-r0", "800 Dragon Arrows", 4, 800,
-                [new TileActivityRule(coxId, coxKey, ["loot.dragon_arrows"], [], [])]),
+                [new TileActivityRule(coxId, coxKey, ["loot.dragon_arrows"], [raidCox], [])]),
         ]);
 
         var row1 = new Row(1,
@@ -245,11 +252,11 @@ public class RealEventSeedService(
             new Tile("t1-r1", "6x DK Ring", 1, 6,
                 [new TileActivityRule(dkId, dkKey, ["item.dk_ring"], [], [])]),
             new Tile("t2-r1", "3x TD Unique", 2, 3,
-                [new TileActivityRule(tdId, tdKey, ["item.td_unique"], [], [])]),
+                [new TileActivityRule(tdId, tdKey, ["item.td_unique"], [questWgs], [])]),
             new Tile("t3-r1", "5x Cerberus Unique", 3, 5,
-                [new TileActivityRule(cerberusId, cerberusKey, ["item.cerberus_unique"], [], [])]),
+                [new TileActivityRule(cerberusId, cerberusKey, ["item.cerberus_unique"], [slayer91], [])]),
             new Tile("t4-r1", "12x Vorkath Item", 4, 12,
-                [new TileActivityRule(vorkathId, vorkathKey, ["item.vorkath_item"], [], [])]),
+                [new TileActivityRule(vorkathId, vorkathKey, ["item.vorkath_item"], [questDs2], [])]),
         ]);
 
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
