@@ -76,6 +76,7 @@ public static class DependencyInjection
         services.AddScoped<IEventService, EventService>();
         services.AddScoped<ITeamService, TeamService>();
         services.AddScoped<IDevSeedService, DevSeedService>();
+        services.AddScoped<IRealEventSeedService, RealEventSeedService>();
         services.AddScoped<IFullDatabaseResetService, FullDatabaseResetService>();
 
         return services;

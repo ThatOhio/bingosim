@@ -25,6 +25,7 @@ public static class Program
         var fullReset = args.Contains("--full-reset", StringComparer.OrdinalIgnoreCase);
         var confirm = args.Contains("--confirm", StringComparer.OrdinalIgnoreCase);
         var perf = args.Contains("--perf", StringComparer.OrdinalIgnoreCase);
+        var seedEvent = GetArg(args, "--seed-event");
         var perfRegression = args.Contains("--perf-regression", StringComparer.OrdinalIgnoreCase);
         var recoverBatchId = GetArg(args, "--recover-batch");
 
@@ -125,6 +126,18 @@ public static class Program
             }
 
             Console.WriteLine("Full database reset: done.");
+            return 0;
+        }
+
+        if (seedEvent is not null)
+        {
+            using (var scope = host.Services.CreateScope())
+            {
+                var realEventSeeder = scope.ServiceProvider.GetRequiredService<IRealEventSeedService>();
+                Console.WriteLine("Real event seed: {0}...", seedEvent);
+                await realEventSeeder.SeedEventAsync(seedEvent);
+            }
+            Console.WriteLine("Real event seed: done.");
             return 0;
         }
 
