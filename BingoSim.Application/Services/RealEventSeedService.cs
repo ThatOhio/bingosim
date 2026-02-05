@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–2");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–3");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -95,6 +95,10 @@ public class RealEventSeedService(
         const string dropZenyteShard = "item.zenyte_shard";
         const string dropGauntletSeed = "item.gauntlet_seed";
         const string dropRevTotem = "item.rev_totem";
+        const string dropChampionScroll = "item.champion_scroll";
+        const string dropWildernessShield = "item.wilderness_shield";
+        const string dropVetionUnique = "item.vetion_unique";
+        const string dropCallistoHilt = "item.callisto_hilt";
 
         return
         [
@@ -262,6 +266,89 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Champion scroll: 3 generic scrolls at 1/5000 each, ~4.6s per kill, solo
+            new ActivitySeedDef(
+                "monster.champion_scroll", "Champion Scroll",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(5, TimeDistribution.Uniform, 2),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 4999, 5000, []),
+                            new ActivityOutcomeDefinition("scroll", 1, 5000, [new ProgressGrant(dropChampionScroll, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Chaos Fanatic: 2 shards at 1/256 each, pet 1/1000 (counts as 2), ~60s per kill, solo
+            new ActivitySeedDef(
+                "boss.chaos_fanatic", "Chaos Fanatic",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(60, TimeDistribution.Uniform, 12),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 15859, 16000, []),
+                            new ActivityOutcomeDefinition("shard", 125, 16000, [new ProgressGrant(dropWildernessShield, 1)]),
+                            new ActivityOutcomeDefinition("pet", 16, 16000, [new ProgressGrant(dropWildernessShield, 2)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Crazy Archaeologist: 2 shards at 1/256 each, ~60s per kill, solo
+            new ActivitySeedDef(
+                "boss.crazy_archaeologist", "Crazy Archaeologist",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(60, TimeDistribution.Uniform, 12),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 127, 128, []),
+                            new ActivityOutcomeDefinition("shard", 1, 128, [new ProgressGrant(dropWildernessShield, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Scorpia: 2 shards at 1/256 each, pet 1/2016 (counts as 2), ~90s per kill, solo
+            new ActivitySeedDef(
+                "boss.scorpia", "Scorpia",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(90, TimeDistribution.Uniform, 18),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 15994, 16128, []),
+                            new ActivityOutcomeDefinition("shard", 126, 16128, [new ProgressGrant(dropWildernessShield, 1)]),
+                            new ActivityOutcomeDefinition("pet", 8, 16128, [new ProgressGrant(dropWildernessShield, 2)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Vet'ion: voidwaker blade 1/360, ring of the gods 1/512, pet 1/1500 (counts as 1), ~62s per kill, solo
+            new ActivitySeedDef(
+                "boss.vetion", "Vet'ion",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(62, TimeDistribution.Uniform, 12),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 572891, 576000, []),
+                            new ActivityOutcomeDefinition("blade", 1600, 576000, [new ProgressGrant(dropVetionUnique, 1)]),
+                            new ActivityOutcomeDefinition("ring", 1125, 576000, [new ProgressGrant(dropVetionUnique, 1)]),
+                            new ActivityOutcomeDefinition("pet", 384, 576000, [new ProgressGrant(dropVetionUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Callisto: voidwaker hilt 1/360, pet 1/1500 (counts as 1), ~83s per kill, solo
+            new ActivitySeedDef(
+                "boss.callisto", "Callisto",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(83, TimeDistribution.Uniform, 16),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 8969, 9000, []),
+                            new ActivityOutcomeDefinition("hilt", 25, 9000, [new ProgressGrant(dropCallistoHilt, 1)]),
+                            new ActivityOutcomeDefinition("pet", 6, 9000, [new ProgressGrant(dropCallistoHilt, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -295,6 +382,18 @@ public class RealEventSeedService(
         var gauntletKey = "minigame.gauntlet";
         var revKnightId = activityIdsByKey["monster.revenant_knight"];
         var revKnightKey = "monster.revenant_knight";
+        var championScrollId = activityIdsByKey["monster.champion_scroll"];
+        var championScrollKey = "monster.champion_scroll";
+        var chaosFanaticId = activityIdsByKey["boss.chaos_fanatic"];
+        var chaosFanaticKey = "boss.chaos_fanatic";
+        var crazyArchId = activityIdsByKey["boss.crazy_archaeologist"];
+        var crazyArchKey = "boss.crazy_archaeologist";
+        var scorpiaId = activityIdsByKey["boss.scorpia"];
+        var scorpiaKey = "boss.scorpia";
+        var vetionId = activityIdsByKey["boss.vetion"];
+        var vetionKey = "boss.vetion";
+        var callistoId = activityIdsByKey["boss.callisto"];
+        var callistoKey = "boss.callisto";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -341,20 +440,36 @@ public class RealEventSeedService(
                 [new TileActivityRule(revKnightId, revKnightKey, ["item.rev_totem"], [], [])]),
         ]);
 
+        var row3 = new Row(3,
+        [
+            new Tile("t1-r3", "1x Champion Scroll Set", 1, 3,
+                [new TileActivityRule(championScrollId, championScrollKey, ["item.champion_scroll"], [], [])]),
+            new Tile("t2-r3", "1x Wilderness Shield Set", 2, 6,
+                [
+                    new TileActivityRule(chaosFanaticId, chaosFanaticKey, ["item.wilderness_shield"], [], []),
+                    new TileActivityRule(crazyArchId, crazyArchKey, ["item.wilderness_shield"], [], []),
+                    new TileActivityRule(scorpiaId, scorpiaKey, ["item.wilderness_shield"], [], []),
+                ]),
+            new Tile("t3-r3", "6x Vet'ion Unique", 3, 6,
+                [new TileActivityRule(vetionId, vetionKey, ["item.vetion_unique"], [], [])]),
+            new Tile("t4-r3", "3x Callisto Hilt", 4, 3,
+                [new TileActivityRule(callistoId, callistoKey, ["item.callisto_hilt"], [], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2]);
+            existing.SetRows([row0, row1, row2, row3]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2]);
+            evt.SetRows([row0, row1, row2, row3]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
