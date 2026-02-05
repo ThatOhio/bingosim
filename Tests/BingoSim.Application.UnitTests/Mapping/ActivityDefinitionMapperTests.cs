@@ -63,6 +63,28 @@ public class ActivityDefinitionMapperTests
         var result = ActivityDefinitionMapper.ToEntity(dto);
         result.DropKey.Should().Be("drop.magic_fang");
         result.Units.Should().Be(3);
+        result.IsVariable.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ToEntity_ProgressGrantDto_VariableUnits_MapsCorrectly()
+    {
+        var dto = new ProgressGrantDto("item.arrows", 0, 50, 100);
+        var result = ActivityDefinitionMapper.ToEntity(dto);
+        result.DropKey.Should().Be("item.arrows");
+        result.UnitsMin.Should().Be(50);
+        result.UnitsMax.Should().Be(100);
+        result.IsVariable.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ToDto_ProgressGrant_VariableUnits_MapsCorrectly()
+    {
+        var vo = new ProgressGrant("item.arrows", 50, 100);
+        var result = ActivityDefinitionMapper.ToDto(vo);
+        result.DropKey.Should().Be("item.arrows");
+        result.UnitsMin.Should().Be(50);
+        result.UnitsMax.Should().Be(100);
     }
 
     [Fact]

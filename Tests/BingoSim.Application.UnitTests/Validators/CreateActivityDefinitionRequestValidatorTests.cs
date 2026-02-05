@@ -109,4 +109,38 @@ public class CreateActivityDefinitionRequestValidatorTests
         var result = _validator.Validate(request);
         result.IsValid.Should().BeFalse();
     }
+
+    [Fact]
+    public void Validate_VariableProgressGrant_ValidRange_Passes()
+    {
+        var request = ValidRequest() with
+        {
+            Attempts = [
+                new ActivityAttemptDefinitionDto(
+                    "attempt_1",
+                    0,
+                    new AttemptTimeModelDto(60, 0, null),
+                    [new ActivityOutcomeDefinitionDto("arrows", 1, 1, [new ProgressGrantDto("item.arrows", 0, 50, 100)])])
+            ]
+        };
+        var result = _validator.Validate(request);
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_VariableProgressGrant_MinGreaterThanMax_ReturnsError()
+    {
+        var request = ValidRequest() with
+        {
+            Attempts = [
+                new ActivityAttemptDefinitionDto(
+                    "attempt_1",
+                    0,
+                    new AttemptTimeModelDto(60, 0, null),
+                    [new ActivityOutcomeDefinitionDto("arrows", 1, 1, [new ProgressGrantDto("item.arrows", 0, 100, 50)])])
+            ]
+        };
+        var result = _validator.Validate(request);
+        result.IsValid.Should().BeFalse();
+    }
 }

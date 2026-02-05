@@ -1,28 +1,30 @@
 using BingoSim.Core.Entities;
 using BingoSim.Core.ValueObjects;
+using BingoSim.Infrastructure.IntegrationTests.Fixtures;
 using BingoSim.Infrastructure.Persistence;
 using BingoSim.Infrastructure.Persistence.Repositories;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
 
 namespace BingoSim.Infrastructure.IntegrationTests.Repositories;
 
-public class PlayerProfileRepositoryTests : IAsyncLifetime
+[Collection("Postgres")]
+public class PlayerProfileRepositoryTests : IAsyncLifetime, IDisposable
 {
-    private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
-        .Build();
-
+    private readonly PostgresFixture _postgres;
     private AppDbContext _context = null!;
     private PlayerProfileRepository _repository = null!;
 
+    public PlayerProfileRepositoryTests(PostgresFixture postgres)
+    {
+        _postgres = postgres;
+    }
+
     public async Task InitializeAsync()
     {
-        await _postgresContainer.StartAsync();
-
+        var connectionString = await _postgres.CreateIsolatedDatabaseAsync(GetType().Name);
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(_postgresContainer.GetConnectionString())
+            .UseNpgsql(connectionString)
             .Options;
 
         _context = new AppDbContext(options);
@@ -31,10 +33,12 @@ public class PlayerProfileRepositoryTests : IAsyncLifetime
         _repository = new PlayerProfileRepository(_context);
     }
 
-    public async Task DisposeAsync()
+    public void Dispose() => _context?.Dispose();
+
+    public Task DisposeAsync()
     {
-        await _context.DisposeAsync();
-        await _postgresContainer.DisposeAsync();
+        Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
@@ -273,7 +277,7 @@ public class PlayerProfileRepositoryTests : IAsyncLifetime
     private AppDbContext CreateFreshContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(_postgresContainer.GetConnectionString())
+            .UseNpgsql(_context.Database.GetConnectionString())
             .Options;
 
         return new AppDbContext(options);

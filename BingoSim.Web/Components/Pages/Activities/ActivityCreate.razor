@@ -129,7 +129,17 @@
                                         var grant = outcome.Grants[g];
                                         <div class="form-row grant-row">
                                             <input type="text" @bind="grant.DropKey" class="form-control" placeholder="DropKey" />
-                                            <input type="number" @bind="grant.Units" class="form-control" placeholder="Units" />
+                                            <label class="checkbox-inline"><input type="checkbox" @bind="grant.UseVariableUnits" /> Variable</label>
+                                            @if (grant.UseVariableUnits)
+                                            {
+                                                <input type="number" @bind="grant.UnitsMin" class="form-control" placeholder="Min" />
+                                                <span>–</span>
+                                                <input type="number" @bind="grant.UnitsMax" class="form-control" placeholder="Max" />
+                                            }
+                                            else
+                                            {
+                                                <input type="number" @bind="grant.Units" class="form-control" placeholder="Units" />
+                                            }
                                             <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveGrant(attemptIndex, outcomeIndex, grantIndex)">Remove</button>
                                         </div>
                                     }
@@ -343,8 +353,13 @@
     {
         public string DropKey { get; set; } = string.Empty;
         public int Units { get; set; } = 1;
+        public bool UseVariableUnits { get; set; }
+        public int? UnitsMin { get; set; }
+        public int? UnitsMax { get; set; }
 
-        public ProgressGrantDto ToDto() => new ProgressGrantDto(DropKey, Units);
+        public ProgressGrantDto ToDto() => UseVariableUnits && UnitsMin.HasValue && UnitsMax.HasValue
+            ? new ProgressGrantDto(DropKey, 0, UnitsMin, UnitsMax)
+            : new ProgressGrantDto(DropKey, Units);
     }
 
     private class BandFormModel

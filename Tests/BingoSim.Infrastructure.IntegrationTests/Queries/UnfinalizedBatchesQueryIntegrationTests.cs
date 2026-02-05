@@ -1,31 +1,34 @@
 using BingoSim.Application.Interfaces;
 using BingoSim.Core.Entities;
 using BingoSim.Core.Enums;
+using BingoSim.Infrastructure.IntegrationTests.Fixtures;
 using BingoSim.Infrastructure.Persistence;
 using BingoSim.Infrastructure.Persistence.Repositories;
 using BingoSim.Infrastructure.Queries;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
 
 namespace BingoSim.Infrastructure.IntegrationTests.Queries;
 
-public class UnfinalizedBatchesQueryIntegrationTests : IAsyncLifetime
+[Collection("Postgres")]
+public class UnfinalizedBatchesQueryIntegrationTests : IAsyncLifetime, IDisposable
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
-        .Build();
-
+    private readonly PostgresFixture _postgres;
     private AppDbContext _context = null!;
     private SimulationBatchRepository _batchRepo = null!;
     private SimulationRunRepository _runRepo = null!;
     private IUnfinalizedBatchesQuery _query = null!;
 
+    public UnfinalizedBatchesQueryIntegrationTests(PostgresFixture postgres)
+    {
+        _postgres = postgres;
+    }
+
     public async Task InitializeAsync()
     {
-        await _postgres.StartAsync();
+        var connectionString = await _postgres.CreateIsolatedDatabaseAsync(GetType().Name);
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(_postgres.GetConnectionString())
+            .UseNpgsql(connectionString)
             .Options;
         _context = new AppDbContext(options);
         await _context.Database.EnsureCreatedAsync();
@@ -35,10 +38,12 @@ public class UnfinalizedBatchesQueryIntegrationTests : IAsyncLifetime
         _query = new UnfinalizedBatchesQuery(_context);
     }
 
-    public async Task DisposeAsync()
+    public void Dispose() => _context?.Dispose();
+
+    public Task DisposeAsync()
     {
-        await _context.DisposeAsync();
-        await _postgres.DisposeAsync();
+        Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]

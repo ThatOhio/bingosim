@@ -41,7 +41,9 @@ public static class ActivityDefinitionMapper
 
     public static ProgressGrantDto ToDto(ProgressGrant vo)
     {
-        return new ProgressGrantDto(vo.DropKey, vo.Units);
+        return vo.IsVariable
+            ? new ProgressGrantDto(vo.DropKey, vo.Units, vo.UnitsMin, vo.UnitsMax)
+            : new ProgressGrantDto(vo.DropKey, vo.Units);
     }
 
     public static ActivityOutcomeDefinitionDto ToDto(ActivityOutcomeDefinition vo)
@@ -90,6 +92,8 @@ public static class ActivityDefinitionMapper
 
     public static ProgressGrant ToEntity(ProgressGrantDto dto)
     {
+        if (dto.UnitsMin.HasValue && dto.UnitsMax.HasValue)
+            return new ProgressGrant(dto.DropKey, dto.UnitsMin.Value, dto.UnitsMax.Value);
         return new ProgressGrant(dto.DropKey, dto.Units);
     }
 

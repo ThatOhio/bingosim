@@ -1,4 +1,4 @@
-using System.Text;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using BingoSim.Application.Simulation;
 using BingoSim.Application.Simulation.Allocation;
@@ -21,14 +21,9 @@ public class Row8DiagnosticInvestigationTests
     [Fact]
     public void SingleSimulation_WithDiagnosticLogging_CapturesRow8Behavior()
     {
-        var log = new StringBuilder();
-        var logWriter = new StringWriter(log);
+        var messages = new ConcurrentQueue<string>();
         SimulationDiagnostics.EnableDiagnosticLogging = true;
-        SimulationDiagnostics.LogAction = s =>
-        {
-            logWriter.WriteLine(s);
-            logWriter.Flush();
-        };
+        SimulationDiagnostics.LogAction = s => messages.Enqueue(s);
 
         try
         {
@@ -42,12 +37,12 @@ public class Row8DiagnosticInvestigationTests
             var rowUnlock = results.Single(r => r.StrategyKey == StrategyCatalog.RowUnlocking);
             var combo = results.Single(r => r.StrategyKey == StrategyCatalog.ComboUnlocking);
 
-            logWriter.WriteLine();
-            logWriter.WriteLine("=== RESULTS ===");
-            logWriter.WriteLine($"RowUnlocking: RowReached={rowUnlock.RowReached}, TilesCompleted={rowUnlock.TilesCompletedCount}, Points={rowUnlock.TotalPoints}");
-            logWriter.WriteLine($"ComboUnlocking: RowReached={combo.RowReached}, TilesCompleted={combo.TilesCompletedCount}, Points={combo.TotalPoints}");
+            messages.Enqueue("");
+            messages.Enqueue("=== RESULTS ===");
+            messages.Enqueue($"RowUnlocking: RowReached={rowUnlock.RowReached}, TilesCompleted={rowUnlock.TilesCompletedCount}, Points={rowUnlock.TotalPoints}");
+            messages.Enqueue($"ComboUnlocking: RowReached={combo.RowReached}, TilesCompleted={combo.TilesCompletedCount}, Points={combo.TotalPoints}");
 
-            var logOutput = log.ToString();
+            var logOutput = string.Join(Environment.NewLine, messages);
             logOutput.Should().NotBeEmpty();
 
             // Write to file for investigation document

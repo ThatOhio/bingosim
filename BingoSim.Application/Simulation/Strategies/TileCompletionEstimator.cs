@@ -80,12 +80,19 @@ public static class TileCompletionEstimator
                     continue;
                 var progressFromOutcome = grants
                     .Where(g => acceptedKeys.Contains(g.DropKey, StringComparer.Ordinal))
-                    .Sum(g => g.Units);
+                    .Sum(g => GetExpectedUnits(g));
                 totalExpected += prob * progressFromOutcome;
             }
         }
 
         return totalExpected;
+    }
+
+    private static double GetExpectedUnits(ProgressGrantSnapshotDto grant)
+    {
+        if (grant.IsVariable && grant.UnitsMin.HasValue && grant.UnitsMax.HasValue)
+            return (grant.UnitsMin.Value + grant.UnitsMax.Value) / 2.0;
+        return grant.Units;
     }
 
     /// <summary>

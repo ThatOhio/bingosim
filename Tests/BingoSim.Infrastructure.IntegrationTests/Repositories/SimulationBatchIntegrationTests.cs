@@ -1,19 +1,17 @@
 using BingoSim.Core.Entities;
 using BingoSim.Core.Enums;
+using BingoSim.Infrastructure.IntegrationTests.Fixtures;
 using BingoSim.Infrastructure.Persistence;
 using BingoSim.Infrastructure.Persistence.Repositories;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
 
 namespace BingoSim.Infrastructure.IntegrationTests.Repositories;
 
-public class SimulationBatchIntegrationTests : IAsyncLifetime
+[Collection("Postgres")]
+public class SimulationBatchIntegrationTests : IAsyncLifetime, IDisposable
 {
-    private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
-        .Build();
-
+    private readonly PostgresFixture _postgres;
     private AppDbContext _context = null!;
     private SimulationBatchRepository _batchRepo = null!;
     private EventSnapshotRepository _snapshotRepo = null!;
@@ -21,12 +19,16 @@ public class SimulationBatchIntegrationTests : IAsyncLifetime
     private TeamRunResultRepository _resultRepo = null!;
     private BatchTeamAggregateRepository _aggregateRepo = null!;
 
+    public SimulationBatchIntegrationTests(PostgresFixture postgres)
+    {
+        _postgres = postgres;
+    }
+
     public async Task InitializeAsync()
     {
-        await _postgresContainer.StartAsync();
-
+        var connectionString = await _postgres.CreateIsolatedDatabaseAsync(GetType().Name);
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(_postgresContainer.GetConnectionString())
+            .UseNpgsql(connectionString)
             .Options;
 
         _context = new AppDbContext(options);
@@ -39,10 +41,12 @@ public class SimulationBatchIntegrationTests : IAsyncLifetime
         _aggregateRepo = new BatchTeamAggregateRepository(_context);
     }
 
-    public async Task DisposeAsync()
+    public void Dispose() => _context?.Dispose();
+
+    public Task DisposeAsync()
     {
-        await _context.DisposeAsync();
-        await _postgresContainer.DisposeAsync();
+        Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
@@ -105,7 +109,7 @@ public class SimulationBatchIntegrationTests : IAsyncLifetime
     private AppDbContext CreateFreshContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(_postgresContainer.GetConnectionString())
+            .UseNpgsql(_context.Database.GetConnectionString())
             .Options;
         return new AppDbContext(options);
     }

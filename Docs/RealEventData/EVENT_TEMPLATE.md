@@ -130,9 +130,14 @@ Define each in-game activity (boss, raid, skilling method) that appears on the b
 
 `outcomeName weightNum/weightDenom → dropKey units`
 
+For variable amounts (e.g. boss drops 50–100 arrows per kill), use a range:
+
+`outcomeName weightNum/weightDenom → dropKey minUnits-maxUnits`
+
 Examples:
 - `common 3/4 → kill.zulrah 1` = 75% chance, grants 1 unit of `kill.zulrah`
 - `rare 1/4 → unique.tanzanite_fang 3` = 25% chance, grants 3 units of `unique.tanzanite_fang`
+- `arrows 1/1 → item.arrows 50-100` = 100% chance, grants 50–100 units (sampled uniformly per attempt)
 
 ---
 

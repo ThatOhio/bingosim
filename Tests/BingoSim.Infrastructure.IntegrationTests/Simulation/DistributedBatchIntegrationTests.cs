@@ -8,6 +8,7 @@ using BingoSim.Application.Simulation.Snapshot;
 using BingoSim.Core.Entities;
 using BingoSim.Core.Enums;
 using BingoSim.Infrastructure;
+using BingoSim.Infrastructure.IntegrationTests.Fixtures;
 using BingoSim.Infrastructure.Persistence;
 using BingoSim.Infrastructure.Simulation;
 using BingoSim.Shared.Messages;
@@ -19,25 +20,25 @@ using MassTransit.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace BingoSim.Infrastructure.IntegrationTests.Simulation;
 
+[Collection("Postgres")]
 public class DistributedBatchIntegrationTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
-        .Build();
-
+    private readonly PostgresFixture _postgres;
     private IServiceProvider _provider = null!;
     private ITestHarness _harness = null!;
     private AppDbContext _context = null!;
 
+    public DistributedBatchIntegrationTests(PostgresFixture postgres)
+    {
+        _postgres = postgres;
+    }
+
     public async Task InitializeAsync()
     {
-        await _postgresContainer.StartAsync();
-
-        var connectionString = _postgresContainer.GetConnectionString();
+        var connectionString = await _postgres.CreateIsolatedDatabaseAsync(GetType().Name);
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -71,7 +72,6 @@ public class DistributedBatchIntegrationTests : IAsyncLifetime
     {
         await _harness.Stop();
         await _context.DisposeAsync();
-        await _postgresContainer.DisposeAsync();
     }
 
     [Fact]

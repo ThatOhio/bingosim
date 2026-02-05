@@ -17,7 +17,7 @@ using MassTransit;
 using MassTransit.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
+using BingoSim.Infrastructure.IntegrationTests.Fixtures;
 
 namespace BingoSim.Infrastructure.IntegrationTests.Simulation;
 
@@ -25,24 +25,25 @@ namespace BingoSim.Infrastructure.IntegrationTests.Simulation;
 /// Verifies that multiple ExecuteSimulationRunBatch messages are processed concurrently when MaxConcurrentRuns > 1.
 /// Uses IWorkerConcurrencyObserver to avoid flaky timing assertions.
 /// </summary>
+[Collection("Postgres")]
 public class DistributedConcurrencyIntegrationTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
-        .Build();
-
+    private readonly PostgresFixture _postgres;
     private IServiceProvider _provider = null!;
     private ITestHarness _harness = null!;
     private AppDbContext _context = null!;
     private TestConcurrencyObserver _concurrencyObserver = null!;
 
+    public DistributedConcurrencyIntegrationTests(PostgresFixture postgres)
+    {
+        _postgres = postgres;
+    }
+
     public async Task InitializeAsync()
     {
-        await _postgresContainer.StartAsync();
-
         _concurrencyObserver = new TestConcurrencyObserver();
 
-        var connectionString = _postgresContainer.GetConnectionString();
+        var connectionString = await _postgres.CreateIsolatedDatabaseAsync(GetType().Name);
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -81,7 +82,6 @@ public class DistributedConcurrencyIntegrationTests : IAsyncLifetime
     {
         await _harness.Stop();
         await _context.DisposeAsync();
-        await _postgresContainer.DisposeAsync();
     }
 
     [Fact]

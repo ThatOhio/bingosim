@@ -2,33 +2,36 @@ using BingoSim.Application.DTOs;
 using BingoSim.Application.Interfaces;
 using BingoSim.Core.Entities;
 using BingoSim.Core.Enums;
+using BingoSim.Infrastructure.IntegrationTests.Fixtures;
 using BingoSim.Infrastructure.Persistence;
 using BingoSim.Infrastructure.Persistence.Repositories;
 using BingoSim.Infrastructure.Queries;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using Testcontainers.PostgreSql;
 
 namespace BingoSim.Infrastructure.IntegrationTests.Queries;
 
-public class ListBatchesQueryIntegrationTests : IAsyncLifetime
+[Collection("Postgres")]
+public class ListBatchesQueryIntegrationTests : IAsyncLifetime, IDisposable
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
-        .Build();
-
+    private readonly PostgresFixture _postgres;
     private AppDbContext _context = null!;
     private SimulationBatchRepository _batchRepo = null!;
     private EventSnapshotRepository _snapshotRepo = null!;
     private SimulationRunRepository _runRepo = null!;
     private IListBatchesQuery _query = null!;
 
+    public ListBatchesQueryIntegrationTests(PostgresFixture postgres)
+    {
+        _postgres = postgres;
+    }
+
     public async Task InitializeAsync()
     {
-        await _postgres.StartAsync();
+        var connectionString = await _postgres.CreateIsolatedDatabaseAsync(GetType().Name);
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(_postgres.GetConnectionString())
+            .UseNpgsql(connectionString)
             .Options;
         _context = new AppDbContext(options);
         await _context.Database.EnsureCreatedAsync();
@@ -39,10 +42,12 @@ public class ListBatchesQueryIntegrationTests : IAsyncLifetime
         _query = new ListBatchesQuery(_context, NullLogger<ListBatchesQuery>.Instance);
     }
 
-    public async Task DisposeAsync()
+    public void Dispose() => _context?.Dispose();
+
+    public Task DisposeAsync()
     {
-        await _context.DisposeAsync();
-        await _postgres.DisposeAsync();
+        Dispose();
+        return Task.CompletedTask;
     }
 
     [Fact]
@@ -79,7 +84,7 @@ public class ListBatchesQueryIntegrationTests : IAsyncLifetime
             await _runRepo.UpdateAsync(r);
 
         var freshOptions = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(_postgres.GetConnectionString())
+            .UseNpgsql(_context.Database.GetConnectionString())
             .Options;
         await using var freshContext = new AppDbContext(freshOptions);
         var queryWithFreshContext = new ListBatchesQuery(freshContext, NullLogger<ListBatchesQuery>.Instance);

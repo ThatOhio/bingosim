@@ -221,9 +221,10 @@ public class SimulationRunner(ITeamStrategyFactory strategyFactory, ILogger<Simu
                 if (target is null)
                     continue;
 
+                var effectiveUnits = ResolveGrantUnits(grant, rng);
                 var prevUnlockedRows = new HashSet<int>(state.UnlockedRowIndices);
                 var completedBefore = state.CompletedTiles.Count;
-                state.AddProgress(target, grant.Units, simTime, tileRequiredCount[target], tileRowIndex[target], tilePoints[target]);
+                state.AddProgress(target, effectiveUnits, simTime, tileRequiredCount[target], tileRowIndex[target], tilePoints[target]);
                 if (state.CompletedTiles.Count > completedBefore)
                     SimulationDiagnostics.Log($"[Team {state.TeamName}] Tile {target} COMPLETED on row {tileRowIndex[target]} for {tilePoints[target]} points at simTime {simTime}");
                 var newlyUnlockedRows = state.UnlockedRowIndices.Except(prevUnlockedRows).ToList();
@@ -584,6 +585,13 @@ public class SimulationRunner(ITeamStrategyFactory strategyFactory, ILogger<Simu
                 return attempt.Outcomes[i];
         }
         return attempt.Outcomes[^1];
+    }
+
+    private static int ResolveGrantUnits(ProgressGrantSnapshotDto grant, Random rng)
+    {
+        if (grant.IsVariable && grant.UnitsMin.HasValue && grant.UnitsMax.HasValue)
+            return rng.Next(grant.UnitsMin.Value, grant.UnitsMax.Value + 1);
+        return grant.Units;
     }
 
     private static int SampleAttemptDuration(

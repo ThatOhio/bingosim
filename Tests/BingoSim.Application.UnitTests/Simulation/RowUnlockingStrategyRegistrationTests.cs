@@ -170,15 +170,12 @@ public class RowUnlockingStrategyRegistrationTests
 
     private static (RowUnlockingStrategy strategy, TaskSelectionContext context) BuildContext_FallbackPrefersFurthestRow()
     {
-        var actId = Guid.NewGuid();
-        var rule = new TileActivityRuleSnapshotDto
-        {
-            ActivityDefinitionId = actId,
-            ActivityKey = "act",
-            AcceptedDropKeys = ["drop"],
-            RequirementKeys = [],
-            Modifiers = []
-        };
+        var act0 = Guid.NewGuid();
+        var act1 = Guid.NewGuid();
+        var act2 = Guid.NewGuid();
+        var rule0 = new TileActivityRuleSnapshotDto { ActivityDefinitionId = act0, ActivityKey = "act0", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+        var rule1 = new TileActivityRuleSnapshotDto { ActivityDefinitionId = act1, ActivityKey = "act1", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
+        var rule2 = new TileActivityRuleSnapshotDto { ActivityDefinitionId = act2, ActivityKey = "act2", AcceptedDropKeys = ["drop"], RequirementKeys = [], Modifiers = [] };
         var snapshot = new EventSnapshotDto
         {
             EventName = "Test",
@@ -187,20 +184,15 @@ public class RowUnlockingStrategyRegistrationTests
             EventStartTimeEt = "2025-02-04T09:00:00-05:00",
             Rows =
             [
-                new RowSnapshotDto { Index = 0, Tiles = [new TileSnapshotDto { Key = "r0_tile", Name = "R0", Points = 3, RequiredCount = 1, AllowedActivities = [rule] }] },
-                new RowSnapshotDto { Index = 1, Tiles = [new TileSnapshotDto { Key = "r1_tile", Name = "R1", Points = 3, RequiredCount = 1, AllowedActivities = [rule] }] },
-                new RowSnapshotDto { Index = 2, Tiles = [new TileSnapshotDto { Key = "r2_tile", Name = "R2", Points = 3, RequiredCount = 1, AllowedActivities = [rule] }] }
+                new RowSnapshotDto { Index = 0, Tiles = [new TileSnapshotDto { Key = "r0_tile", Name = "R0", Points = 3, RequiredCount = 1, AllowedActivities = [rule0] }] },
+                new RowSnapshotDto { Index = 1, Tiles = [new TileSnapshotDto { Key = "r1_tile", Name = "R1", Points = 3, RequiredCount = 1, AllowedActivities = [rule1] }] },
+                new RowSnapshotDto { Index = 2, Tiles = [new TileSnapshotDto { Key = "r2_tile", Name = "R2", Points = 3, RequiredCount = 1, AllowedActivities = [rule2] }] }
             ],
             ActivitiesById = new Dictionary<Guid, ActivitySnapshotDto>
             {
-                [actId] = new ActivitySnapshotDto
-                {
-                    Id = actId,
-                    Key = "act",
-                    Attempts = [new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] }],
-                    GroupScalingBands = [],
-                    ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false }
-                }
+                [act0] = new ActivitySnapshotDto { Id = act0, Key = "act0", Attempts = [new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] }], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } },
+                [act1] = new ActivitySnapshotDto { Id = act1, Key = "act1", Attempts = [new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] }], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } },
+                [act2] = new ActivitySnapshotDto { Id = act2, Key = "act2", Attempts = [new AttemptSnapshotDto { Key = "main", RollScope = 0, BaselineTimeSeconds = 60, VarianceSeconds = 0, Outcomes = [new OutcomeSnapshotDto { WeightNumerator = 1, WeightDenominator = 1, Grants = [new ProgressGrantSnapshotDto { DropKey = "drop", Units = 1 }] }] }], GroupScalingBands = [], ModeSupport = new ActivityModeSupportSnapshotDto { SupportsSolo = true, SupportsGroup = false } }
             },
             Teams = []
         };
@@ -208,7 +200,7 @@ public class RowUnlockingStrategyRegistrationTests
         var tilePoints = new Dictionary<string, int>(StringComparer.Ordinal) { ["r0_tile"] = 3, ["r1_tile"] = 3, ["r2_tile"] = 3 };
         var tileToRules = new Dictionary<string, IReadOnlyList<TileActivityRuleSnapshotDto>>(StringComparer.Ordinal)
         {
-            ["r0_tile"] = [rule], ["r1_tile"] = [rule], ["r2_tile"] = [rule]
+            ["r0_tile"] = [rule0], ["r1_tile"] = [rule1], ["r2_tile"] = [rule2]
         };
         var tileRequiredCount = new Dictionary<string, int>(StringComparer.Ordinal) { ["r0_tile"] = 1, ["r1_tile"] = 1, ["r2_tile"] = 1 };
         var completedTiles = new HashSet<string>(StringComparer.Ordinal) { "r2_tile" };

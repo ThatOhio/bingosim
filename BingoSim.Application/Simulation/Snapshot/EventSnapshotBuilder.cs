@@ -94,7 +94,13 @@ public class EventSnapshotBuilder(
                     {
                         WeightNumerator = o.WeightNumerator,
                         WeightDenominator = o.WeightDenominator,
-                        Grants = o.Grants.Select(g => new ProgressGrantSnapshotDto { DropKey = g.DropKey, Units = g.Units }).ToList()
+                        Grants = o.Grants.Select(g => new ProgressGrantSnapshotDto
+                        {
+                            DropKey = g.DropKey,
+                            Units = g.Units,
+                            UnitsMin = g.UnitsMin,
+                            UnitsMax = g.UnitsMax
+                        }).ToList()
                     }).ToList()
                 }).ToList(),
                 GroupScalingBands = activity.GroupScalingBands.Select(b => new GroupSizeBandSnapshotDto

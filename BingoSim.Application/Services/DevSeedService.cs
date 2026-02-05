@@ -31,7 +31,7 @@ public class DevSeedService(
     private static readonly string[] SeedActivityKeys =
     [
         "boss.zulrah", "boss.vorkath", "skilling.runecraft", "skilling.mining",
-        "raid.cox", "raid.toa"
+        "raid.cox", "raid.toa", "boss.arrows"
     ];
 
     /// <summary>
@@ -246,6 +246,14 @@ public class DevSeedService(
                         [new ActivityOutcomeDefinition("common", 3, 4, [new ProgressGrant(dropKeyToaCommon, 1)]), new ActivityOutcomeDefinition("rare", 1, 4, [new ProgressGrant(dropKeyToaRare, 3)])]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m), new GroupSizeBand(2, 4, 0.85m, 1.12m), new GroupSizeBand(5, 8, 0.75m, 1.2m)]),
+            new ActivitySeedDef(
+                "boss.arrows", "Arrows Boss",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("main", RollScope.PerPlayer, new AttemptTimeModel(120, TimeDistribution.Uniform, 20),
+                        [new ActivityOutcomeDefinition("arrows", 1, 1, [new ProgressGrant("item.arrows", 50, 100)])]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -291,9 +299,10 @@ public class DevSeedService(
             activityIdsByKey["skilling.mining"],
             activityIdsByKey["raid.cox"],
             activityIdsByKey["raid.toa"],
+            activityIdsByKey["boss.arrows"],
         };
 
-        var activityKeys = new[] { "boss.zulrah", "boss.vorkath", "skilling.runecraft", "skilling.mining", "raid.cox", "raid.toa" };
+        var activityKeys = new[] { "boss.zulrah", "boss.vorkath", "skilling.runecraft", "skilling.mining", "raid.cox", "raid.toa", "boss.arrows" };
 
         var rowsWinter = BuildEventRows("t", activityIds, activityKeys, questDs2, itemDhl, questSote);
         var rowsSpring = BuildEventRows("s", activityIds, activityKeys, questDs2, itemDhl, questSote);
@@ -326,6 +335,7 @@ public class DevSeedService(
             ["skilling.mining"] = (["ore.mined"], ["ore.mined"]),
             ["raid.cox"] = (["loot.cox", "unique.cox_prayer_scroll"], ["loot.cox"]),
             ["raid.toa"] = (["loot.toa", "unique.toa_ring"], ["loot.toa"]),
+            ["boss.arrows"] = (["item.arrows"], ["item.arrows"]),
         };
 
         var rows = new List<Row>(SeedEventRowCount);
@@ -339,12 +349,12 @@ public class DevSeedService(
                 var points = tilePos + 1;
                 var key = $"{keyPrefix}{points}-r{rowIdx}";
 
-                var activityIdx = (rowIdx + tilePos) % 6;
+                var activityIdx = (rowIdx + tilePos) % 7;
                 var actId = activityIds[activityIdx];
                 var actKey = activityKeys[activityIdx];
                 var (commonDrops, rareDrops) = dropKeysByActivity[actKey];
 
-                var requiredCount = GetRequiredCountForTile(rowIdx, tilePos);
+                var requiredCount = GetRequiredCountForTile(rowIdx, tilePos, actKey);
                 var useCombo = rowIdx % 7 == 2 && tilePos == 2;
                 var useRareOnly = rowIdx % 5 == 1 && tilePos == 3;
 
@@ -353,7 +363,7 @@ public class DevSeedService(
 
                 if (useCombo)
                 {
-                    var nextIdx = (activityIdx + 1) % 6;
+                    var nextIdx = (activityIdx + 1) % 7;
                     var nextId = activityIds[nextIdx];
                     var nextKey = activityKeys[nextIdx];
                     var (nextCommon, _) = dropKeysByActivity[nextKey];
@@ -363,6 +373,12 @@ public class DevSeedService(
                         new TileActivityRule(nextId, nextKey, nextCommon, nextKey == "boss.vorkath" ? [questDs2] : [], []),
                     ];
                     name = GetComboTileName(actKey, nextKey, requiredCount);
+                }
+                else if (actKey == "boss.arrows")
+                {
+                    requiredCount = 500;
+                    rules = [new TileActivityRule(actId, actKey, ["item.arrows"], [], [])];
+                    name = "500 Arrows";
                 }
                 else
                 {
@@ -382,7 +398,7 @@ public class DevSeedService(
         return rows;
     }
 
-    private static int GetRequiredCountForTile(int rowIdx, int tilePos)
+    private static int GetRequiredCountForTile(int rowIdx, int tilePos, string actKey)
     {
         if (rowIdx == 5 && tilePos == 1) return 2;
         if (rowIdx == 12 && tilePos == 3) return 2;

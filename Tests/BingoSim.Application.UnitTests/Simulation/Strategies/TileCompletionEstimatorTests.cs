@@ -95,6 +95,19 @@ public class TileCompletionEstimatorTests
         result.Should().Be(60.0);
     }
 
+    [Fact]
+    public void EstimateCompletionTime_VariableUnits_UsesExpectedValue()
+    {
+        var actId = Guid.NewGuid();
+        var rule = CreateRule(actId, "item.arrows");
+        var tile = CreateTile("t1", 150, rule);
+        var activity = CreateActivity(actId, 60, [CreateVariableOutcome(1, 1, "item.arrows", 50, 100)]);
+        var snapshot = CreateSnapshot([activity], []);
+
+        var result = TileCompletionEstimator.EstimateCompletionTime(tile, snapshot);
+        result.Should().BeApproximately(120.0, 0.01);
+    }
+
     private static TileSnapshotDto CreateTile(string key, int requiredCount, params TileActivityRuleSnapshotDto[] rules)
     {
         return new TileSnapshotDto
@@ -126,6 +139,16 @@ public class TileCompletionEstimatorTests
             WeightNumerator = num,
             WeightDenominator = denom,
             Grants = units > 0 ? [new ProgressGrantSnapshotDto { DropKey = dropKey, Units = units }] : []
+        };
+    }
+
+    private static OutcomeSnapshotDto CreateVariableOutcome(int num, int denom, string dropKey, int unitsMin, int unitsMax)
+    {
+        return new OutcomeSnapshotDto
+        {
+            WeightNumerator = num,
+            WeightDenominator = denom,
+            Grants = [new ProgressGrantSnapshotDto { DropKey = dropKey, Units = unitsMin, UnitsMin = unitsMin, UnitsMax = unitsMax }]
         };
     }
 
