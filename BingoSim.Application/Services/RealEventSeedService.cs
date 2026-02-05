@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–1");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–2");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -91,6 +91,10 @@ public class RealEventSeedService(
         const string dropTdUnique = "item.td_unique";
         const string dropCerberusUnique = "item.cerberus_unique";
         const string dropVorkathItem = "item.vorkath_item";
+        const string dropElderRobe = "item.elder_chaos_robe";
+        const string dropZenyteShard = "item.zenyte_shard";
+        const string dropGauntletSeed = "item.gauntlet_seed";
+        const string dropRevTotem = "item.rev_totem";
 
         return
         [
@@ -202,6 +206,62 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Elder Chaos Druid: hood/robe/top each 1/1419, one roll per kill, ~38s per kill, solo
+            new ActivitySeedDef(
+                "monster.elder_chaos_druid", "Elder Chaos Druid",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(38, TimeDistribution.Uniform, 8),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 1416, 1419, []),
+                            new ActivityOutcomeDefinition("piece", 3, 1419, [new ProgressGrant(dropElderRobe, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Demonic Gorilla: 1/300 Zenyte shard, ~60s per kill, solo
+            new ActivitySeedDef(
+                "monster.demonic_gorilla", "Demonic Gorilla",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(60, TimeDistribution.Uniform, 12),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 299, 300, []),
+                            new ActivityOutcomeDefinition("shard", 1, 300, [new ProgressGrant(dropZenyteShard, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // The Gauntlet: 3 rolls per completion. Weapon/armor 1/120 each (1 seed), enhanced/pet 1/2000 each (3 seeds). ~12 min per completion, solo.
+            new ActivitySeedDef(
+                "minigame.gauntlet", "The Gauntlet",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("completion", RollScope.PerPlayer, new AttemptTimeModel(720, TimeDistribution.Uniform, 120),
+                        [
+                            new ActivityOutcomeDefinition("zero", 9494, 10000, []),
+                            new ActivityOutcomeDefinition("one", 460, 10000, [new ProgressGrant(dropGauntletSeed, 1)]),
+                            new ActivityOutcomeDefinition("two", 10, 10000, [new ProgressGrant(dropGauntletSeed, 2)]),
+                            new ActivityOutcomeDefinition("three", 30, 10000, [new ProgressGrant(dropGauntletSeed, 3)]),
+                            new ActivityOutcomeDefinition("four", 5, 10000, [new ProgressGrant(dropGauntletSeed, 4)]),
+                            new ActivityOutcomeDefinition("five", 1, 10000, [new ProgressGrant(dropGauntletSeed, 5)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Revenant Knight: 6 totem items. P(any) = 1/4400+1/1100+1/2200+3/4400 = 10/4400 = 1/440. One drop per kill, ~29s per kill, solo.
+            new ActivitySeedDef(
+                "monster.revenant_knight", "Revenant Knight",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(29, TimeDistribution.Uniform, 6),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 4390, 4400, []),
+                            new ActivityOutcomeDefinition("totem", 10, 4400, [new ProgressGrant(dropRevTotem, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -227,6 +287,14 @@ public class RealEventSeedService(
         var cerberusKey = "boss.cerberus";
         var vorkathId = activityIdsByKey["boss.vorkath"];
         var vorkathKey = "boss.vorkath";
+        var elderDruidId = activityIdsByKey["monster.elder_chaos_druid"];
+        var elderDruidKey = "monster.elder_chaos_druid";
+        var demonicGorillaId = activityIdsByKey["monster.demonic_gorilla"];
+        var demonicGorillaKey = "monster.demonic_gorilla";
+        var gauntletId = activityIdsByKey["minigame.gauntlet"];
+        var gauntletKey = "minigame.gauntlet";
+        var revKnightId = activityIdsByKey["monster.revenant_knight"];
+        var revKnightKey = "monster.revenant_knight";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -234,6 +302,8 @@ public class RealEventSeedService(
         var questWgs = new Capability("quest.wgs", "While Guthix Sleeps");
         var slayer91 = new Capability("slayer.91", "Slayer 91");
         var questDs2 = new Capability("quest.ds2", "Dragon Slayer II");
+        var questMm2 = new Capability("quest.mm2", "Monkey Madness II");
+        var questSote = new Capability("quest.sote", "Song of the Elves");
 
         var row0 = new Row(0,
         [
@@ -259,20 +329,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(vorkathId, vorkathKey, ["item.vorkath_item"], [questDs2], [])]),
         ]);
 
+        var row2 = new Row(2,
+        [
+            new Tile("t1-r2", "2x Elder Chaos Druid Robes", 1, 2,
+                [new TileActivityRule(elderDruidId, elderDruidKey, ["item.elder_chaos_robe"], [], [])]),
+            new Tile("t2-r2", "3x Zenyte Shard", 2, 3,
+                [new TileActivityRule(demonicGorillaId, demonicGorillaKey, ["item.zenyte_shard"], [questMm2], [])]),
+            new Tile("t3-r2", "5x Gauntlet Seeds", 3, 5,
+                [new TileActivityRule(gauntletId, gauntletKey, ["item.gauntlet_seed"], [questSote], [])]),
+            new Tile("t4-r2", "5x Rev Totems", 4, 5,
+                [new TileActivityRule(revKnightId, revKnightKey, ["item.rev_totem"], [], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1]);
+            existing.SetRows([row0, row1, row2]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1]);
+            evt.SetRows([row0, row1, row2]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
