@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–10");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–11");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -126,6 +126,10 @@ public class RealEventSeedService(
         const string dropVenatorShard = "item.venator_shard";
         const string dropColosseumUnique = "item.colosseum_unique";
         const string dropNexTorvaOrShards = "item.nex_torva_or_shards";
+        const string dropAbyssalDye = "item.abyssal_dye";
+        const string dropBarracudaPaint = "item.barracuda_paint";
+        const string dropWhispererUnique = "item.whisperer_unique";
+        const string dropRevWeaponPoints = "item.rev_weapon_points";
 
         return
         [
@@ -290,15 +294,17 @@ public class RealEventSeedService(
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
 
-            // Revenant Knight: 6 totem items. P(any) = 1/4400+1/1100+1/2200+3/4400 = 10/4400 = 1/440. One drop per kill, ~29s per kill, solo.
+            // Revenant Knight: totem 1/440 (row 2), weapon table: amulet 1/1467 (1 pt), Craw's/Thammaron's/Viggora's 3/2933 (2 pts each). ~29s per kill, solo.
             new ActivitySeedDef(
                 "monster.revenant_knight", "Revenant Knight",
                 new ActivityModeSupport(true, false, null, null),
                 [
                     new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(29, TimeDistribution.Uniform, 6),
                         [
-                            new ActivityOutcomeDefinition("nothing", 4390, 4400, []),
+                            new ActivityOutcomeDefinition("nothing", 4383, 4400, []),
                             new ActivityOutcomeDefinition("totem", 10, 4400, [new ProgressGrant(dropRevTotem, 1)]),
+                            new ActivityOutcomeDefinition("amulet", 3, 4400, [new ProgressGrant(dropRevWeaponPoints, 1)]),
+                            new ActivityOutcomeDefinition("weapon", 4, 4400, [new ProgressGrant(dropRevWeaponPoints, 2)]),
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
@@ -787,6 +793,46 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(3, 12, 1.0m, 1.0m)]),
+
+            // Guardians of the Rift: Abyssal dye 1/400 per point, pet 1/4000 (counts as dye). ~128s per point, solo.
+            new ActivitySeedDef(
+                "minigame.guardians_of_the_rift", "Guardians of the Rift",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("point", RollScope.PerPlayer, new AttemptTimeModel(128, TimeDistribution.Uniform, 25),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 3989, 4000, []),
+                            new ActivityOutcomeDefinition("dye", 10, 4000, [new ProgressGrant(dropAbyssalDye, 1)]),
+                            new ActivityOutcomeDefinition("pet", 1, 4000, [new ProgressGrant(dropAbyssalDye, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Sailing trials: Barracuda paint 1/220 per attempt. ~295s per attempt, solo.
+            new ActivitySeedDef(
+                "activity.sailing_trials", "Sailing Trials",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("attempt", RollScope.PerPlayer, new AttemptTimeModel(295, TimeDistribution.Uniform, 60),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 219, 220, []),
+                            new ActivityOutcomeDefinition("paint", 1, 220, [new ProgressGrant(dropBarracudaPaint, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // The Whisperer: Bellator 1/512, Siren's 1/512, Virtus 3×1/1536 (combined 3/512), pet 1/2000. ~75s per kill, solo. Requires DT2.
+            new ActivitySeedDef(
+                "boss.the_whisperer", "The Whisperer",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(75, TimeDistribution.Uniform, 15),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 156, 157, []),
+                            new ActivityOutcomeDefinition("unique", 1, 157, [new ProgressGrant(dropWhispererUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -888,6 +934,12 @@ public class RealEventSeedService(
         var colosseumKey = "activity.colosseum";
         var nexId = activityIdsByKey["boss.nex"];
         var nexKey = "boss.nex";
+        var gotrId = activityIdsByKey["minigame.guardians_of_the_rift"];
+        var gotrKey = "minigame.guardians_of_the_rift";
+        var sailingTrialsId = activityIdsByKey["activity.sailing_trials"];
+        var sailingTrialsKey = "activity.sailing_trials";
+        var whispererId = activityIdsByKey["boss.the_whisperer"];
+        var whispererKey = "boss.the_whisperer";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -1064,20 +1116,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(nexId, nexKey, ["item.nex_torva_or_shards"], [capabilityGodWars], [])]),
         ]);
 
+        var row11 = new Row(11,
+        [
+            new Tile("t1-r11", "1x Abyssal Dye", 1, 1,
+                [new TileActivityRule(gotrId, gotrKey, ["item.abyssal_dye"], [], [])]),
+            new Tile("t2-r11", "1x Barracuda Paint", 2, 1,
+                [new TileActivityRule(sailingTrialsId, sailingTrialsKey, ["item.barracuda_paint"], [], [])]),
+            new Tile("t3-r11", "4x The Whisperer Unique", 3, 4,
+                [new TileActivityRule(whispererId, whispererKey, ["item.whisperer_unique"], [questDt2], [])]),
+            new Tile("t4-r11", "2 Rev Weapon Points", 4, 2,
+                [new TileActivityRule(revKnightId, revKnightKey, ["item.rev_weapon_points"], [], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
