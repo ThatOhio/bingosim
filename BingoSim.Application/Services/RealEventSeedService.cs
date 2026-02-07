@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–13");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–14");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -137,6 +137,8 @@ public class RealEventSeedService(
         const string dropPharaohSceptre = "item.pharaoh_sceptre";
         const string dropAbyssalSireUnique = "item.abyssal_sire_unique";
         const string dropNexUniqueOrShardsR13 = "item.nex_unique_or_shards_r13";
+        const string dropScurriusSpine = "item.scurrius_spine";
+        const string dropDragonMetalSheet = "loot.dragon_metal_sheet";
 
         return
         [
@@ -931,6 +933,33 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Scurrius: 1/33 spine, 1/3000 pet (counts as 3 spines). ~66s per kill, solo. Derived: 12 spines in 7h.
+            new ActivitySeedDef(
+                "boss.scurrius", "Scurrius",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(66, TimeDistribution.Uniform, 12),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 31989, 33000, []),
+                            new ActivityOutcomeDefinition("spine", 1000, 33000, [new ProgressGrant(dropScurriusSpine, 1)]),
+                            new ActivityOutcomeDefinition("pet", 11, 33000, [new ProgressGrant(dropScurriusSpine, 3)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Sailing Dragon Metal: abstract activity for Dragon Metal Sheets from various Sailing activities. 1/100 per attempt, ~60s per attempt. 9 sheets in ~15h.
+            new ActivitySeedDef(
+                "activity.sailing_dragon_metal", "Sailing Dragon Metal",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("attempt", RollScope.PerPlayer, new AttemptTimeModel(60, TimeDistribution.Uniform, 15),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 99, 100, []),
+                            new ActivityOutcomeDefinition("sheet", 1, 100, [new ProgressGrant(dropDragonMetalSheet, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -1050,6 +1079,10 @@ public class RealEventSeedService(
         var pyramidPlunderKey = "minigame.pyramid_plunder";
         var abyssalSireId = activityIdsByKey["boss.abyssal_sire"];
         var abyssalSireKey = "boss.abyssal_sire";
+        var scurriusId = activityIdsByKey["boss.scurrius"];
+        var scurriusKey = "boss.scurrius";
+        var sailingDragonMetalId = activityIdsByKey["activity.sailing_dragon_metal"];
+        var sailingDragonMetalKey = "activity.sailing_dragon_metal";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -1264,20 +1297,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(tobId, tobKey, ["loot.tob_vials"], [raidTob], [])]),
         ]);
 
+        var row14 = new Row(14,
+        [
+            new Tile("t1-r14", "12x Scurrius Spine", 1, 12,
+                [new TileActivityRule(scurriusId, scurriusKey, ["item.scurrius_spine"], [], [])]),
+            new Tile("t2-r14", "9x Dragon Metal Sheets", 2, 9,
+                [new TileActivityRule(sailingDragonMetalId, sailingDragonMetalKey, ["loot.dragon_metal_sheet"], [], [])]),
+            new Tile("t3-r14", "525 ToB Vials", 3, 525,
+                [new TileActivityRule(tobId, tobKey, ["loot.tob_vials"], [raidTob], [])]),
+            new Tile("t4-r14", "150 ToA Battlestaff", 4, 150,
+                [new TileActivityRule(toaId, toaKey, ["loot.toa_battlestaff"], [raidToa], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
