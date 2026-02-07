@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–19");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–20");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -151,6 +151,9 @@ public class RealEventSeedService(
         const string dropVoidwakerGem = "item.voidwaker_gem";
         const string dropWarpedSceptre = "item.warped_sceptre";
         const string dropYewLogs = "loot.yew_logs";
+        const string dropValeUnique = "item.vale_unique";
+        const string dropCrystalToolSeed = "item.crystal_tool_seed";
+        const string dropCorpPoints = "loot.corp_points";
 
         return
         [
@@ -1135,6 +1138,48 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Vale offerings: Bow string 1/200, Fletching knife 1/333, Greenman mask 1/500. ~46s per attempt, solo. 7 uniques in ~9h.
+            new ActivitySeedDef(
+                "activity.vale_offerings", "Vale Offerings",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("attempt", RollScope.PerPlayer, new AttemptTimeModel(46, TimeDistribution.Uniform, 10),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 329669, 333000, []),
+                            new ActivityOutcomeDefinition("unique", 3331, 333000, [new ProgressGrant(dropValeUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Zalcano: Crystal tool seed 1/205, pet 1/2250 (independent, counts as 1). ~96s per kill, solo. 2 seeds in ~10h. Requires Song of the Elves.
+            new ActivitySeedDef(
+                "boss.zalcano", "Zalcano",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(96, TimeDistribution.Uniform, 20),
+                        [
+                            new ActivityOutcomeDefinition("zero", 458796, 461250, []),
+                            new ActivityOutcomeDefinition("one", 2453, 461250, [new ProgressGrant(dropCrystalToolSeed, 1)]),
+                            new ActivityOutcomeDefinition("two", 1, 461250, [new ProgressGrant(dropCrystalToolSeed, 2)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Corporeal Beast: Spirit shield 1/64 (1pt), Holy elixir 1/170 (3pt), Jar/Sigils/Pet 1/1000+2/1365+1/4095+1/5000 (5pt each). ~431s per kill, solo. 8 pts in ~20h. Requires Corporeal Beast capability.
+            new ActivitySeedDef(
+                "boss.corporeal_beast", "Corporeal Beast",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(431, TimeDistribution.Uniform, 80),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 975583, 1000000, []),
+                            new ActivityOutcomeDefinition("shield", 15625, 1000000, [new ProgressGrant(dropCorpPoints, 1)]),
+                            new ActivityOutcomeDefinition("elixir", 5882, 1000000, [new ProgressGrant(dropCorpPoints, 3)]),
+                            new ActivityOutcomeDefinition("five_pt", 2910, 1000000, [new ProgressGrant(dropCorpPoints, 5)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -1282,6 +1327,12 @@ public class RealEventSeedService(
         var glouphrieKey = "monster.glouphrie";
         var giantMoleId = activityIdsByKey["boss.giant_mole"];
         var giantMoleKey = "boss.giant_mole";
+        var valeOfferingsId = activityIdsByKey["activity.vale_offerings"];
+        var valeOfferingsKey = "activity.vale_offerings";
+        var zalcanoId = activityIdsByKey["boss.zalcano"];
+        var zalcanoKey = "boss.zalcano";
+        var corporealBeastId = activityIdsByKey["boss.corporeal_beast"];
+        var corporealBeastKey = "boss.corporeal_beast";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -1306,6 +1357,7 @@ public class RealEventSeedService(
         var raidToa = new Capability("raid.toa", "Tombs of Amascut");
         var slayer85 = new Capability("slayer.85", "Slayer 85");
         var questPathOfGlouphrie = new Capability("quest.path_of_glouphrie", "The Path of Glouphrie");
+        var capabilityCorporealBeast = new Capability("capability.corporeal_beast", "Corporeal Beast");
 
         var row0 = new Row(0,
         [
@@ -1569,20 +1621,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(coxId, coxKey, ["loot.dragon_arrows"], [raidCox], [])]),
         ]);
 
+        var row20 = new Row(20,
+        [
+            new Tile("t1-r20", "7x Vale Offerings Unique", 1, 7,
+                [new TileActivityRule(valeOfferingsId, valeOfferingsKey, ["item.vale_unique"], [], [])]),
+            new Tile("t2-r20", "2x Crystal Tool Seed", 2, 2,
+                [new TileActivityRule(zalcanoId, zalcanoKey, ["item.crystal_tool_seed"], [questSote], [])]),
+            new Tile("t3-r20", "810 Dragon Arrows", 3, 810,
+                [new TileActivityRule(coxId, coxKey, ["loot.dragon_arrows"], [raidCox], [])]),
+            new Tile("t4-r20", "8 Corporeal Beast Points", 4, 8,
+                [new TileActivityRule(corporealBeastId, corporealBeastKey, ["loot.corp_points"], [capabilityCorporealBeast], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17, row18, row19]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17, row18, row19, row20]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17, row18, row19]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17, row18, row19, row20]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
