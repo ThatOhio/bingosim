@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–16");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–17");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -142,6 +142,9 @@ public class RealEventSeedService(
         const string dropTecuSalamander = "item.tecu_salamander";
         const string dropClueHardItem = "loot.clue_hard_item";
         const string dropLockpick = "item.lockpick";
+        const string dropKbdHead = "item.kbd_head";
+        const string dropKrilUnique = "item.kril_unique";
+        const string dropVardorvisUnique = "item.vardorvis_unique";
 
         return
         [
@@ -1002,6 +1005,46 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // King Black Dragon: 1/128 head, 1/3000 pet (counts as 3 heads). ~53s per kill, solo. 6 heads in ~10h.
+            new ActivitySeedDef(
+                "boss.king_black_dragon", "King Black Dragon",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(53, TimeDistribution.Uniform, 10),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 47609, 48000, []),
+                            new ActivityOutcomeDefinition("head", 375, 48000, [new ProgressGrant(dropKbdHead, 1)]),
+                            new ActivityOutcomeDefinition("pet", 16, 48000, [new ProgressGrant(dropKbdHead, 3)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // K'ril Tsutsaroth: Steam/Spear 1/127 each, Staff/Hilt 1/508 each, pet 1/5000. ~129s per kill, solo. 5 uniques in ~9h. Requires God Wars.
+            new ActivitySeedDef(
+                "boss.kril_tsutsaroth", "K'ril Tsutsaroth",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(129, TimeDistribution.Uniform, 25),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 622373, 635000, []),
+                            new ActivityOutcomeDefinition("unique", 12627, 635000, [new ProgressGrant(dropKrilUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Vardorvis: Ultor/Axe 1/1088 each, Virtus 3×1/3264, pet 1/3000. ~47s per kill, solo. 4 uniques in ~17h. Requires DT2.
+            new ActivitySeedDef(
+                "boss.vardorvis", "Vardorvis",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(47, TimeDistribution.Uniform, 10),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 406739, 408000, []),
+                            new ActivityOutcomeDefinition("unique", 1261, 408000, [new ProgressGrant(dropVardorvisUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -1131,6 +1174,12 @@ public class RealEventSeedService(
         var clueHardKey = "activity.clue_hard";
         var lockpicksId = activityIdsByKey["activity.lockpicks"];
         var lockpicksKey = "activity.lockpicks";
+        var kbdId = activityIdsByKey["boss.king_black_dragon"];
+        var kbdKey = "boss.king_black_dragon";
+        var krilId = activityIdsByKey["boss.kril_tsutsaroth"];
+        var krilKey = "boss.kril_tsutsaroth";
+        var vardorvisId = activityIdsByKey["boss.vardorvis"];
+        var vardorvisKey = "boss.vardorvis";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -1381,20 +1430,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(toaId, toaKey, ["loot.toa_battlestaff"], [raidToa], [])]),
         ]);
 
+        var row17 = new Row(17,
+        [
+            new Tile("t1-r17", "6x KBD Heads", 1, 6,
+                [new TileActivityRule(kbdId, kbdKey, ["item.kbd_head"], [], [])]),
+            new Tile("t2-r17", "5x K'ril Tsutsaroth Unique", 2, 5,
+                [new TileActivityRule(krilId, krilKey, ["item.kril_unique"], [capabilityGodWars], [])]),
+            new Tile("t3-r17", "900 ToB Vials", 3, 900,
+                [new TileActivityRule(tobId, tobKey, ["loot.tob_vials"], [raidTob], [])]),
+            new Tile("t4-r17", "4x Vardorvis Unique", 4, 4,
+                [new TileActivityRule(vardorvisId, vardorvisKey, ["item.vardorvis_unique"], [questDt2], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
