@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–5");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–6");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -107,6 +107,10 @@ public class RealEventSeedService(
         const string dropBarrowsUnique = "item.barrows_unique";
         const string dropDoomUnique = "item.doom_unique";
         const string dropAraxxorUnique = "item.araxxor_unique";
+        const string dropMoonsUnique = "item.moons_unique";
+        const string dropGraardorUnique = "item.graardor_unique";
+        const string dropBottledStorm = "item.bottled_storm";
+        const string dropSwiftAlbatrossFeather = "item.swift_albatross_feather";
 
         return
         [
@@ -502,6 +506,59 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Moons of Peril: 6 rolls per kill at 1/224 each, ~193s per kill, solo. Requires Perilous Moons.
+            new ActivitySeedDef(
+                "boss.moons_of_peril", "Moons of Peril",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(193, TimeDistribution.Uniform, 40),
+                        [
+                            new ActivityOutcomeDefinition("zero", 9736, 10000, []),
+                            new ActivityOutcomeDefinition("one", 262, 10000, [new ProgressGrant(dropMoonsUnique, 1)]),
+                            new ActivityOutcomeDefinition("two", 2, 10000, [new ProgressGrant(dropMoonsUnique, 2)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // General Graardor: chestplate/tassets/boots 1/381 each, hilt 1/508. ~118s per kill, solo. Requires God Wars.
+            new ActivitySeedDef(
+                "boss.general_graardor", "General Graardor",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(118, TimeDistribution.Uniform, 25),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 1509, 1524, []),
+                            new ActivityOutcomeDefinition("unique", 15, 1524, [new ProgressGrant(dropGraardorUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Vampyre Kraken: 1/512 Bottled Storm, 1 storm = 50 progress for storm tile. ~176s per kill, solo. Requires 78 Sailing.
+            new ActivitySeedDef(
+                "boss.vampyre_kraken", "Vampyre Kraken",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(176, TimeDistribution.Uniform, 35),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 511, 512, []),
+                            new ActivityOutcomeDefinition("storm", 1, 512, [new ProgressGrant(dropBottledStorm, 50)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Albatross: 1/30 Swift albatross feather per kill, 1 feather = 1 progress. ~60s per kill, solo.
+            new ActivitySeedDef(
+                "monster.albatross", "Albatross",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(60, TimeDistribution.Uniform, 12),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 29, 30, []),
+                            new ActivityOutcomeDefinition("feather", 1, 30, [new ProgressGrant(dropSwiftAlbatrossFeather, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -567,6 +624,14 @@ public class RealEventSeedService(
         var doomKey = "boss.doom_of_mokhaiotl";
         var araxxorId = activityIdsByKey["boss.araxxor"];
         var araxxorKey = "boss.araxxor";
+        var moonsOfPerilId = activityIdsByKey["boss.moons_of_peril"];
+        var moonsOfPerilKey = "boss.moons_of_peril";
+        var graardorId = activityIdsByKey["boss.general_graardor"];
+        var graardorKey = "boss.general_graardor";
+        var vampyreKrakenId = activityIdsByKey["boss.vampyre_kraken"];
+        var vampyreKrakenKey = "boss.vampyre_kraken";
+        var albatrossId = activityIdsByKey["monster.albatross"];
+        var albatrossKey = "monster.albatross";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -580,6 +645,9 @@ public class RealEventSeedService(
         var questDefenderOfVarrock = new Capability("quest.defender_of_varrock", "Defender of Varrock");
         var questKingdomDivided = new Capability("quest.kingdom_divided", "A Kingdom Divided");
         var questFinalDawn = new Capability("quest.the_final_dawn", "The Final Dawn");
+        var questPerilousMoons = new Capability("quest.perilous_moons", "Perilous Moons");
+        var capabilityGodWars = new Capability("capability.god_wars", "God Wars");
+        var sailing78 = new Capability("sailing.78", "Sailing 78");
 
         var row0 = new Row(0,
         [
@@ -663,20 +731,35 @@ public class RealEventSeedService(
                 [new TileActivityRule(araxxorId, araxxorKey, ["item.araxxor_unique"], [], [])]),
         ]);
 
+        var row6 = new Row(6,
+        [
+            new Tile("t1-r6", "6x Moons of Peril Unique", 1, 6,
+                [new TileActivityRule(moonsOfPerilId, moonsOfPerilKey, ["item.moons_unique"], [questPerilousMoons], [])]),
+            new Tile("t2-r6", "3x General Graardor Unique", 2, 3,
+                [new TileActivityRule(graardorId, graardorKey, ["item.graardor_unique"], [capabilityGodWars], [])]),
+            new Tile("t3-r6", "600 Dragon Arrows", 3, 600,
+                [new TileActivityRule(coxId, coxKey, ["loot.dragon_arrows"], [raidCox], [])]),
+            new Tile("t4-r6", "Storm Path (1 Bottled Storm or 50 Feathers)", 4, 50,
+                [
+                    new TileActivityRule(vampyreKrakenId, vampyreKrakenKey, ["item.bottled_storm"], [sailing78], []),
+                    new TileActivityRule(albatrossId, albatrossKey, ["item.swift_albatross_feather"], [], []),
+                ]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
