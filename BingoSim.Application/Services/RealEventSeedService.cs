@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–11");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–12");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -130,6 +130,10 @@ public class RealEventSeedService(
         const string dropBarracudaPaint = "item.barracuda_paint";
         const string dropWhispererUnique = "item.whisperer_unique";
         const string dropRevWeaponPoints = "item.rev_weapon_points";
+        const string dropBrineSabre = "item.brine_sabre";
+        const string dropGrotesqueUnique = "item.grotesque_unique";
+        const string dropToaBattlestaff = "loot.toa_battlestaff";
+        const string dropLeviathanUnique = "item.leviathan_unique";
 
         return
         [
@@ -833,6 +837,63 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Brine rat: Brine sabre 1/512. ~49s per kill, solo.
+            new ActivitySeedDef(
+                "monster.brine_rat", "Brine Rat",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(49, TimeDistribution.Uniform, 10),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 511, 512, []),
+                            new ActivityOutcomeDefinition("sabre", 1, 512, [new ProgressGrant(dropBrineSabre, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Grotesque Guardians: 2 loot rolls per kill (gloves 1/500, ring 1/500, hammer 1/750, core 1/1000 each), pet 1/3000 independent. ~78s per kill, solo.
+            new ActivitySeedDef(
+                "boss.grotesque_guardians", "Grotesque Guardians",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(78, TimeDistribution.Uniform, 15),
+                        [
+                            new ActivityOutcomeDefinition("zero", 9860, 10000, []),
+                            new ActivityOutcomeDefinition("one", 125, 10000, [new ProgressGrant(dropGrotesqueUnique, 1)]),
+                            new ActivityOutcomeDefinition("two", 14, 10000, [new ProgressGrant(dropGrotesqueUnique, 2)]),
+                            new ActivityOutcomeDefinition("three", 1, 10000, [new ProgressGrant(dropGrotesqueUnique, 3)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Tombs of Amascut: 1/5 per raid one player gets unique (50 battlestaff). Others: 3 rolls at 1/27 for battlestaff (15-25 each). ~30 min per raid, 1-8 players. PerGroup.
+            new ActivitySeedDef(
+                "raid.toa", "Tombs of Amascut",
+                new ActivityModeSupport(true, true, 1, 8),
+                [
+                    new ActivityAttemptDefinition("completion", RollScope.PerGroup, new AttemptTimeModel(1800, TimeDistribution.Uniform, 300),
+                        [
+                            new ActivityOutcomeDefinition("unique", 2000, 10000, [new ProgressGrant(dropToaBattlestaff, 50)]),
+                            new ActivityOutcomeDefinition("zero", 5120, 10000, []),
+                            new ActivityOutcomeDefinition("one_staff", 2320, 10000, [new ProgressGrant(dropToaBattlestaff, 15, 25)]),
+                            new ActivityOutcomeDefinition("two_staff", 480, 10000, [new ProgressGrant(dropToaBattlestaff, 30, 50)]),
+                            new ActivityOutcomeDefinition("three_staff", 80, 10000, [new ProgressGrant(dropToaBattlestaff, 45, 75)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 8, 1.0m, 1.0m)]),
+
+            // The Leviathan: Venator 1/768, Lure 1/768, Virtus 3×1/2304 (combined 3/768), pet 1/2500. ~58s per kill, solo. Requires DT2.
+            new ActivitySeedDef(
+                "boss.the_leviathan", "The Leviathan",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(58, TimeDistribution.Uniform, 12),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 233, 234, []),
+                            new ActivityOutcomeDefinition("unique", 1, 234, [new ProgressGrant(dropLeviathanUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -940,6 +1001,14 @@ public class RealEventSeedService(
         var sailingTrialsKey = "activity.sailing_trials";
         var whispererId = activityIdsByKey["boss.the_whisperer"];
         var whispererKey = "boss.the_whisperer";
+        var brineRatId = activityIdsByKey["monster.brine_rat"];
+        var brineRatKey = "monster.brine_rat";
+        var grotesqueGuardiansId = activityIdsByKey["boss.grotesque_guardians"];
+        var grotesqueGuardiansKey = "boss.grotesque_guardians";
+        var toaId = activityIdsByKey["raid.toa"];
+        var toaKey = "raid.toa";
+        var leviathanId = activityIdsByKey["boss.the_leviathan"];
+        var leviathanKey = "boss.the_leviathan";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -961,6 +1030,7 @@ public class RealEventSeedService(
         var sailing75 = new Capability("sailing.75", "Sailing 75");
         var raidTobHm = new Capability("raid.tob_hard_mode", "Hard Mode Theatre of Blood");
         var questSecretsOfNorth = new Capability("quest.secrets_of_the_north", "Secrets of the North");
+        var raidToa = new Capability("raid.toa", "Tombs of Amascut");
 
         var row0 = new Row(0,
         [
@@ -1128,20 +1198,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(revKnightId, revKnightKey, ["item.rev_weapon_points"], [], [])]),
         ]);
 
+        var row12 = new Row(12,
+        [
+            new Tile("t1-r12", "1x Brine Sabre", 1, 1,
+                [new TileActivityRule(brineRatId, brineRatKey, ["item.brine_sabre"], [], [])]),
+            new Tile("t2-r12", "6x Grotesque Guardians Unique", 2, 6,
+                [new TileActivityRule(grotesqueGuardiansId, grotesqueGuardiansKey, ["item.grotesque_unique"], [], [])]),
+            new Tile("t3-r12", "110 ToA Battlestaff", 3, 110,
+                [new TileActivityRule(toaId, toaKey, ["loot.toa_battlestaff"], [raidToa], [])]),
+            new Tile("t4-r12", "4x The Leviathan Unique", 4, 4,
+                [new TileActivityRule(leviathanId, leviathanKey, ["item.leviathan_unique"], [questDt2], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
