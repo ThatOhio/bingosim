@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–12");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–13");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -134,6 +134,9 @@ public class RealEventSeedService(
         const string dropGrotesqueUnique = "item.grotesque_unique";
         const string dropToaBattlestaff = "loot.toa_battlestaff";
         const string dropLeviathanUnique = "item.leviathan_unique";
+        const string dropPharaohSceptre = "item.pharaoh_sceptre";
+        const string dropAbyssalSireUnique = "item.abyssal_sire_unique";
+        const string dropNexUniqueOrShardsR13 = "item.nex_unique_or_shards_r13";
 
         return
         [
@@ -648,18 +651,23 @@ public class RealEventSeedService(
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
 
-            // Theatre of Blood: 3–5 players, 30 min per raid. 3 rolls per player at 1/15 for vials; 1/9 per raid one player gets unique (100 vials, no vial rolls). PerGroup.
+            // Theatre of Blood: 3–5 players, 30 min per raid. 3 rolls per player at 1/15 for vials (45–60 per roll); 1/9 unique (100); pet 1/650 (100). PerGroup.
             new ActivitySeedDef(
                 "raid.tob", "Theatre of Blood",
                 new ActivityModeSupport(false, true, 3, 5),
                 [
                     new ActivityAttemptDefinition("completion", RollScope.PerGroup, new AttemptTimeModel(1800, TimeDistribution.Uniform, 300),
                         [
-                            new ActivityOutcomeDefinition("unique", 1000, 9000, [new ProgressGrant(dropTobVials, 100)]),
-                            new ActivityOutcomeDefinition("zero", 3520, 9000, []),
-                            new ActivityOutcomeDefinition("one", 3040, 9000, [new ProgressGrant(dropTobVials, 1)]),
-                            new ActivityOutcomeDefinition("two", 1120, 9000, [new ProgressGrant(dropTobVials, 2)]),
-                            new ActivityOutcomeDefinition("three", 320, 9000, [new ProgressGrant(dropTobVials, 3)]),
+                            new ActivityOutcomeDefinition("unique_no_pet", 649, 5850, [new ProgressGrant(dropTobVials, 100)]),
+                            new ActivityOutcomeDefinition("unique_pet", 1, 5850, [new ProgressGrant(dropTobVials, 200)]),
+                            new ActivityOutcomeDefinition("zero", 2288, 5850, []),
+                            new ActivityOutcomeDefinition("one", 1969, 5850, [new ProgressGrant(dropTobVials, 45, 60)]),
+                            new ActivityOutcomeDefinition("two", 725, 5850, [new ProgressGrant(dropTobVials, 90, 120)]),
+                            new ActivityOutcomeDefinition("three", 208, 5850, [new ProgressGrant(dropTobVials, 135, 180)]),
+                            new ActivityOutcomeDefinition("zero_pet", 4, 5850, [new ProgressGrant(dropTobVials, 100)]),
+                            new ActivityOutcomeDefinition("one_pet", 3, 5850, [new ProgressGrant(dropTobVials, 145, 160)]),
+                            new ActivityOutcomeDefinition("two_pet", 1, 5850, [new ProgressGrant(dropTobVials, 190, 220)]),
+                            new ActivityOutcomeDefinition("three_pet", 1, 5850, [new ProgressGrant(dropTobVials, 235, 280)]),
                         ]),
                 ],
                 [new GroupSizeBand(3, 5, 1.0m, 1.0m)]),
@@ -780,20 +788,23 @@ public class RealEventSeedService(
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
 
-            // Nex: 2 rolls per kill, PerGroup. Torva 3/258 per roll, shards 1/16 (80-85) or 1/26 (85-95). 1 torva OR 1500 shards. ~3600s per kill (incl. travel).
+            // Nex: 2 rolls per kill, PerGroup. Torva 3/258, Zaryte 1/172, Nihil horn 1/258, Ancient hilt 1/516. Shards 1/16 (80-85), 1/26 (85-95). Row 10: torva=1500; Row 13: any unique=900.
             new ActivitySeedDef(
                 "boss.nex", "Nex",
                 new ActivityModeSupport(false, true, 3, 12),
                 [
                     new ActivityAttemptDefinition("kill", RollScope.PerGroup, new AttemptTimeModel(3600, TimeDistribution.Uniform, 600),
                         [
-                            new ActivityOutcomeDefinition("nothing", 7870, 10000, []),
-                            new ActivityOutcomeDefinition("one_torva", 206, 10000, [new ProgressGrant(dropNexTorvaOrShards, 1500)]),
-                            new ActivityOutcomeDefinition("two_torva", 1, 10000, [new ProgressGrant(dropNexTorvaOrShards, 1500)]),
-                            new ActivityOutcomeDefinition("shards_80_85", 1110, 10000, [new ProgressGrant(dropNexTorvaOrShards, 82)]),
-                            new ActivityOutcomeDefinition("shards_85_95", 680, 10000, [new ProgressGrant(dropNexTorvaOrShards, 90)]),
-                            new ActivityOutcomeDefinition("both_shards", 48, 10000, [new ProgressGrant(dropNexTorvaOrShards, 172)]),
-                            new ActivityOutcomeDefinition("torva_plus_shards", 85, 10000, [new ProgressGrant(dropNexTorvaOrShards, 1500)]),
+                            new ActivityOutcomeDefinition("nothing", 7643, 10000, []),
+                            new ActivityOutcomeDefinition("zaryte", 113, 10000, [new ProgressGrant(dropNexUniqueOrShardsR13, 900)]),
+                            new ActivityOutcomeDefinition("nihil_horn", 76, 10000, [new ProgressGrant(dropNexUniqueOrShardsR13, 900)]),
+                            new ActivityOutcomeDefinition("ancient_hilt", 38, 10000, [new ProgressGrant(dropNexUniqueOrShardsR13, 900)]),
+                            new ActivityOutcomeDefinition("one_torva", 206, 10000, [new ProgressGrant(dropNexTorvaOrShards, 1500), new ProgressGrant(dropNexUniqueOrShardsR13, 900)]),
+                            new ActivityOutcomeDefinition("two_torva", 1, 10000, [new ProgressGrant(dropNexTorvaOrShards, 1500), new ProgressGrant(dropNexUniqueOrShardsR13, 900)]),
+                            new ActivityOutcomeDefinition("shards_80_85", 1110, 10000, [new ProgressGrant(dropNexTorvaOrShards, 82), new ProgressGrant(dropNexUniqueOrShardsR13, 82)]),
+                            new ActivityOutcomeDefinition("shards_85_95", 680, 10000, [new ProgressGrant(dropNexTorvaOrShards, 90), new ProgressGrant(dropNexUniqueOrShardsR13, 90)]),
+                            new ActivityOutcomeDefinition("both_shards", 48, 10000, [new ProgressGrant(dropNexTorvaOrShards, 172), new ProgressGrant(dropNexUniqueOrShardsR13, 172)]),
+                            new ActivityOutcomeDefinition("torva_plus_shards", 85, 10000, [new ProgressGrant(dropNexTorvaOrShards, 1500), new ProgressGrant(dropNexUniqueOrShardsR13, 900)]),
                         ]),
                 ],
                 [new GroupSizeBand(3, 12, 1.0m, 1.0m)]),
@@ -891,6 +902,32 @@ public class RealEventSeedService(
                         [
                             new ActivityOutcomeDefinition("nothing", 233, 234, []),
                             new ActivityOutcomeDefinition("unique", 1, 234, [new ProgressGrant(dropLeviathanUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Pyramid Plunder: Pharaoh sceptre 1/138 per attempt. ~130s per attempt, solo.
+            new ActivitySeedDef(
+                "minigame.pyramid_plunder", "Pyramid Plunder",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("attempt", RollScope.PerPlayer, new AttemptTimeModel(130, TimeDistribution.Uniform, 30),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 137, 138, []),
+                            new ActivityOutcomeDefinition("sceptre", 1, 138, [new ProgressGrant(dropPharaohSceptre, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Abyssal Sire: 1/100 unique per kill. ~180s per kill, solo. Requires 85 Slayer.
+            new ActivitySeedDef(
+                "boss.abyssal_sire", "Abyssal Sire",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(180, TimeDistribution.Uniform, 35),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 99, 100, []),
+                            new ActivityOutcomeDefinition("unique", 1, 100, [new ProgressGrant(dropAbyssalSireUnique, 1)]),
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
@@ -1009,6 +1046,10 @@ public class RealEventSeedService(
         var toaKey = "raid.toa";
         var leviathanId = activityIdsByKey["boss.the_leviathan"];
         var leviathanKey = "boss.the_leviathan";
+        var pyramidPlunderId = activityIdsByKey["minigame.pyramid_plunder"];
+        var pyramidPlunderKey = "minigame.pyramid_plunder";
+        var abyssalSireId = activityIdsByKey["boss.abyssal_sire"];
+        var abyssalSireKey = "boss.abyssal_sire";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -1031,6 +1072,7 @@ public class RealEventSeedService(
         var raidTobHm = new Capability("raid.tob_hard_mode", "Hard Mode Theatre of Blood");
         var questSecretsOfNorth = new Capability("quest.secrets_of_the_north", "Secrets of the North");
         var raidToa = new Capability("raid.toa", "Tombs of Amascut");
+        var slayer85 = new Capability("slayer.85", "Slayer 85");
 
         var row0 = new Row(0,
         [
@@ -1210,20 +1252,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(leviathanId, leviathanKey, ["item.leviathan_unique"], [questDt2], [])]),
         ]);
 
+        var row13 = new Row(13,
+        [
+            new Tile("t1-r13", "2x Pharaoh Sceptre", 1, 2,
+                [new TileActivityRule(pyramidPlunderId, pyramidPlunderKey, ["item.pharaoh_sceptre"], [], [])]),
+            new Tile("t2-r13", "2x Abyssal Sire Unique", 2, 2,
+                [new TileActivityRule(abyssalSireId, abyssalSireKey, ["item.abyssal_sire_unique"], [slayer85], [])]),
+            new Tile("t3-r13", "1 Nex Unique or 900 Nihil Shards", 3, 900,
+                [new TileActivityRule(nexId, nexKey, ["item.nex_unique_or_shards_r13"], [capabilityGodWars], [])]),
+            new Tile("t4-r13", "850 ToB Vials", 4, 850,
+                [new TileActivityRule(tobId, tobKey, ["loot.tob_vials"], [raidTob], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
