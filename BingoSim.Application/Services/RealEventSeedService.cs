@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–15");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–16");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -139,6 +139,9 @@ public class RealEventSeedService(
         const string dropNexUniqueOrShardsR13 = "item.nex_unique_or_shards_r13";
         const string dropScurriusSpine = "item.scurrius_spine";
         const string dropDragonMetalSheet = "loot.dragon_metal_sheet";
+        const string dropTecuSalamander = "item.tecu_salamander";
+        const string dropClueHardItem = "loot.clue_hard_item";
+        const string dropLockpick = "item.lockpick";
 
         return
         [
@@ -960,6 +963,45 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Hunter Tecu Salamander: 1/1000 per trap check, ~47s per check. 1 salamander in ~13h.
+            new ActivitySeedDef(
+                "activity.hunter_tecu_salamander", "Hunter Tecu Salamander",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("trap_check", RollScope.PerPlayer, new AttemptTimeModel(47, TimeDistribution.Uniform, 10),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 999, 1000, []),
+                            new ActivityOutcomeDefinition("tecu", 1, 1000, [new ProgressGrant(dropTecuSalamander, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Hard clue: abstract 3 qualifying items (500k+) per completion. 1/25 per clue, ~768s (~12.8 min) per clue. 3 items in ~16h.
+            new ActivitySeedDef(
+                "activity.clue_hard", "Hard Clue",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("completion", RollScope.PerPlayer, new AttemptTimeModel(768, TimeDistribution.Uniform, 150),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 24, 25, []),
+                            new ActivityOutcomeDefinition("item", 1, 25, [new ProgressGrant(dropClueHardItem, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Lockpicks: abstract activity. 1/100 per attempt, ~63s per attempt. 8 lockpicks in ~14h.
+            new ActivitySeedDef(
+                "activity.lockpicks", "Lockpicks",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("attempt", RollScope.PerPlayer, new AttemptTimeModel(63, TimeDistribution.Uniform, 15),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 99, 100, []),
+                            new ActivityOutcomeDefinition("lockpick", 1, 100, [new ProgressGrant(dropLockpick, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -1083,6 +1125,12 @@ public class RealEventSeedService(
         var scurriusKey = "boss.scurrius";
         var sailingDragonMetalId = activityIdsByKey["activity.sailing_dragon_metal"];
         var sailingDragonMetalKey = "activity.sailing_dragon_metal";
+        var hunterTecuSalamanderId = activityIdsByKey["activity.hunter_tecu_salamander"];
+        var hunterTecuSalamanderKey = "activity.hunter_tecu_salamander";
+        var clueHardId = activityIdsByKey["activity.clue_hard"];
+        var clueHardKey = "activity.clue_hard";
+        var lockpicksId = activityIdsByKey["activity.lockpicks"];
+        var lockpicksKey = "activity.lockpicks";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -1321,20 +1369,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(doomId, doomKey, ["item.doom_unique"], [questFinalDawn], [])]),
         ]);
 
+        var row16 = new Row(16,
+        [
+            new Tile("t1-r16", "1x Tecu Salamander", 1, 1,
+                [new TileActivityRule(hunterTecuSalamanderId, hunterTecuSalamanderKey, ["item.tecu_salamander"], [], [])]),
+            new Tile("t2-r16", "3x Hard Clue Items (500k+)", 2, 3,
+                [new TileActivityRule(clueHardId, clueHardKey, ["loot.clue_hard_item"], [], [])]),
+            new Tile("t3-r16", "8x Lockpicks", 3, 8,
+                [new TileActivityRule(lockpicksId, lockpicksKey, ["item.lockpick"], [], [])]),
+            new Tile("t4-r16", "150 ToA Battlestaff", 4, 150,
+                [new TileActivityRule(toaId, toaKey, ["loot.toa_battlestaff"], [raidToa], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
