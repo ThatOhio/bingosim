@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–8");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–9");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -119,6 +119,9 @@ public class RealEventSeedService(
         const string dropZulrahUnique = "item.zulrah_unique";
         const string dropHookOrBarbs = "item.hook_or_barbs";
         const string dropRaidCosmetic = "loot.raid_cosmetic";
+        const string dropFedora = "item.fedora";
+        const string dropZilyanaUnique = "item.zilyana_unique";
+        const string dropNightmareR9 = "item.nightmare_r9";
 
         return
         [
@@ -323,14 +326,15 @@ public class RealEventSeedService(
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
 
-            // Crazy Archaeologist: 2 shards at 1/256 each, ~60s per kill, solo
+            // Crazy Archaeologist: Fedora 1/128, shield shards 2×1/256 (1/128 combined). One roll per kill. ~51s per kill, solo.
             new ActivitySeedDef(
                 "boss.crazy_archaeologist", "Crazy Archaeologist",
                 new ActivityModeSupport(true, false, null, null),
                 [
-                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(60, TimeDistribution.Uniform, 12),
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(51, TimeDistribution.Uniform, 10),
                         [
-                            new ActivityOutcomeDefinition("nothing", 127, 128, []),
+                            new ActivityOutcomeDefinition("nothing", 126, 128, []),
+                            new ActivityOutcomeDefinition("fedora", 1, 128, [new ProgressGrant(dropFedora, 1)]),
                             new ActivityOutcomeDefinition("shard", 1, 128, [new ProgressGrant(dropWildernessShield, 1)]),
                         ]),
                 ],
@@ -437,7 +441,7 @@ public class RealEventSeedService(
                     new GroupSizeBand(2, 2, 0.5m, 1.0m),   // duo: 180s
                 ]),
 
-            // The Nightmare (group): bass 1/17, unique = 10 bass. 3-12 players. Kill time varies: 3-4p ~8min, 5-9p ~9min, 10+p ~6min (with buffer).
+            // The Nightmare (group): bass 1/17, unique = 10 bass (row 4) or 30 progress (row 9). 3-12 players. Kill time varies.
             new ActivitySeedDef(
                 "boss.nightmare", "The Nightmare",
                 new ActivityModeSupport(false, true, 3, 12),
@@ -445,8 +449,8 @@ public class RealEventSeedService(
                     new ActivityAttemptDefinition("kill", RollScope.PerGroup, new AttemptTimeModel(480, TimeDistribution.Uniform, 120),
                         [
                             new ActivityOutcomeDefinition("nothing", 991, 1071, []),
-                            new ActivityOutcomeDefinition("bass", 63, 1071, [new ProgressGrant(dropNightmareBass, 1)]),
-                            new ActivityOutcomeDefinition("unique", 17, 1071, [new ProgressGrant(dropNightmareBass, 10)]),
+                            new ActivityOutcomeDefinition("bass", 63, 1071, [new ProgressGrant(dropNightmareBass, 1), new ProgressGrant(dropNightmareR9, 1)]),
+                            new ActivityOutcomeDefinition("unique", 17, 1071, [new ProgressGrant(dropNightmareBass, 10), new ProgressGrant(dropNightmareR9, 30)]),
                         ]),
                 ],
                 [
@@ -455,7 +459,7 @@ public class RealEventSeedService(
                     new GroupSizeBand(10, 12, 0.82m, 1.0m), // <5 min + buffer ~6 min
                 ]),
 
-            // Phosani's Nightmare (solo): bass 1/17, unique = 10 bass. Lower unique rates. 8-10 min + buffer.
+            // Phosani's Nightmare (solo): bass 1/17, unique = 10 bass (row 4) or 30 progress (row 9). 8-10 min + buffer.
             new ActivitySeedDef(
                 "boss.phosani_nightmare", "Phosani's Nightmare",
                 new ActivityModeSupport(true, false, null, null),
@@ -463,8 +467,8 @@ public class RealEventSeedService(
                     new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(630, TimeDistribution.Uniform, 90),
                         [
                             new ActivityOutcomeDefinition("nothing", 9410, 10000, []),
-                            new ActivityOutcomeDefinition("bass", 580, 10000, [new ProgressGrant(dropNightmareBass, 1)]),
-                            new ActivityOutcomeDefinition("unique", 10, 10000, [new ProgressGrant(dropNightmareBass, 10)]),
+                            new ActivityOutcomeDefinition("bass", 580, 10000, [new ProgressGrant(dropNightmareBass, 1), new ProgressGrant(dropNightmareR9, 1)]),
+                            new ActivityOutcomeDefinition("unique", 10, 10000, [new ProgressGrant(dropNightmareBass, 10), new ProgressGrant(dropNightmareR9, 30)]),
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
@@ -547,6 +551,20 @@ public class RealEventSeedService(
                         [
                             new ActivityOutcomeDefinition("nothing", 1509, 1524, []),
                             new ActivityOutcomeDefinition("unique", 15, 1524, [new ProgressGrant(dropGraardorUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Commander Zilyana: Sword 1/127, Light 1/254, Crossbow 1/508, Hilt 1/508 (combined 2/127), pet 1/5000. ~126s per kill, solo. Requires God Wars.
+            new ActivitySeedDef(
+                "boss.commander_zilyana", "Commander Zilyana",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(126, TimeDistribution.Uniform, 25),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 61905, 63000, []),
+                            new ActivityOutcomeDefinition("unique", 1000, 63000, [new ProgressGrant(dropZilyanaUnique, 1)]),
+                            new ActivityOutcomeDefinition("pet", 95, 63000, [new ProgressGrant(dropZilyanaUnique, 1)]),
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
@@ -792,6 +810,8 @@ public class RealEventSeedService(
         var rayBarbsKey = "monster.ray_barbs";
         var tobHmId = activityIdsByKey["raid.tob_hard_mode"];
         var tobHmKey = "raid.tob_hard_mode";
+        var zilyanaId = activityIdsByKey["boss.commander_zilyana"];
+        var zilyanaKey = "boss.commander_zilyana";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -940,20 +960,35 @@ public class RealEventSeedService(
                 ]),
         ]);
 
+        var row9 = new Row(9,
+        [
+            new Tile("t1-r9", "5x Fedora", 1, 5,
+                [new TileActivityRule(crazyArchId, crazyArchKey, ["item.fedora"], [], [])]),
+            new Tile("t2-r9", "5x Commander Zilyana Unique", 2, 5,
+                [new TileActivityRule(zilyanaId, zilyanaKey, ["item.zilyana_unique"], [capabilityGodWars], [])]),
+            new Tile("t3-r9", "1 Nightmare Unique or 30 Bass", 3, 30,
+                [
+                    new TileActivityRule(nightmareId, nightmareKey, ["item.nightmare_r9"], [], []),
+                    new TileActivityRule(phosaniId, phosaniKey, ["item.nightmare_r9"], [], []),
+                ]),
+            new Tile("t4-r9", "2x Yama Unique", 4, 2,
+                [new TileActivityRule(yamaId, yamaKey, ["item.yama_unique"], [questKingdomDivided], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
