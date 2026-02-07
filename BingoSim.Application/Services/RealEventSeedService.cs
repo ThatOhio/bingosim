@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–14");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–15");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -1309,20 +1309,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(toaId, toaKey, ["loot.toa_battlestaff"], [raidToa], [])]),
         ]);
 
+        var row15 = new Row(15,
+        [
+            new Tile("t1-r15", "6x DK Ring", 1, 6,
+                [new TileActivityRule(dkId, dkKey, ["item.dk_ring"], [], [])]),
+            new Tile("t2-r15", "8x Barrows Unique", 2, 8,
+                [new TileActivityRule(barrowsId, barrowsKey, ["item.barrows_unique"], [], [])]),
+            new Tile("t3-r15", "110 ToA Battlestaff", 3, 110,
+                [new TileActivityRule(toaId, toaKey, ["loot.toa_battlestaff"], [raidToa], [])]),
+            new Tile("t4-r15", "3x Doom Unique", 4, 3,
+                [new TileActivityRule(doomId, doomKey, ["item.doom_unique"], [questFinalDawn], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
