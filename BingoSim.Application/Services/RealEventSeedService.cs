@@ -1670,6 +1670,7 @@ public class RealEventSeedService(
 
         var capsByKey = GetBingo7CapabilitiesByKey();
         var archetypeCapabilities = GetBingo7PlayerArchetypeCapabilities(capsByKey);
+        var archetypeSchedules = GetBingo7PlayerArchetypeSchedules();
 
         var playerIds = new List<Guid>(60);
         for (var i = 0; i < 60; i++)
@@ -1677,11 +1678,13 @@ public class RealEventSeedService(
             var name = $"Bingo7-Player-{i + 1}";
             var archetypeIdx = i % 20;
             var capabilities = archetypeCapabilities[archetypeIdx];
+            var schedule = archetypeSchedules[archetypeIdx];
 
             var existing = await _playerRepo.GetByNameAsync(name, cancellationToken);
             if (existing is not null)
             {
                 existing.SetCapabilities(capabilities);
+                existing.SetWeeklySchedule(schedule);
                 await _playerRepo.UpdateAsync(existing, cancellationToken);
                 playerIds.Add(existing.Id);
             }
@@ -1689,6 +1692,7 @@ public class RealEventSeedService(
             {
                 var profile = new PlayerProfile(name);
                 profile.SetCapabilities(capabilities);
+                profile.SetWeeklySchedule(schedule);
                 await _playerRepo.AddAsync(profile, cancellationToken);
                 playerIds.Add(profile.Id);
             }
@@ -1810,6 +1814,192 @@ public class RealEventSeedService(
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Generates 20 weekly schedules (one per archetype). Same 20 schedules are applied to each team's 20 players.
+    /// Schedules are in ET. Timezone offsets applied: Central +1h, Pacific +2h, European +5h.
+    /// </summary>
+    private static List<WeeklySchedule> GetBingo7PlayerArchetypeSchedules()
+    {
+        var random = new Random(42);
+        var result = new List<WeeklySchedule>(20);
+
+        for (var archetypeIdx = 0; archetypeIdx < 20; archetypeIdx++)
+        {
+            var (baselineWeekdayHrs, baselineWeekendHrs, preferEvening) = GetArchetypeBaselineHours(archetypeIdx);
+            var timezoneOffsetHours = AssignTimezoneOffset(archetypeIdx, random);
+
+            var sessions = new List<ScheduledSession>();
+
+            foreach (var day in Enum.GetValues<DayOfWeek>())
+            {
+                if (day is DayOfWeek.Saturday or DayOfWeek.Sunday)
+                {
+                    var dayHrs = baselineWeekendHrs + random.Next(1, 5);
+                    var daySessions = BuildWeekendDaySessions(day, dayHrs, random);
+                    sessions.AddRange(ApplyTimezoneToSessions(daySessions, timezoneOffsetHours));
+                }
+                else
+                {
+                    var dayHrs = baselineWeekdayHrs + random.Next(-2, 3);
+                    dayHrs = Math.Max(2, Math.Min(18, dayHrs));
+                    var daySessions = BuildWeekdaySessions(day, dayHrs, preferEvening, random);
+                    sessions.AddRange(ApplyTimezoneToSessions(daySessions, timezoneOffsetHours));
+                }
+            }
+
+            result.Add(new WeeklySchedule(sessions));
+        }
+
+        return result;
+    }
+
+    private static (int WeekdayHrs, int WeekendHrs, bool PreferEvening) GetArchetypeBaselineHours(int archetypeIdx)
+    {
+        return archetypeIdx switch
+        {
+            < 6 => (15, 15, false),
+            < 12 => (11, 11, false),
+            < 18 => (8, 8, true),
+            _ => (6, 6, true),
+        };
+    }
+
+    /// <summary>
+    /// Returns hour offset to apply to EST baseline. Schedules stored in ET.
+    /// 0=EST, 1=Central (6am local=7am ET), 2=Pacific (6am local=8am ET).
+    /// European (5%): offset 0 so 6am ET=11am GMT, playing during European daytime.
+    /// </summary>
+    private static int AssignTimezoneOffset(int archetypeIdx, Random random)
+    {
+        var roll = random.Next(0, 100);
+        return roll switch
+        {
+            < 5 => 0,
+            < 25 => 2,
+            < 45 => 1,
+            _ => 0,
+        };
+    }
+
+    private static List<ScheduledSession> BuildWeekdaySessions(DayOfWeek day, int totalHours, bool preferEvening, Random random)
+    {
+        var sessions = new List<ScheduledSession>();
+        var totalMinutes = totalHours * 60;
+
+        if (preferEvening)
+        {
+            var startHour = 17 + random.Next(0, 2);
+            var startMin = random.Next(0, 2) * 30;
+            var start = new TimeOnly(startHour, startMin);
+            sessions.Add(new ScheduledSession(day, start, totalMinutes));
+        }
+        else
+        {
+            var startHour = 6 + random.Next(0, 3);
+            var startMin = random.Next(0, 2) * 30;
+            var start = new TimeOnly(startHour, startMin);
+
+            var lunchStartMins = 12 * 60;
+            var eveningStartMins = 17 * 60 + random.Next(0, 2) * 30;
+            var startMins = startHour * 60 + startMin;
+
+            var morningMins = Math.Min(120, lunchStartMins - startMins);
+            if (morningMins > 0)
+            {
+                sessions.Add(new ScheduledSession(day, start, morningMins));
+                totalMinutes -= morningMins;
+            }
+
+            var lateMorningEnd = startMins + morningMins + 30;
+            var lateMorningMins = Math.Min(90, lunchStartMins - lateMorningEnd);
+            if (lateMorningMins > 0 && totalMinutes > 0)
+            {
+                var lateStart = TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(lateMorningEnd));
+                var seg = Math.Min(lateMorningMins, totalMinutes);
+                sessions.Add(new ScheduledSession(day, lateStart, seg));
+                totalMinutes -= seg;
+            }
+
+            var afternoonStart = new TimeOnly(13, random.Next(0, 2) * 30);
+            var afternoonMins = 240;
+            if (afternoonMins > 0 && totalMinutes > 0)
+            {
+                var seg = Math.Min(afternoonMins, totalMinutes);
+                sessions.Add(new ScheduledSession(day, afternoonStart, seg));
+                totalMinutes -= seg;
+            }
+
+            if (totalMinutes > 0)
+            {
+                var eveningStart = new TimeOnly(17, random.Next(0, 2) * 30);
+                sessions.Add(new ScheduledSession(day, eveningStart, totalMinutes));
+            }
+        }
+
+        return sessions;
+    }
+
+    private static List<ScheduledSession> BuildWeekendDaySessions(DayOfWeek day, int totalHours, Random random)
+    {
+        var sessions = new List<ScheduledSession>();
+        var totalMinutes = totalHours * 60;
+
+        var startHour = 6 + random.Next(0, 5);
+        var startMin = random.Next(0, 2) * 30;
+        var start = new TimeOnly(startHour, startMin);
+
+        var lunchBreak = 45 + random.Next(0, 4) * 15;
+        var dinnerBreak = 45 + random.Next(0, 4) * 15;
+        var lunchStartMins = 12 * 60;
+        var dinnerStartMins = 18 * 60;
+        var startMins = startHour * 60 + startMin;
+
+        var preLunch = lunchStartMins - startMins;
+        if (preLunch > 0)
+        {
+            var seg = Math.Min(preLunch, totalMinutes);
+            sessions.Add(new ScheduledSession(day, start, seg));
+            totalMinutes -= seg;
+        }
+
+        if (totalMinutes <= 0) return sessions;
+
+        var postLunchStart = new TimeOnly(12, 0).AddMinutes(lunchBreak);
+        var postLunchStartMins = postLunchStart.Hour * 60 + postLunchStart.Minute;
+        var preDinner = dinnerStartMins - postLunchStartMins;
+        if (preDinner > 0 && totalMinutes > 0)
+        {
+            var seg = Math.Min(preDinner, totalMinutes);
+            sessions.Add(new ScheduledSession(day, postLunchStart, seg));
+            totalMinutes -= seg;
+        }
+
+        if (totalMinutes > 0)
+        {
+            var postDinnerStart = new TimeOnly(18, 0).AddMinutes(dinnerBreak);
+            sessions.Add(new ScheduledSession(day, postDinnerStart, totalMinutes));
+        }
+
+        return sessions;
+    }
+
+    private static List<ScheduledSession> ApplyTimezoneToSessions(List<ScheduledSession> sessions, int offsetHours)
+    {
+        if (offsetHours == 0) return sessions;
+
+        return sessions.Select(s =>
+        {
+            var startMinutes = s.StartLocalTime.Hour * 60 + s.StartLocalTime.Minute;
+            var newMinutes = startMinutes + offsetHours * 60;
+            var dayOffset = 0;
+            while (newMinutes >= 1440) { newMinutes -= 1440; dayOffset++; }
+            while (newMinutes < 0) { newMinutes += 1440; dayOffset--; }
+            var newDay = (DayOfWeek)(((int)s.DayOfWeek + dayOffset + 7) % 7);
+            var newStart = TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(newMinutes));
+            return new ScheduledSession(newDay, newStart, s.DurationMinutes);
+        }).ToList();
     }
 
     private sealed record ActivitySeedDef(string Key, string Name, ActivityModeSupport ModeSupport, List<ActivityAttemptDefinition> Attempts, List<GroupSizeBand> GroupScalingBands);
