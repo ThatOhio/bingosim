@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–17");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–18");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -145,6 +145,10 @@ public class RealEventSeedService(
         const string dropKbdHead = "item.kbd_head";
         const string dropKrilUnique = "item.kril_unique";
         const string dropVardorvisUnique = "item.vardorvis_unique";
+        const string dropPyromancerPiece = "item.pyromancer_piece";
+        const string dropKreearraUnique = "item.kreearra_unique";
+        const string dropHillGiantClub = "item.hill_giant_club";
+        const string dropVoidwakerGem = "item.voidwaker_gem";
 
         return
         [
@@ -1045,6 +1049,62 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Wintertodt: 3 rolls per completion. Each roll: pyromancer 1/150, pet 1/5000 (counts as 3 pieces). ~444s per completion, solo. 3 pieces in ~17h.
+            new ActivitySeedDef(
+                "minigame.wintertodt", "Wintertodt",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("completion", RollScope.PerPlayer, new AttemptTimeModel(444, TimeDistribution.Uniform, 90),
+                        [
+                            new ActivityOutcomeDefinition("zero", 979568, 1000000, []),
+                            new ActivityOutcomeDefinition("one", 19700, 1000000, [new ProgressGrant(dropPyromancerPiece, 1)]),
+                            new ActivityOutcomeDefinition("two", 132, 1000000, [new ProgressGrant(dropPyromancerPiece, 2)]),
+                            new ActivityOutcomeDefinition("three", 592, 1000000, [new ProgressGrant(dropPyromancerPiece, 3)]),
+                            new ActivityOutcomeDefinition("four_plus", 8, 1000000, [new ProgressGrant(dropPyromancerPiece, 4)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Kree'arra: Armadyl 3×1/381, hilt 1/508, pet 1/5000. ~120s per kill, solo. 3 uniques in ~10h. Requires God Wars.
+            new ActivitySeedDef(
+                "boss.kreearra", "Kree'arra",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(120, TimeDistribution.Uniform, 25),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 628623, 635000, []),
+                            new ActivityOutcomeDefinition("unique", 6377, 635000, [new ProgressGrant(dropKreearraUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Obor: Hill giant club 1/128. ~534s per kill, solo. 1 club in ~19h.
+            new ActivitySeedDef(
+                "boss.obor", "Obor",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(534, TimeDistribution.Uniform, 100),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 127, 128, []),
+                            new ActivityOutcomeDefinition("club", 1, 128, [new ProgressGrant(dropHillGiantClub, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Venenatis: Voidwaker gem 1/360, pet 1/1500 (independent, counts as 1 gem). ~137s per kill, solo. 2 gems in ~22h.
+            new ActivitySeedDef(
+                "boss.venenatis", "Venenatis",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(137, TimeDistribution.Uniform, 25),
+                        [
+                            new ActivityOutcomeDefinition("zero", 538141, 540000, []),
+                            new ActivityOutcomeDefinition("one", 1858, 540000, [new ProgressGrant(dropVoidwakerGem, 1)]),
+                            new ActivityOutcomeDefinition("two", 1, 540000, [new ProgressGrant(dropVoidwakerGem, 2)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -1180,6 +1240,14 @@ public class RealEventSeedService(
         var krilKey = "boss.kril_tsutsaroth";
         var vardorvisId = activityIdsByKey["boss.vardorvis"];
         var vardorvisKey = "boss.vardorvis";
+        var wintertodtId = activityIdsByKey["minigame.wintertodt"];
+        var wintertodtKey = "minigame.wintertodt";
+        var kreearraId = activityIdsByKey["boss.kreearra"];
+        var kreearraKey = "boss.kreearra";
+        var oborId = activityIdsByKey["boss.obor"];
+        var oborKey = "boss.obor";
+        var venenatisId = activityIdsByKey["boss.venenatis"];
+        var venenatisKey = "boss.venenatis";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -1442,20 +1510,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(vardorvisId, vardorvisKey, ["item.vardorvis_unique"], [questDt2], [])]),
         ]);
 
+        var row18 = new Row(18,
+        [
+            new Tile("t1-r18", "3x Pyromancer Piece", 1, 3,
+                [new TileActivityRule(wintertodtId, wintertodtKey, ["item.pyromancer_piece"], [], [])]),
+            new Tile("t2-r18", "3x Kree'arra Unique", 2, 3,
+                [new TileActivityRule(kreearraId, kreearraKey, ["item.kreearra_unique"], [capabilityGodWars], [])]),
+            new Tile("t3-r18", "1x Hill Giant Club", 3, 1,
+                [new TileActivityRule(oborId, oborKey, ["item.hill_giant_club"], [], [])]),
+            new Tile("t4-r18", "2x Voidwaker Gem", 4, 2,
+                [new TileActivityRule(venenatisId, venenatisKey, ["item.voidwaker_gem"], [], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17, row18]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17, row18]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
