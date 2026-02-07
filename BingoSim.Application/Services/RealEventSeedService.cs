@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–4");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–5");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -103,6 +103,10 @@ public class RealEventSeedService(
         const string dropRoyalTitanUnique = "item.royal_titan_unique";
         const string dropYamaUnique = "item.yama_unique";
         const string dropNightmareBass = "item.nightmare_bass";
+        const string dropSlayerItem = "item.slayer_item";
+        const string dropBarrowsUnique = "item.barrows_unique";
+        const string dropDoomUnique = "item.doom_unique";
+        const string dropAraxxorUnique = "item.araxxor_unique";
 
         return
         [
@@ -443,6 +447,61 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Slayer: abstract 15 slayer items at 1/200 per kill, ~15s per kill, solo
+            new ActivitySeedDef(
+                "activity.slayer", "Slayer",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(15, TimeDistribution.Uniform, 4),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 199, 200, []),
+                            new ActivityOutcomeDefinition("item", 1, 200, [new ProgressGrant(dropSlayerItem, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Barrows: 7 rolls per completion, 1/102 per roll. ~5 min per run. Can get 0, 1, 2+ items per chest.
+            new ActivitySeedDef(
+                "boss.barrows", "Barrows",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("chest", RollScope.PerPlayer, new AttemptTimeModel(308, TimeDistribution.Uniform, 60),
+                        [
+                            new ActivityOutcomeDefinition("zero", 9340, 10000, []),
+                            new ActivityOutcomeDefinition("one", 640, 10000, [new ProgressGrant(dropBarrowsUnique, 1)]),
+                            new ActivityOutcomeDefinition("two", 20, 10000, [new ProgressGrant(dropBarrowsUnique, 2)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Doom of Mokhaiotl: 1/89 unique, pet 1/1000 (counts as 1), ~331s per kill, solo. Requires The Final Dawn.
+            new ActivitySeedDef(
+                "boss.doom_of_mokhaiotl", "Doom of Mokhaiotl",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(331, TimeDistribution.Uniform, 60),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 87911, 89000, []),
+                            new ActivityOutcomeDefinition("unique", 1000, 89000, [new ProgressGrant(dropDoomUnique, 1)]),
+                            new ActivityOutcomeDefinition("pet", 89, 89000, [new ProgressGrant(dropDoomUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Araxxor: 1/150 unique, pet 1/3000 (counts as 1), ~101s per kill, solo
+            new ActivitySeedDef(
+                "boss.araxxor", "Araxxor",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(101, TimeDistribution.Uniform, 25),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 2070, 2100, []),
+                            new ActivityOutcomeDefinition("unique", 14, 2100, [new ProgressGrant(dropAraxxorUnique, 1)]),
+                            new ActivityOutcomeDefinition("pet", 1, 2100, [new ProgressGrant(dropAraxxorUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -500,6 +559,14 @@ public class RealEventSeedService(
         var nightmareKey = "boss.nightmare";
         var phosaniId = activityIdsByKey["boss.phosani_nightmare"];
         var phosaniKey = "boss.phosani_nightmare";
+        var slayerId = activityIdsByKey["activity.slayer"];
+        var slayerKey = "activity.slayer";
+        var barrowsId = activityIdsByKey["boss.barrows"];
+        var barrowsKey = "boss.barrows";
+        var doomId = activityIdsByKey["boss.doom_of_mokhaiotl"];
+        var doomKey = "boss.doom_of_mokhaiotl";
+        var araxxorId = activityIdsByKey["boss.araxxor"];
+        var araxxorKey = "boss.araxxor";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -512,6 +579,7 @@ public class RealEventSeedService(
         var questCurseOfArrav = new Capability("quest.curse_of_arrav", "The Curse of Arrav");
         var questDefenderOfVarrock = new Capability("quest.defender_of_varrock", "Defender of Varrock");
         var questKingdomDivided = new Capability("quest.kingdom_divided", "A Kingdom Divided");
+        var questFinalDawn = new Capability("quest.the_final_dawn", "The Final Dawn");
 
         var row0 = new Row(0,
         [
@@ -583,20 +651,32 @@ public class RealEventSeedService(
                 ]),
         ]);
 
+        var row5 = new Row(5,
+        [
+            new Tile("t1-r5", "15x Slayer Items", 1, 15,
+                [new TileActivityRule(slayerId, slayerKey, ["item.slayer_item"], [], [])]),
+            new Tile("t2-r5", "8x Barrows Unique", 2, 8,
+                [new TileActivityRule(barrowsId, barrowsKey, ["item.barrows_unique"], [], [])]),
+            new Tile("t3-r5", "2x Doom Unique", 3, 2,
+                [new TileActivityRule(doomId, doomKey, ["item.doom_unique"], [questFinalDawn], [])]),
+            new Tile("t4-r5", "4x Araxxor Unique", 4, 4,
+                [new TileActivityRule(araxxorId, araxxorKey, ["item.araxxor_unique"], [], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
