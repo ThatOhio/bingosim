@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–9");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–10");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -122,6 +122,10 @@ public class RealEventSeedService(
         const string dropFedora = "item.fedora";
         const string dropZilyanaUnique = "item.zilyana_unique";
         const string dropNightmareR9 = "item.nightmare_r9";
+        const string dropSoakedPages = "item.soaked_pages";
+        const string dropVenatorShard = "item.venator_shard";
+        const string dropColosseumUnique = "item.colosseum_unique";
+        const string dropNexTorvaOrShards = "item.nex_torva_or_shards";
 
         return
         [
@@ -719,6 +723,70 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(3, 5, 1.0m, 1.0m)]),
+
+            // Tempoross: ~17 rolls per completion. 7 pages 1/54, barrel/tackle 1/400 each (25), tome 1/1600 (150), harpoon/pet 1/8000 each (300). ~600s (10 min) per completion.
+            new ActivitySeedDef(
+                "minigame.tempoross", "Tempoross",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("completion", RollScope.PerPlayer, new AttemptTimeModel(600, TimeDistribution.Uniform, 120),
+                        [
+                            new ActivityOutcomeDefinition("zero", 7100, 10000, []),
+                            new ActivityOutcomeDefinition("seven", 2300, 10000, [new ProgressGrant(dropSoakedPages, 7)]),
+                            new ActivityOutcomeDefinition("twenty_five", 500, 10000, [new ProgressGrant(dropSoakedPages, 25)]),
+                            new ActivityOutcomeDefinition("thirty_two", 50, 10000, [new ProgressGrant(dropSoakedPages, 32)]),
+                            new ActivityOutcomeDefinition("fifty", 30, 10000, [new ProgressGrant(dropSoakedPages, 50)]),
+                            new ActivityOutcomeDefinition("seventy_five", 10, 10000, [new ProgressGrant(dropSoakedPages, 75)]),
+                            new ActivityOutcomeDefinition("hundred_fifty", 5, 10000, [new ProgressGrant(dropSoakedPages, 150)]),
+                            new ActivityOutcomeDefinition("complete", 5, 10000, [new ProgressGrant(dropSoakedPages, 300)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Phantom Muspah: Venator shard 1/100, pet 1/2500 (counts as 1). ~150s per kill, solo. Requires Secrets of the North.
+            new ActivitySeedDef(
+                "boss.phantom_muspah", "Phantom Muspah",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(150, TimeDistribution.Uniform, 30),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 2474, 2500, []),
+                            new ActivityOutcomeDefinition("shard", 25, 2500, [new ProgressGrant(dropVenatorShard, 1)]),
+                            new ActivityOutcomeDefinition("pet", 1, 2500, [new ProgressGrant(dropVenatorShard, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Colosseum: 1/40 unique per completion. ~198s per completion, solo.
+            new ActivitySeedDef(
+                "activity.colosseum", "Colosseum",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("completion", RollScope.PerPlayer, new AttemptTimeModel(198, TimeDistribution.Uniform, 40),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 39, 40, []),
+                            new ActivityOutcomeDefinition("unique", 1, 40, [new ProgressGrant(dropColosseumUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Nex: 2 rolls per kill, PerGroup. Torva 3/258 per roll, shards 1/16 (80-85) or 1/26 (85-95). 1 torva OR 1500 shards. ~3600s per kill (incl. travel).
+            new ActivitySeedDef(
+                "boss.nex", "Nex",
+                new ActivityModeSupport(false, true, 3, 12),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerGroup, new AttemptTimeModel(3600, TimeDistribution.Uniform, 600),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 7870, 10000, []),
+                            new ActivityOutcomeDefinition("one_torva", 206, 10000, [new ProgressGrant(dropNexTorvaOrShards, 1500)]),
+                            new ActivityOutcomeDefinition("two_torva", 1, 10000, [new ProgressGrant(dropNexTorvaOrShards, 1500)]),
+                            new ActivityOutcomeDefinition("shards_80_85", 1110, 10000, [new ProgressGrant(dropNexTorvaOrShards, 82)]),
+                            new ActivityOutcomeDefinition("shards_85_95", 680, 10000, [new ProgressGrant(dropNexTorvaOrShards, 90)]),
+                            new ActivityOutcomeDefinition("both_shards", 48, 10000, [new ProgressGrant(dropNexTorvaOrShards, 172)]),
+                            new ActivityOutcomeDefinition("torva_plus_shards", 85, 10000, [new ProgressGrant(dropNexTorvaOrShards, 1500)]),
+                        ]),
+                ],
+                [new GroupSizeBand(3, 12, 1.0m, 1.0m)]),
         ];
     }
 
@@ -812,6 +880,14 @@ public class RealEventSeedService(
         var tobHmKey = "raid.tob_hard_mode";
         var zilyanaId = activityIdsByKey["boss.commander_zilyana"];
         var zilyanaKey = "boss.commander_zilyana";
+        var temporossId = activityIdsByKey["minigame.tempoross"];
+        var temporossKey = "minigame.tempoross";
+        var phantomMuspahId = activityIdsByKey["boss.phantom_muspah"];
+        var phantomMuspahKey = "boss.phantom_muspah";
+        var colosseumId = activityIdsByKey["activity.colosseum"];
+        var colosseumKey = "activity.colosseum";
+        var nexId = activityIdsByKey["boss.nex"];
+        var nexKey = "boss.nex";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -832,6 +908,7 @@ public class RealEventSeedService(
         var raidTob = new Capability("raid.tob", "Theatre of Blood");
         var sailing75 = new Capability("sailing.75", "Sailing 75");
         var raidTobHm = new Capability("raid.tob_hard_mode", "Hard Mode Theatre of Blood");
+        var questSecretsOfNorth = new Capability("quest.secrets_of_the_north", "Secrets of the North");
 
         var row0 = new Row(0,
         [
@@ -975,20 +1052,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(yamaId, yamaKey, ["item.yama_unique"], [questKingdomDivided], [])]),
         ]);
 
+        var row10 = new Row(10,
+        [
+            new Tile("t1-r10", "300 Soaked Pages", 1, 300,
+                [new TileActivityRule(temporossId, temporossKey, ["item.soaked_pages"], [], [])]),
+            new Tile("t2-r10", "3x Venator Shard", 2, 3,
+                [new TileActivityRule(phantomMuspahId, phantomMuspahKey, ["item.venator_shard"], [questSecretsOfNorth], [])]),
+            new Tile("t3-r10", "5x Colosseum Unique", 3, 5,
+                [new TileActivityRule(colosseumId, colosseumKey, ["item.colosseum_unique"], [], [])]),
+            new Tile("t4-r10", "1 Torva Piece or 1500 Nihil Shards", 4, 1500,
+                [new TileActivityRule(nexId, nexKey, ["item.nex_torva_or_shards"], [capabilityGodWars], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
