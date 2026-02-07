@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–7");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–8");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -115,6 +115,10 @@ public class RealEventSeedService(
         const string dropSailingTreasureUnique = "item.sailing_treasure_unique";
         const string dropDukeUnique = "item.duke_unique";
         const string dropTobVials = "loot.tob_vials";
+        const string dropSharkPaint = "item.shark_paint";
+        const string dropZulrahUnique = "item.zulrah_unique";
+        const string dropHookOrBarbs = "item.hook_or_barbs";
+        const string dropRaidCosmetic = "loot.raid_cosmetic";
 
         return
         [
@@ -152,19 +156,28 @@ public class RealEventSeedService(
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
 
-            // Chambers of Xeric: dragon arrows. 30 min per raid, PerPlayer rolls.
-            // Purple 1/20: 52/53 → 250 arrows; 1/53 → pet (additional 250) = 500 total. No purple: 2 rolls at 1/33 each → 30-200 or 60-400.
+            // Chambers of Xeric: dragon arrows + cosmetic (dust 1/400, kit 1/75, pet 1/1060). 30 min per raid, PerPlayer.
+            // Purple 1/20: 52/53 → 250 arrows; 1/53 → pet (500 arrows + 1 cosmetic). No purple: 2 rolls at 1/33 each.
+            // Cosmetic: dust 1/400, twisted ancestral 1/75 (per completion); pet grants cosmetic on purple.
             new ActivitySeedDef(
                 "raid.cox", "Chambers of Xeric",
                 new ActivityModeSupport(true, true, 1, 8),
                 [
                     new ActivityAttemptDefinition("completion", RollScope.PerPlayer, new AttemptTimeModel(1800, TimeDistribution.Uniform, 300),
                         [
-                            new ActivityOutcomeDefinition("purple_no_pet", 56628, 1154340, [new ProgressGrant(dropDragonArrows, 250)]),
-                            new ActivityOutcomeDefinition("purple_with_pet", 1089, 1154340, [new ProgressGrant(dropDragonArrows, 500)]),
-                            new ActivityOutcomeDefinition("zero_arrows", 1031168, 1154340, []),
-                            new ActivityOutcomeDefinition("one_roll", 64448, 1154340, [new ProgressGrant(dropDragonArrows, 30, 200)]),
-                            new ActivityOutcomeDefinition("two_rolls", 1007, 1154340, [new ProgressGrant(dropDragonArrows, 60, 400)]),
+                            new ActivityOutcomeDefinition("purple_no_pet", 55732, 1154340, [new ProgressGrant(dropDragonArrows, 250)]),
+                            new ActivityOutcomeDefinition("purple_no_pet_dust", 141, 1154340, [new ProgressGrant(dropDragonArrows, 250), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("purple_no_pet_kit", 755, 1154340, [new ProgressGrant(dropDragonArrows, 250), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("purple_with_pet", 1089, 1154340, [new ProgressGrant(dropDragonArrows, 500), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("zero_arrows", 1014841, 1154340, []),
+                            new ActivityOutcomeDefinition("zero_arrows_dust", 2578, 1154340, [new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("zero_arrows_kit", 13749, 1154340, [new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("one_roll", 63428, 1154340, [new ProgressGrant(dropDragonArrows, 30, 200)]),
+                            new ActivityOutcomeDefinition("one_roll_dust", 161, 1154340, [new ProgressGrant(dropDragonArrows, 30, 200), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("one_roll_kit", 859, 1154340, [new ProgressGrant(dropDragonArrows, 30, 200), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("two_rolls", 992, 1154340, [new ProgressGrant(dropDragonArrows, 60, 400)]),
+                            new ActivityOutcomeDefinition("two_rolls_dust", 2, 1154340, [new ProgressGrant(dropDragonArrows, 60, 400), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("two_rolls_kit", 13, 1154340, [new ProgressGrant(dropDragonArrows, 60, 400), new ProgressGrant(dropRaidCosmetic, 1)]),
                         ]),
                 ],
                 [
@@ -618,6 +631,76 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(3, 5, 1.0m, 1.0m)]),
+
+            // Port task: Shark paint 1/36 per attempt, ~1200s (20 min) per attempt, solo.
+            new ActivitySeedDef(
+                "activity.port_task", "Port Task",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("task", RollScope.PerPlayer, new AttemptTimeModel(1200, TimeDistribution.Uniform, 300),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 35, 36, []),
+                            new ActivityOutcomeDefinition("paint", 1, 36, [new ProgressGrant(dropSharkPaint, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Zulrah: 2 drops per kill, each 3/1024 for unique (Tanzanite/Magic/Serpentine). Pet 1/4000 counts as 1. ~72s per kill, solo.
+            new ActivitySeedDef(
+                "boss.zulrah", "Zulrah",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(72, TimeDistribution.Uniform, 15),
+                        [
+                            new ActivityOutcomeDefinition("zero", 99385, 100000, []),
+                            new ActivityOutcomeDefinition("one", 610, 100000, [new ProgressGrant(dropZulrahUnique, 1)]),
+                            new ActivityOutcomeDefinition("two", 4, 100000, [new ProgressGrant(dropZulrahUnique, 2)]),
+                            new ActivityOutcomeDefinition("two_plus_pet", 1, 100000, [new ProgressGrant(dropZulrahUnique, 3)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Great white shark: Broken dragon hook 1/1023, grants 75 progress (completes tile). ~90s per kill, solo. Requires sailing 75.
+            new ActivitySeedDef(
+                "boss.great_white_shark", "Great White Shark",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(90, TimeDistribution.Uniform, 18),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 1022, 1023, []),
+                            new ActivityOutcomeDefinition("hook", 1, 1023, [new ProgressGrant(dropHookOrBarbs, 75)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Ray barbs: 1/22 per kill from sailing monsters, 1 barb = 1 progress. ~57s per kill, solo. No requirement.
+            new ActivitySeedDef(
+                "monster.ray_barbs", "Ray Barbs",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(57, TimeDistribution.Uniform, 12),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 21, 22, []),
+                            new ActivityOutcomeDefinition("barb", 1, 22, [new ProgressGrant(dropHookOrBarbs, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Theatre of Blood Hard Mode: Holy 1/100, Sanguine ornament 1/150, Sanguine dust 1/275, pet 1/500. 30 min per raid, 3–5 players. PerGroup.
+            new ActivitySeedDef(
+                "raid.tob_hard_mode", "Theatre of Blood Hard Mode",
+                new ActivityModeSupport(false, true, 3, 5),
+                [
+                    new ActivityAttemptDefinition("completion", RollScope.PerGroup, new AttemptTimeModel(1800, TimeDistribution.Uniform, 300),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 16132, 16500, []),
+                            new ActivityOutcomeDefinition("holy", 165, 16500, [new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("sanguine_ornament", 110, 16500, [new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("sanguine_dust", 60, 16500, [new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("pet", 33, 16500, [new ProgressGrant(dropRaidCosmetic, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(3, 5, 1.0m, 1.0m)]),
         ];
     }
 
@@ -699,6 +782,16 @@ public class RealEventSeedService(
         var dukeSucellusKey = "boss.duke_sucellus";
         var tobId = activityIdsByKey["raid.tob"];
         var tobKey = "raid.tob";
+        var portTaskId = activityIdsByKey["activity.port_task"];
+        var portTaskKey = "activity.port_task";
+        var zulrahId = activityIdsByKey["boss.zulrah"];
+        var zulrahKey = "boss.zulrah";
+        var greatWhiteSharkId = activityIdsByKey["boss.great_white_shark"];
+        var greatWhiteSharkKey = "boss.great_white_shark";
+        var rayBarbsId = activityIdsByKey["monster.ray_barbs"];
+        var rayBarbsKey = "monster.ray_barbs";
+        var tobHmId = activityIdsByKey["raid.tob_hard_mode"];
+        var tobHmKey = "raid.tob_hard_mode";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -717,6 +810,8 @@ public class RealEventSeedService(
         var sailing78 = new Capability("sailing.78", "Sailing 78");
         var questDt2 = new Capability("quest.dt2", "Desert Treasure II");
         var raidTob = new Capability("raid.tob", "Theatre of Blood");
+        var sailing75 = new Capability("sailing.75", "Sailing 75");
+        var raidTobHm = new Capability("raid.tob_hard_mode", "Hard Mode Theatre of Blood");
 
         var row0 = new Row(0,
         [
@@ -827,20 +922,38 @@ public class RealEventSeedService(
                 [new TileActivityRule(tobId, tobKey, ["loot.tob_vials"], [raidTob], [])]),
         ]);
 
+        var row8 = new Row(8,
+        [
+            new Tile("t1-r8", "Shark Paint", 1, 1,
+                [new TileActivityRule(portTaskId, portTaskKey, ["item.shark_paint"], [], [])]),
+            new Tile("t2-r8", "4x Zulrah Unique", 2, 4,
+                [new TileActivityRule(zulrahId, zulrahKey, ["item.zulrah_unique"], [], [])]),
+            new Tile("t3-r8", "Dragon Hook or 75 Ray Barbs", 3, 75,
+                [
+                    new TileActivityRule(greatWhiteSharkId, greatWhiteSharkKey, ["item.hook_or_barbs"], [sailing75], []),
+                    new TileActivityRule(rayBarbsId, rayBarbsKey, ["item.hook_or_barbs"], [], []),
+                ]),
+            new Tile("t4-r8", "1 Raid Cosmetic (CoX or ToB HM)", 4, 1,
+                [
+                    new TileActivityRule(coxId, coxKey, ["loot.raid_cosmetic"], [raidCox], []),
+                    new TileActivityRule(tobHmId, tobHmKey, ["loot.raid_cosmetic"], [raidTobHm], []),
+                ]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
