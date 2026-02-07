@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–3");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–4");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -99,6 +99,10 @@ public class RealEventSeedService(
         const string dropWildernessShield = "item.wilderness_shield";
         const string dropVetionUnique = "item.vetion_unique";
         const string dropCallistoHilt = "item.callisto_hilt";
+        const string dropZombieAxeHelm = "item.zombie_axe_helm";
+        const string dropRoyalTitanUnique = "item.royal_titan_unique";
+        const string dropYamaUnique = "item.yama_unique";
+        const string dropNightmareBass = "item.nightmare_bass";
 
         return
         [
@@ -349,6 +353,96 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Armoured Zombie (Varrock): 1/600 axe or helm, ~4.5s per kill, solo. Requires Defender of Varrock.
+            new ActivitySeedDef(
+                "monster.armoured_zombie_varrock", "Armoured Zombie (Varrock)",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(5, TimeDistribution.Uniform, 2),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 599, 600, []),
+                            new ActivityOutcomeDefinition("drop", 1, 600, [new ProgressGrant(dropZombieAxeHelm, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Armoured Zombie (Arrav): 1/800 axe or helm, ~4.5s per kill, solo. Requires Curse of Arrav.
+            new ActivitySeedDef(
+                "monster.armoured_zombie_arrav", "Armoured Zombie (Arrav)",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(5, TimeDistribution.Uniform, 2),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 799, 800, []),
+                            new ActivityOutcomeDefinition("drop", 1, 800, [new ProgressGrant(dropZombieAxeHelm, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Royal Titans: 2 uniques at 1/75 each, solo or duo. Duo twice as fast. ~480s solo, ~240s duo. PerGroup (one roll per kill).
+            new ActivitySeedDef(
+                "boss.royal_titans", "Royal Titans",
+                new ActivityModeSupport(true, true, 1, 2),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerGroup, new AttemptTimeModel(480, TimeDistribution.Uniform, 100),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 73, 75, []),
+                            new ActivityOutcomeDefinition("unique", 2, 75, [new ProgressGrant(dropRoyalTitanUnique, 1)]),
+                        ]),
+                ],
+                [
+                    new GroupSizeBand(1, 1, 1.0m, 1.0m),   // solo: 480s
+                    new GroupSizeBand(2, 2, 0.5m, 1.0m),   // duo: 240s
+                ]),
+
+            // Yama: 1 unique (horn 1/300, armor 3×1/600). Shards dry protection not modeled. ~360s solo, ~180s duo. Requires A Kingdom Divided.
+            new ActivitySeedDef(
+                "boss.yama", "Yama",
+                new ActivityModeSupport(true, true, 1, 2),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerGroup, new AttemptTimeModel(360, TimeDistribution.Uniform, 60),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 119, 120, []),
+                            new ActivityOutcomeDefinition("unique", 1, 120, [new ProgressGrant(dropYamaUnique, 1)]),
+                        ]),
+                ],
+                [
+                    new GroupSizeBand(1, 1, 1.0m, 1.0m),   // solo: 360s
+                    new GroupSizeBand(2, 2, 0.5m, 1.0m),   // duo: 180s
+                ]),
+
+            // The Nightmare (group): bass 1/17, unique = 10 bass. 3-12 players. Kill time varies: 3-4p ~8min, 5-9p ~9min, 10+p ~6min (with buffer).
+            new ActivitySeedDef(
+                "boss.nightmare", "The Nightmare",
+                new ActivityModeSupport(false, true, 3, 12),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerGroup, new AttemptTimeModel(480, TimeDistribution.Uniform, 120),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 991, 1071, []),
+                            new ActivityOutcomeDefinition("bass", 63, 1071, [new ProgressGrant(dropNightmareBass, 1)]),
+                            new ActivityOutcomeDefinition("unique", 17, 1071, [new ProgressGrant(dropNightmareBass, 10)]),
+                        ]),
+                ],
+                [
+                    new GroupSizeBand(3, 4, 1.0m, 1.0m),   // 6-7 min + buffer ~8 min
+                    new GroupSizeBand(5, 9, 1.2m, 1.0m),   // 7-9 min + buffer ~10 min
+                    new GroupSizeBand(10, 12, 0.82m, 1.0m), // <5 min + buffer ~6 min
+                ]),
+
+            // Phosani's Nightmare (solo): bass 1/17, unique = 10 bass. Lower unique rates. 8-10 min + buffer.
+            new ActivitySeedDef(
+                "boss.phosani_nightmare", "Phosani's Nightmare",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(630, TimeDistribution.Uniform, 90),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 9410, 10000, []),
+                            new ActivityOutcomeDefinition("bass", 580, 10000, [new ProgressGrant(dropNightmareBass, 1)]),
+                            new ActivityOutcomeDefinition("unique", 10, 10000, [new ProgressGrant(dropNightmareBass, 10)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -394,6 +488,18 @@ public class RealEventSeedService(
         var vetionKey = "boss.vetion";
         var callistoId = activityIdsByKey["boss.callisto"];
         var callistoKey = "boss.callisto";
+        var armouredZombieVarrockId = activityIdsByKey["monster.armoured_zombie_varrock"];
+        var armouredZombieVarrockKey = "monster.armoured_zombie_varrock";
+        var armouredZombieArravId = activityIdsByKey["monster.armoured_zombie_arrav"];
+        var armouredZombieArravKey = "monster.armoured_zombie_arrav";
+        var royalTitansId = activityIdsByKey["boss.royal_titans"];
+        var royalTitansKey = "boss.royal_titans";
+        var yamaId = activityIdsByKey["boss.yama"];
+        var yamaKey = "boss.yama";
+        var nightmareId = activityIdsByKey["boss.nightmare"];
+        var nightmareKey = "boss.nightmare";
+        var phosaniId = activityIdsByKey["boss.phosani_nightmare"];
+        var phosaniKey = "boss.phosani_nightmare";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -403,6 +509,9 @@ public class RealEventSeedService(
         var questDs2 = new Capability("quest.ds2", "Dragon Slayer II");
         var questMm2 = new Capability("quest.mm2", "Monkey Madness II");
         var questSote = new Capability("quest.sote", "Song of the Elves");
+        var questCurseOfArrav = new Capability("quest.curse_of_arrav", "The Curse of Arrav");
+        var questDefenderOfVarrock = new Capability("quest.defender_of_varrock", "Defender of Varrock");
+        var questKingdomDivided = new Capability("quest.kingdom_divided", "A Kingdom Divided");
 
         var row0 = new Row(0,
         [
@@ -456,20 +565,38 @@ public class RealEventSeedService(
                 [new TileActivityRule(callistoId, callistoKey, ["item.callisto_hilt"], [], [])]),
         ]);
 
+        var row4 = new Row(4,
+        [
+            new Tile("t1-r4", "12x Zombie Axe or Helm", 1, 12,
+                [
+                    new TileActivityRule(armouredZombieVarrockId, armouredZombieVarrockKey, ["item.zombie_axe_helm"], [questDefenderOfVarrock], []),
+                    new TileActivityRule(armouredZombieArravId, armouredZombieArravKey, ["item.zombie_axe_helm"], [questCurseOfArrav], []),
+                ]),
+            new Tile("t2-r4", "6x Royal Titan Unique", 2, 6,
+                [new TileActivityRule(royalTitansId, royalTitansKey, ["item.royal_titan_unique"], [], [])]),
+            new Tile("t3-r4", "1x Yama Unique", 3, 1,
+                [new TileActivityRule(yamaId, yamaKey, ["item.yama_unique"], [questKingdomDivided], [])]),
+            new Tile("t4-r4", "25x Nightmare Bass", 4, 25,
+                [
+                    new TileActivityRule(nightmareId, nightmareKey, ["item.nightmare_bass"], [], []),
+                    new TileActivityRule(phosaniId, phosaniKey, ["item.nightmare_bass"], [], []),
+                ]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3]);
+            existing.SetRows([row0, row1, row2, row3, row4]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3]);
+            evt.SetRows([row0, row1, row2, row3, row4]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
