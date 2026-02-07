@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–6");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–7");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -111,6 +111,10 @@ public class RealEventSeedService(
         const string dropGraardorUnique = "item.graardor_unique";
         const string dropBottledStorm = "item.bottled_storm";
         const string dropSwiftAlbatrossFeather = "item.swift_albatross_feather";
+        const string dropMonkeyLap = "progress.monkey_lap";
+        const string dropSailingTreasureUnique = "item.sailing_treasure_unique";
+        const string dropDukeUnique = "item.duke_unique";
+        const string dropTobVials = "loot.tob_vials";
 
         return
         [
@@ -559,6 +563,61 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Monkey agility: 1000 laps, 36s per lap. Pet 1/37,720 completes tile instantly (1000 progress).
+            new ActivitySeedDef(
+                "activity.monkey_agility", "Monkey Agility",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("lap", RollScope.PerPlayer, new AttemptTimeModel(36, TimeDistribution.Uniform, 6),
+                        [
+                            new ActivityOutcomeDefinition("lap", 37719, 37720, [new ProgressGrant(dropMonkeyLap, 1)]),
+                            new ActivityOutcomeDefinition("pet", 1, 37720, [new ProgressGrant(dropMonkeyLap, 1000)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Sailing treasure: abstract 2 drops at 1/200 per attempt, ~135s per attempt.
+            new ActivitySeedDef(
+                "activity.sailing_treasure", "Sailing Treasure",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("attempt", RollScope.PerPlayer, new AttemptTimeModel(135, TimeDistribution.Uniform, 30),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 199, 200, []),
+                            new ActivityOutcomeDefinition("unique", 1, 200, [new ProgressGrant(dropSailingTreasureUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Duke Sucellus: Magus 1/720, Eye 1/720, Virtus 3×1/2160 (combined 1/240), pet 1/2500 (counts as 1), ~77s per kill, solo. Requires DT2.
+            new ActivitySeedDef(
+                "boss.duke_sucellus", "Duke Sucellus",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(77, TimeDistribution.Uniform, 15),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 218, 219, []),
+                            new ActivityOutcomeDefinition("unique", 1, 219, [new ProgressGrant(dropDukeUnique, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Theatre of Blood: 3–5 players, 30 min per raid. 3 rolls per player at 1/15 for vials; 1/9 per raid one player gets unique (80 vials, no vial rolls). PerGroup.
+            new ActivitySeedDef(
+                "raid.tob", "Theatre of Blood",
+                new ActivityModeSupport(false, true, 3, 5),
+                [
+                    new ActivityAttemptDefinition("completion", RollScope.PerGroup, new AttemptTimeModel(1800, TimeDistribution.Uniform, 300),
+                        [
+                            new ActivityOutcomeDefinition("unique", 1000, 9000, [new ProgressGrant(dropTobVials, 80)]),
+                            new ActivityOutcomeDefinition("zero", 3520, 9000, []),
+                            new ActivityOutcomeDefinition("one", 3040, 9000, [new ProgressGrant(dropTobVials, 1)]),
+                            new ActivityOutcomeDefinition("two", 1120, 9000, [new ProgressGrant(dropTobVials, 2)]),
+                            new ActivityOutcomeDefinition("three", 320, 9000, [new ProgressGrant(dropTobVials, 3)]),
+                        ]),
+                ],
+                [new GroupSizeBand(3, 5, 1.0m, 1.0m)]),
         ];
     }
 
@@ -632,6 +691,14 @@ public class RealEventSeedService(
         var vampyreKrakenKey = "boss.vampyre_kraken";
         var albatrossId = activityIdsByKey["monster.albatross"];
         var albatrossKey = "monster.albatross";
+        var monkeyAgilityId = activityIdsByKey["activity.monkey_agility"];
+        var monkeyAgilityKey = "activity.monkey_agility";
+        var sailingTreasureId = activityIdsByKey["activity.sailing_treasure"];
+        var sailingTreasureKey = "activity.sailing_treasure";
+        var dukeSucellusId = activityIdsByKey["boss.duke_sucellus"];
+        var dukeSucellusKey = "boss.duke_sucellus";
+        var tobId = activityIdsByKey["raid.tob"];
+        var tobKey = "raid.tob";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -648,6 +715,8 @@ public class RealEventSeedService(
         var questPerilousMoons = new Capability("quest.perilous_moons", "Perilous Moons");
         var capabilityGodWars = new Capability("capability.god_wars", "God Wars");
         var sailing78 = new Capability("sailing.78", "Sailing 78");
+        var questDt2 = new Capability("quest.dt2", "Desert Treasure II");
+        var raidTob = new Capability("raid.tob", "Theatre of Blood");
 
         var row0 = new Row(0,
         [
@@ -746,20 +815,32 @@ public class RealEventSeedService(
                 ]),
         ]);
 
+        var row7 = new Row(7,
+        [
+            new Tile("t1-r7", "1000 Monkey Agility Laps", 1, 1000,
+                [new TileActivityRule(monkeyAgilityId, monkeyAgilityKey, ["progress.monkey_lap"], [], [])]),
+            new Tile("t2-r7", "2x Sailing Treasure Unique", 2, 2,
+                [new TileActivityRule(sailingTreasureId, sailingTreasureKey, ["item.sailing_treasure_unique"], [], [])]),
+            new Tile("t3-r7", "3x Duke Sucellus Unique", 3, 3,
+                [new TileActivityRule(dukeSucellusId, dukeSucellusKey, ["item.duke_unique"], [questDt2], [])]),
+            new Tile("t4-r7", "750 ToB Vials", 4, 750,
+                [new TileActivityRule(tobId, tobKey, ["loot.tob_vials"], [raidTob], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
