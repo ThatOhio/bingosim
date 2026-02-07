@@ -177,18 +177,18 @@ public class RealEventSeedService(
                     new ActivityAttemptDefinition("completion", RollScope.PerPlayer, new AttemptTimeModel(1800, TimeDistribution.Uniform, 300),
                         [
                             new ActivityOutcomeDefinition("purple_no_pet", 55732, 1154340, [new ProgressGrant(dropDragonArrows, 250)]),
-                            new ActivityOutcomeDefinition("purple_no_pet_dust", 141, 1154340, [new ProgressGrant(dropDragonArrows, 250), new ProgressGrant(dropRaidCosmetic, 1)]),
-                            new ActivityOutcomeDefinition("purple_no_pet_kit", 755, 1154340, [new ProgressGrant(dropDragonArrows, 250), new ProgressGrant(dropRaidCosmetic, 1)]),
-                            new ActivityOutcomeDefinition("purple_with_pet", 1089, 1154340, [new ProgressGrant(dropDragonArrows, 500), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("purple_no_pet_dust", 141, 1154340, [new ProgressGrant(dropDragonArrows, 650), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("purple_no_pet_kit", 755, 1154340, [new ProgressGrant(dropDragonArrows, 650), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("purple_with_pet", 1089, 1154340, [new ProgressGrant(dropDragonArrows, 900), new ProgressGrant(dropRaidCosmetic, 1)]),
                             new ActivityOutcomeDefinition("zero_arrows", 1014841, 1154340, []),
-                            new ActivityOutcomeDefinition("zero_arrows_dust", 2578, 1154340, [new ProgressGrant(dropRaidCosmetic, 1)]),
-                            new ActivityOutcomeDefinition("zero_arrows_kit", 13749, 1154340, [new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("zero_arrows_dust", 2578, 1154340, [new ProgressGrant(dropDragonArrows, 400), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("zero_arrows_kit", 13749, 1154340, [new ProgressGrant(dropDragonArrows, 400), new ProgressGrant(dropRaidCosmetic, 1)]),
                             new ActivityOutcomeDefinition("one_roll", 63428, 1154340, [new ProgressGrant(dropDragonArrows, 30, 200)]),
-                            new ActivityOutcomeDefinition("one_roll_dust", 161, 1154340, [new ProgressGrant(dropDragonArrows, 30, 200), new ProgressGrant(dropRaidCosmetic, 1)]),
-                            new ActivityOutcomeDefinition("one_roll_kit", 859, 1154340, [new ProgressGrant(dropDragonArrows, 30, 200), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("one_roll_dust", 161, 1154340, [new ProgressGrant(dropDragonArrows, 430, 600), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("one_roll_kit", 859, 1154340, [new ProgressGrant(dropDragonArrows, 430, 600), new ProgressGrant(dropRaidCosmetic, 1)]),
                             new ActivityOutcomeDefinition("two_rolls", 992, 1154340, [new ProgressGrant(dropDragonArrows, 60, 400)]),
-                            new ActivityOutcomeDefinition("two_rolls_dust", 2, 1154340, [new ProgressGrant(dropDragonArrows, 60, 400), new ProgressGrant(dropRaidCosmetic, 1)]),
-                            new ActivityOutcomeDefinition("two_rolls_kit", 13, 1154340, [new ProgressGrant(dropDragonArrows, 60, 400), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("two_rolls_dust", 2, 1154340, [new ProgressGrant(dropDragonArrows, 460, 800), new ProgressGrant(dropRaidCosmetic, 1)]),
+                            new ActivityOutcomeDefinition("two_rolls_kit", 13, 1154340, [new ProgressGrant(dropDragonArrows, 460, 800), new ProgressGrant(dropRaidCosmetic, 1)]),
                         ]),
                 ],
                 [
@@ -644,14 +644,14 @@ public class RealEventSeedService(
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
 
-            // Theatre of Blood: 3–5 players, 30 min per raid. 3 rolls per player at 1/15 for vials; 1/9 per raid one player gets unique (80 vials, no vial rolls). PerGroup.
+            // Theatre of Blood: 3–5 players, 30 min per raid. 3 rolls per player at 1/15 for vials; 1/9 per raid one player gets unique (100 vials, no vial rolls). PerGroup.
             new ActivitySeedDef(
                 "raid.tob", "Theatre of Blood",
                 new ActivityModeSupport(false, true, 3, 5),
                 [
                     new ActivityAttemptDefinition("completion", RollScope.PerGroup, new AttemptTimeModel(1800, TimeDistribution.Uniform, 300),
                         [
-                            new ActivityOutcomeDefinition("unique", 1000, 9000, [new ProgressGrant(dropTobVials, 80)]),
+                            new ActivityOutcomeDefinition("unique", 1000, 9000, [new ProgressGrant(dropTobVials, 100)]),
                             new ActivityOutcomeDefinition("zero", 3520, 9000, []),
                             new ActivityOutcomeDefinition("one", 3040, 9000, [new ProgressGrant(dropTobVials, 1)]),
                             new ActivityOutcomeDefinition("two", 1120, 9000, [new ProgressGrant(dropTobVials, 2)]),
@@ -970,7 +970,7 @@ public class RealEventSeedService(
                 [new TileActivityRule(gryphonId, gryphonKey, ["item.belles_folly"], [slayer51], [])]),
             new Tile("t3-r0", "1x Dragon Warhammer", 3, 1,
                 [new TileActivityRule(shamanId, shamanKey, ["item.dragon_warhammer"], [], [])]),
-            new Tile("t4-r0", "800 Dragon Arrows", 4, 800,
+            new Tile("t4-r0", "1100 Dragon Arrows", 4, 1100,
                 [new TileActivityRule(coxId, coxKey, ["loot.dragon_arrows"], [raidCox], [])]),
         ]);
 
@@ -978,7 +978,7 @@ public class RealEventSeedService(
         [
             new Tile("t1-r1", "6x DK Ring", 1, 6,
                 [new TileActivityRule(dkId, dkKey, ["item.dk_ring"], [], [])]),
-            new Tile("t2-r1", "3x TD Unique", 2, 3,
+            new Tile("t2-r1", "2x TD Unique", 2, 2,
                 [new TileActivityRule(tdId, tdKey, ["item.td_unique"], [questWgs], [])]),
             new Tile("t3-r1", "5x Cerberus Unique", 3, 5,
                 [new TileActivityRule(cerberusId, cerberusKey, ["item.cerberus_unique"], [slayer91], [])]),
@@ -988,7 +988,7 @@ public class RealEventSeedService(
 
         var row2 = new Row(2,
         [
-            new Tile("t1-r2", "2x Elder Chaos Druid Robes", 1, 2,
+            new Tile("t1-r2", "3x Elder Chaos Druid Robes", 1, 3,
                 [new TileActivityRule(elderDruidId, elderDruidKey, ["item.elder_chaos_robe"], [], [])]),
             new Tile("t2-r2", "3x Zenyte Shard", 2, 3,
                 [new TileActivityRule(demonicGorillaId, demonicGorillaKey, ["item.zenyte_shard"], [questMm2], [])]),
@@ -1010,7 +1010,7 @@ public class RealEventSeedService(
                 ]),
             new Tile("t3-r3", "6x Vet'ion Unique", 3, 6,
                 [new TileActivityRule(vetionId, vetionKey, ["item.vetion_unique"], [], [])]),
-            new Tile("t4-r3", "3x Callisto Hilt", 4, 3,
+            new Tile("t4-r3", "2x Callisto Hilt", 4, 2,
                 [new TileActivityRule(callistoId, callistoKey, ["item.callisto_hilt"], [], [])]),
         ]);
 
@@ -1034,7 +1034,7 @@ public class RealEventSeedService(
 
         var row5 = new Row(5,
         [
-            new Tile("t1-r5", "15x Slayer Items", 1, 15,
+            new Tile("t1-r5", "18x Slayer Items", 1, 18,
                 [new TileActivityRule(slayerId, slayerKey, ["item.slayer_item"], [], [])]),
             new Tile("t2-r5", "8x Barrows Unique", 2, 8,
                 [new TileActivityRule(barrowsId, barrowsKey, ["item.barrows_unique"], [], [])]),
@@ -1046,11 +1046,11 @@ public class RealEventSeedService(
 
         var row6 = new Row(6,
         [
-            new Tile("t1-r6", "6x Moons of Peril Unique", 1, 6,
+            new Tile("t1-r6", "7x Moons of Peril Unique", 1, 7,
                 [new TileActivityRule(moonsOfPerilId, moonsOfPerilKey, ["item.moons_unique"], [questPerilousMoons], [])]),
             new Tile("t2-r6", "3x General Graardor Unique", 2, 3,
                 [new TileActivityRule(graardorId, graardorKey, ["item.graardor_unique"], [capabilityGodWars], [])]),
-            new Tile("t3-r6", "600 Dragon Arrows", 3, 600,
+            new Tile("t3-r6", "810 Dragon Arrows", 3, 810,
                 [new TileActivityRule(coxId, coxKey, ["loot.dragon_arrows"], [raidCox], [])]),
             new Tile("t4-r6", "Storm Path (1 Bottled Storm or 50 Feathers)", 4, 50,
                 [
@@ -1065,15 +1065,15 @@ public class RealEventSeedService(
                 [new TileActivityRule(monkeyAgilityId, monkeyAgilityKey, ["progress.monkey_lap"], [], [])]),
             new Tile("t2-r7", "2x Sailing Treasure Unique", 2, 2,
                 [new TileActivityRule(sailingTreasureId, sailingTreasureKey, ["item.sailing_treasure_unique"], [], [])]),
-            new Tile("t3-r7", "3x Duke Sucellus Unique", 3, 3,
+            new Tile("t3-r7", "4x Duke Sucellus Unique", 3, 4,
                 [new TileActivityRule(dukeSucellusId, dukeSucellusKey, ["item.duke_unique"], [questDt2], [])]),
-            new Tile("t4-r7", "750 ToB Vials", 4, 750,
+            new Tile("t4-r7", "850 ToB Vials", 4, 850,
                 [new TileActivityRule(tobId, tobKey, ["loot.tob_vials"], [raidTob], [])]),
         ]);
 
         var row8 = new Row(8,
         [
-            new Tile("t1-r8", "Shark Paint", 1, 1,
+            new Tile("t1-r8", "5x Shark Paint", 1, 5,
                 [new TileActivityRule(portTaskId, portTaskKey, ["item.shark_paint"], [], [])]),
             new Tile("t2-r8", "4x Zulrah Unique", 2, 4,
                 [new TileActivityRule(zulrahId, zulrahKey, ["item.zulrah_unique"], [], [])]),
@@ -1091,7 +1091,7 @@ public class RealEventSeedService(
 
         var row9 = new Row(9,
         [
-            new Tile("t1-r9", "5x Fedora", 1, 5,
+            new Tile("t1-r9", "6x Fedora", 1, 6,
                 [new TileActivityRule(crazyArchId, crazyArchKey, ["item.fedora"], [], [])]),
             new Tile("t2-r9", "5x Commander Zilyana Unique", 2, 5,
                 [new TileActivityRule(zilyanaId, zilyanaKey, ["item.zilyana_unique"], [capabilityGodWars], [])]),
