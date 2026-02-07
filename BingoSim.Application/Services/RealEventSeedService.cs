@@ -1677,8 +1677,14 @@ public class RealEventSeedService(
         {
             var name = $"Bingo7-Player-{i + 1}";
             var archetypeIdx = i % 20;
-            var capabilities = archetypeCapabilities[archetypeIdx];
-            var schedule = archetypeSchedules[archetypeIdx];
+            // Each profile must have its own Capability and WeeklySchedule instances;
+            // EF Core owned entities use PlayerProfileId in their key and cannot be shared.
+            var capabilities = archetypeCapabilities[archetypeIdx]
+                .Select(c => new Capability(c.Key, c.Name))
+                .ToList();
+            var schedule = new WeeklySchedule(
+                archetypeSchedules[archetypeIdx].Sessions
+                    .Select(s => new ScheduledSession(s.DayOfWeek, s.StartLocalTime, s.DurationMinutes)));
 
             var existing = await _playerRepo.GetByNameAsync(name, cancellationToken);
             if (existing is not null)
