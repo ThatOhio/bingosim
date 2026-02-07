@@ -40,7 +40,7 @@ public class RealEventSeedService(
     /// </summary>
     private async Task SeedBingo7Async(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–18");
+        logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–19");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
@@ -149,6 +149,8 @@ public class RealEventSeedService(
         const string dropKreearraUnique = "item.kreearra_unique";
         const string dropHillGiantClub = "item.hill_giant_club";
         const string dropVoidwakerGem = "item.voidwaker_gem";
+        const string dropWarpedSceptre = "item.warped_sceptre";
+        const string dropYewLogs = "loot.yew_logs";
 
         return
         [
@@ -1105,6 +1107,34 @@ public class RealEventSeedService(
                         ]),
                 ],
                 [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Glouphrie monsters: Warped sceptre 1/320 (unlocked by The Path of Glouphrie). ~18s per kill, solo. 5 sceptres in ~8h.
+            new ActivitySeedDef(
+                "monster.glouphrie", "Glouphrie Monsters",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(18, TimeDistribution.Uniform, 4),
+                        [
+                            new ActivityOutcomeDefinition("nothing", 319, 320, []),
+                            new ActivityOutcomeDefinition("sceptre", 1, 320, [new ProgressGrant(dropWarpedSceptre, 1)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
+
+            // Giant Mole: 100 yew logs at 1/13, pet 1/3000 (independent, counts as 3250 logs). ~49s per kill, solo. 6500 logs in ~10h.
+            new ActivitySeedDef(
+                "boss.giant_mole", "Giant Mole",
+                new ActivityModeSupport(true, false, null, null),
+                [
+                    new ActivityAttemptDefinition("kill", RollScope.PerPlayer, new AttemptTimeModel(49, TimeDistribution.Uniform, 10),
+                        [
+                            new ActivityOutcomeDefinition("zero", 35988, 39000, []),
+                            new ActivityOutcomeDefinition("logs", 2999, 39000, [new ProgressGrant(dropYewLogs, 100)]),
+                            new ActivityOutcomeDefinition("pet", 12, 39000, [new ProgressGrant(dropYewLogs, 3250)]),
+                            new ActivityOutcomeDefinition("both", 1, 39000, [new ProgressGrant(dropYewLogs, 3350)]),
+                        ]),
+                ],
+                [new GroupSizeBand(1, 1, 1.0m, 1.0m)]),
         ];
     }
 
@@ -1248,6 +1278,10 @@ public class RealEventSeedService(
         var oborKey = "boss.obor";
         var venenatisId = activityIdsByKey["boss.venenatis"];
         var venenatisKey = "boss.venenatis";
+        var glouphrieId = activityIdsByKey["monster.glouphrie"];
+        var glouphrieKey = "monster.glouphrie";
+        var giantMoleId = activityIdsByKey["boss.giant_mole"];
+        var giantMoleKey = "boss.giant_mole";
 
         // Capabilities for tile requirements (players must have these to attempt)
         var slayer51 = new Capability("slayer.51", "Slayer 51");
@@ -1271,6 +1305,7 @@ public class RealEventSeedService(
         var questSecretsOfNorth = new Capability("quest.secrets_of_the_north", "Secrets of the North");
         var raidToa = new Capability("raid.toa", "Tombs of Amascut");
         var slayer85 = new Capability("slayer.85", "Slayer 85");
+        var questPathOfGlouphrie = new Capability("quest.path_of_glouphrie", "The Path of Glouphrie");
 
         var row0 = new Row(0,
         [
@@ -1522,20 +1557,32 @@ public class RealEventSeedService(
                 [new TileActivityRule(venenatisId, venenatisKey, ["item.voidwaker_gem"], [], [])]),
         ]);
 
+        var row19 = new Row(19,
+        [
+            new Tile("t1-r19", "5x Warped Sceptre", 1, 5,
+                [new TileActivityRule(glouphrieId, glouphrieKey, ["item.warped_sceptre"], [questPathOfGlouphrie], [])]),
+            new Tile("t2-r19", "6500 Yew Logs", 2, 6500,
+                [new TileActivityRule(giantMoleId, giantMoleKey, ["loot.yew_logs"], [], [])]),
+            new Tile("t3-r19", "525 ToB Vials", 3, 525,
+                [new TileActivityRule(tobId, tobKey, ["loot.tob_vials"], [raidTob], [])]),
+            new Tile("t4-r19", "1100 Dragon Arrows", 4, 1100,
+                [new TileActivityRule(coxId, coxKey, ["loot.dragon_arrows"], [raidCox], [])]),
+        ]);
+
         var existing = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
 
         if (existing is not null)
         {
             existing.UpdateDuration(duration);
             existing.SetUnlockPointsRequiredPerRow(unlockPointsPerRow);
-            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17, row18]);
+            existing.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17, row18, row19]);
             await _eventRepo.UpdateAsync(existing, cancellationToken);
             logger.LogInformation("Real event seed: updated event '{Name}'", eventName);
         }
         else
         {
             var evt = new Event(eventName, duration, unlockPointsPerRow);
-            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17, row18]);
+            evt.SetRows([row0, row1, row2, row3, row4, row5, row6, row7, row8, row9, row10, row11, row12, row13, row14, row15, row16, row17, row18, row19]);
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
