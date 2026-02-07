@@ -1,4 +1,5 @@
 using BingoSim.Application.Interfaces;
+using BingoSim.Application.StrategyKeys;
 using BingoSim.Core.Entities;
 using BingoSim.Core.Enums;
 using BingoSim.Core.Interfaces;
@@ -44,6 +45,7 @@ public class RealEventSeedService(
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
         await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
+        await SeedBingo7PlayersAndTeamsAsync(cancellationToken);
 
         logger.LogInformation("Real event seed: Bingo7 — done");
     }
@@ -1650,6 +1652,164 @@ public class RealEventSeedService(
             await _eventRepo.AddAsync(evt, cancellationToken);
             logger.LogInformation("Real event seed: created event '{Name}'", eventName);
         }
+    }
+
+    /// <summary>
+    /// Seeds 60 players and 3 teams for Bingo7. Idempotent: updates existing players/teams.
+    /// Team composition per 20 players: 6 full-capability, 6 with 75% of 3pt caps, 6 with 50% of 3pt caps, 2 with limited 2pt caps.
+    /// </summary>
+    private async Task SeedBingo7PlayersAndTeamsAsync(CancellationToken cancellationToken)
+    {
+        const string eventName = "Bingo7";
+        var evt = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
+        if (evt is null)
+        {
+            logger.LogWarning("Real event seed: Bingo7 — event not found, skipping players and teams");
+            return;
+        }
+
+        var capsByKey = GetBingo7CapabilitiesByKey();
+        var archetypeCapabilities = GetBingo7PlayerArchetypeCapabilities(capsByKey);
+
+        var playerIds = new List<Guid>(60);
+        for (var i = 0; i < 60; i++)
+        {
+            var name = $"Bingo7-Player-{i + 1}";
+            var archetypeIdx = i % 20;
+            var capabilities = archetypeCapabilities[archetypeIdx];
+
+            var existing = await _playerRepo.GetByNameAsync(name, cancellationToken);
+            if (existing is not null)
+            {
+                existing.SetCapabilities(capabilities);
+                await _playerRepo.UpdateAsync(existing, cancellationToken);
+                playerIds.Add(existing.Id);
+            }
+            else
+            {
+                var profile = new PlayerProfile(name);
+                profile.SetCapabilities(capabilities);
+                await _playerRepo.AddAsync(profile, cancellationToken);
+                playerIds.Add(profile.Id);
+            }
+        }
+
+        var teamDefs = new[]
+        {
+            ("Team Alpha", StrategyCatalog.RowUnlocking),
+            ("Team Beta", StrategyCatalog.Greedy),
+            ("Team Gamma", StrategyCatalog.ComboUnlocking),
+        };
+
+        var existingTeams = await _teamRepo.GetByEventIdAsync(evt.Id, cancellationToken);
+        for (var t = 0; t < 3; t++)
+        {
+            var (teamName, strategyKey) = teamDefs[t];
+            var startIdx = t * 20;
+            var teamPlayerIds = playerIds.Skip(startIdx).Take(20).ToList();
+
+            var team = existingTeams.FirstOrDefault(x => x.Name == teamName);
+            if (team is not null)
+            {
+                var strategyConfig = team.StrategyConfig ?? new StrategyConfig(team.Id, strategyKey, "{}");
+                strategyConfig.Update(strategyKey, "{}");
+                var teamPlayers = teamPlayerIds.Select(pid => new TeamPlayer(team.Id, pid)).ToList();
+                await _teamRepo.UpdateAsync(team, strategyConfig, teamPlayers, cancellationToken);
+                logger.LogInformation("Real event seed: updated team '{Name}' for Bingo7", teamName);
+            }
+            else
+            {
+                var newTeam = new Team(evt.Id, teamName);
+                var config = new StrategyConfig(newTeam.Id, strategyKey, "{}");
+                var teamPlayers = teamPlayerIds.Select(pid => new TeamPlayer(newTeam.Id, pid)).ToList();
+                await _teamRepo.AddAsync(newTeam, config, teamPlayers, cancellationToken);
+                logger.LogInformation("Real event seed: created team '{Name}' for Bingo7", teamName);
+            }
+        }
+    }
+
+    /// <summary>
+    /// All Bingo7 capabilities keyed by string for composition lookup.
+    /// </summary>
+    private static Dictionary<string, Capability> GetBingo7CapabilitiesByKey()
+    {
+        return new Dictionary<string, Capability>(StringComparer.Ordinal)
+        {
+            ["slayer.51"] = new Capability("slayer.51", "Slayer 51"),
+            ["raid.cox"] = new Capability("raid.cox", "Chambers of Xeric"),
+            ["quest.wgs"] = new Capability("quest.wgs", "While Guthix Sleeps"),
+            ["slayer.91"] = new Capability("slayer.91", "Slayer 91"),
+            ["quest.ds2"] = new Capability("quest.ds2", "Dragon Slayer II"),
+            ["quest.mm2"] = new Capability("quest.mm2", "Monkey Madness II"),
+            ["quest.sote"] = new Capability("quest.sote", "Song of the Elves"),
+            ["quest.curse_of_arrav"] = new Capability("quest.curse_of_arrav", "The Curse of Arrav"),
+            ["quest.defender_of_varrock"] = new Capability("quest.defender_of_varrock", "Defender of Varrock"),
+            ["quest.kingdom_divided"] = new Capability("quest.kingdom_divided", "A Kingdom Divided"),
+            ["quest.the_final_dawn"] = new Capability("quest.the_final_dawn", "The Final Dawn"),
+            ["quest.perilous_moons"] = new Capability("quest.perilous_moons", "Perilous Moons"),
+            ["capability.god_wars"] = new Capability("capability.god_wars", "God Wars"),
+            ["sailing.78"] = new Capability("sailing.78", "Sailing 78"),
+            ["quest.dt2"] = new Capability("quest.dt2", "Desert Treasure II"),
+            ["raid.tob"] = new Capability("raid.tob", "Theatre of Blood"),
+            ["sailing.75"] = new Capability("sailing.75", "Sailing 75"),
+            ["raid.tob_hard_mode"] = new Capability("raid.tob_hard_mode", "Hard Mode Theatre of Blood"),
+            ["quest.secrets_of_the_north"] = new Capability("quest.secrets_of_the_north", "Secrets of the North"),
+            ["raid.toa"] = new Capability("raid.toa", "Tombs of Amascut"),
+            ["slayer.85"] = new Capability("slayer.85", "Slayer 85"),
+            ["quest.path_of_glouphrie"] = new Capability("quest.path_of_glouphrie", "The Path of Glouphrie"),
+            ["capability.corporeal_beast"] = new Capability("capability.corporeal_beast", "Corporeal Beast"),
+        };
+    }
+
+    /// <summary>
+    /// Returns 20 capability sets (one per archetype): 6 full, 6 with 75% of 3pt caps, 6 with 50% of 3pt caps, 2 with limited 2pt caps.
+    /// Uses deterministic sampling (seed 42) for reproducible idempotent seeding.
+    /// </summary>
+    private static List<List<Capability>> GetBingo7PlayerArchetypeCapabilities(Dictionary<string, Capability> capsByKey)
+    {
+        var random = new Random(42);
+
+        var onePt = new List<string> { "quest.defender_of_varrock", "quest.curse_of_arrav", "quest.perilous_moons", "quest.path_of_glouphrie" };
+        var twoPt = new List<string> { "slayer.51", "quest.wgs", "quest.mm2", "capability.god_wars", "quest.secrets_of_the_north", "slayer.85", "quest.sote" };
+        var threePt = new List<string> { "slayer.91", "quest.sote", "quest.kingdom_divided", "quest.the_final_dawn", "raid.cox", "quest.dt2", "sailing.75", "raid.toa", "capability.god_wars", "raid.tob" };
+        var fourPt = new List<string> { "sailing.78", "raid.tob_hard_mode", "quest.ds2", "capability.corporeal_beast" };
+        var allKeys = onePt.Concat(twoPt).Concat(threePt).Concat(fourPt).Distinct().ToList();
+
+        var result = new List<List<Capability>>(20);
+
+        for (var i = 0; i < 6; i++)
+        {
+            result.Add(allKeys.Select(k => capsByKey[k]).ToList());
+        }
+
+        var threePtUnique = threePt.Distinct().ToList();
+        var threePtCount = threePtUnique.Count;
+        var majorityCount = (int)Math.Ceiling(threePtCount * 0.75);
+        var someCount = (int)Math.Floor(threePtCount * 0.5);
+
+        for (var i = 0; i < 6; i++)
+        {
+            var subset = threePtUnique.OrderBy(_ => random.Next()).Take(majorityCount).ToHashSet();
+            var caps = onePt.Concat(twoPt).Concat(subset).Distinct().Select(k => capsByKey[k]).ToList();
+            result.Add(caps);
+        }
+
+        for (var i = 0; i < 6; i++)
+        {
+            var subset = threePtUnique.OrderBy(_ => random.Next()).Take(someCount).ToHashSet();
+            var caps = onePt.Concat(twoPt).Concat(subset).Distinct().Select(k => capsByKey[k]).ToList();
+            result.Add(caps);
+        }
+
+        for (var i = 0; i < 2; i++)
+        {
+            var omitCount = random.Next(1, 4);
+            var twoPtSubset = twoPt.OrderBy(_ => random.Next()).Skip(omitCount).ToList();
+            var caps = onePt.Concat(twoPtSubset).Distinct().Select(k => capsByKey[k]).ToList();
+            result.Add(caps);
+        }
+
+        return result;
     }
 
     private sealed record ActivitySeedDef(string Key, string Name, ActivityModeSupport ModeSupport, List<ActivityAttemptDefinition> Attempts, List<GroupSizeBand> GroupScalingBands);
