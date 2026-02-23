@@ -31,8 +31,11 @@ public class RealEventSeedService(
             case "Bingo7":
                 await SeedBingo7Async(cancellationToken);
                 break;
+            case "Bingo7Gamers":
+                await SeedBingo7GamersAsync(cancellationToken);
+                break;
             default:
-                throw new ArgumentException($"Unknown real event: '{normalized}'. Supported: Bingo7.", nameof(eventKey));
+                throw new ArgumentException($"Unknown real event: '{normalized}'. Supported: Bingo7, Bingo7Gamers.", nameof(eventKey));
         }
     }
 
@@ -44,10 +47,21 @@ public class RealEventSeedService(
         logger.LogInformation("Real event seed: Bingo7 — seeding activities and Rows 0–20");
 
         var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
-        await SeedBingo7EventAsync(activityIdsByKey, cancellationToken);
+        await SeedBingo7EventAsync("Bingo7", activityIdsByKey, cancellationToken);
         await SeedBingo7PlayersAndTeamsAsync(cancellationToken);
 
         logger.LogInformation("Real event seed: Bingo7 — done");
+    }
+
+    private async Task SeedBingo7GamersAsync(CancellationToken cancellationToken)
+    {
+        logger.LogInformation("Real event seed: Bingo7Gamers — seeding activities and reuse Bingo7 event");
+
+        var activityIdsByKey = await SeedBingo7ActivitiesAsync(cancellationToken);
+        await SeedBingo7EventAsync("Bingo7", activityIdsByKey, cancellationToken);
+        await SeedBingo7GamersPlayersAndTeamsAsync(cancellationToken);
+
+        logger.LogInformation("Real event seed: Bingo7Gamers — done");
     }
 
     private async Task<Dictionary<string, Guid>> SeedBingo7ActivitiesAsync(CancellationToken cancellationToken)
@@ -1185,9 +1199,8 @@ public class RealEventSeedService(
         ];
     }
 
-    private async Task SeedBingo7EventAsync(Dictionary<string, Guid> activityIdsByKey, CancellationToken cancellationToken)
+    private async Task SeedBingo7EventAsync(string eventName, Dictionary<string, Guid> activityIdsByKey, CancellationToken cancellationToken)
     {
-        const string eventName = "Bingo7";
         var duration = TimeSpan.FromHours(9 * 24); // 9 days
         const int unlockPointsPerRow = 5;
 
@@ -1734,6 +1747,91 @@ public class RealEventSeedService(
                 var teamPlayers = teamPlayerIds.Select(pid => new TeamPlayer(newTeam.Id, pid)).ToList();
                 await _teamRepo.AddAsync(newTeam, config, teamPlayers, cancellationToken);
                 logger.LogInformation("Real event seed: created team '{Name}' for Bingo7", teamName);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Seeds 60 players and 3 teams for Bingo7Gamers.
+    /// All players have identical 12-hour schedules (8am-8pm) and all possible capabilities.
+    /// </summary>
+    private async Task SeedBingo7GamersPlayersAndTeamsAsync(CancellationToken cancellationToken)
+    {
+        const string eventName = "Bingo7";
+        var evt = await _eventRepo.GetByNameAsync(eventName, cancellationToken);
+        if (evt is null)
+        {
+            logger.LogWarning("Real event seed: Bingo7Gamers — event not found, skipping players and teams");
+            return;
+        }
+
+        var capsByKey = GetBingo7CapabilitiesByKey();
+        var allCapabilities = capsByKey.Values.ToList();
+
+        // 8 AM to 8 PM each day = 720 minutes starting at 8:00
+        var schedule = new WeeklySchedule(
+            Enum.GetValues<DayOfWeek>().Select(day => new ScheduledSession(day, new TimeOnly(8, 0), 12 * 60)));
+
+        var playerIds = new List<Guid>(60);
+        for (var i = 0; i < 60; i++)
+        {
+            var name = $"Bingo7Gamers-Player-{i + 1}";
+
+            // Each profile must have its own Capability and WeeklySchedule instances
+            var capabilities = allCapabilities
+                .Select(c => new Capability(c.Key, c.Name))
+                .ToList();
+            var playerSchedule = new WeeklySchedule(
+                schedule.Sessions.Select(s => new ScheduledSession(s.DayOfWeek, s.StartLocalTime, s.DurationMinutes)));
+
+            var existing = await _playerRepo.GetByNameAsync(name, cancellationToken);
+            if (existing is not null)
+            {
+                existing.SetCapabilities(capabilities);
+                existing.SetWeeklySchedule(playerSchedule);
+                await _playerRepo.UpdateAsync(existing, cancellationToken);
+                playerIds.Add(existing.Id);
+            }
+            else
+            {
+                var profile = new PlayerProfile(name);
+                profile.SetCapabilities(capabilities);
+                profile.SetWeeklySchedule(playerSchedule);
+                await _playerRepo.AddAsync(profile, cancellationToken);
+                playerIds.Add(profile.Id);
+            }
+        }
+
+        var teamDefs = new[]
+        {
+            ("Gamers Alpha", StrategyCatalog.RowUnlocking),
+            ("Gamers Beta", StrategyCatalog.Greedy),
+            ("Gamers Gamma", StrategyCatalog.ComboUnlocking),
+        };
+
+        var existingTeams = await _teamRepo.GetByEventIdAsync(evt.Id, cancellationToken);
+        for (var t = 0; t < 3; t++)
+        {
+            var (teamName, strategyKey) = teamDefs[t];
+            var startIdx = t * 20;
+            var teamPlayerIds = playerIds.Skip(startIdx).Take(20).ToList();
+
+            var team = existingTeams.FirstOrDefault(x => x.Name == teamName);
+            if (team is not null)
+            {
+                var strategyConfig = team.StrategyConfig ?? new StrategyConfig(team.Id, strategyKey, "{}");
+                strategyConfig.Update(strategyKey, "{}");
+                var teamPlayers = teamPlayerIds.Select(pid => new TeamPlayer(team.Id, pid)).ToList();
+                await _teamRepo.UpdateAsync(team, strategyConfig, teamPlayers, cancellationToken);
+                logger.LogInformation("Real event seed: updated team '{Name}' for Bingo7Gamers", teamName);
+            }
+            else
+            {
+                var newTeam = new Team(evt.Id, teamName);
+                var config = new StrategyConfig(newTeam.Id, strategyKey, "{}");
+                var teamPlayers = teamPlayerIds.Select(pid => new TeamPlayer(newTeam.Id, pid)).ToList();
+                await _teamRepo.AddAsync(newTeam, config, teamPlayers, cancellationToken);
+                logger.LogInformation("Real event seed: created team '{Name}' for Bingo7Gamers", teamName);
             }
         }
     }
